@@ -420,6 +420,11 @@ mos_wrch:
     sta wr_a
     stx wr_x
     sty wr_y
+    ldx MB_CAPTURE              ; remote output capture
+    beq wr_notee
+    jsr wr_tee
+    lda wr_a
+wr_notee:
     ldx vduq
     bne wr_param
     cmp #32
@@ -474,6 +479,46 @@ wr_exec:                        ; X = VDU code 0-31
     pha
     lda vdu_table,x
     pha
+    rts
+
+; wr_tee
+;   Summary: copy an output byte into the remote output ring.
+;   Function: when the ring is full, waits for the host to read it, for
+;            2.56 to 5.12 seconds (TIME); then capture is switched off so
+;            a host that went away cannot hang the machine. ESCAPE also
+;            leaves the wait.
+;   Input:   A = byte.  Output: MB_RING, MB_RINGW.
+;   Uses:    A, X, mosTMP+2/+3.
+wr_tee:
+    ldx MB_RINGW
+    sta MB_RING,x
+    inx
+    txa
+    and #MB_RINGMASK
+    cmp MB_RINGR
+    bne wt_store                ; room left
+    sta mosTMP+3
+    lda mostime+1               ; full: wait for the host, 2.56-5.12 s
+    sta mosTMP+2                ; (TIME high byte at the start)
+wt_wait:
+    bit ESCFLG
+    bmi wt_off
+    lda mosTMP+3
+    cmp MB_RINGR
+    bne wt_go
+    lda mostime+1
+    sec
+    sbc mosTMP+2
+    cmp #2
+    bcc wt_wait
+wt_off:
+    lda #0                      ; host gone: capture off
+    sta MB_CAPTURE
+    rts
+wt_go:
+    lda mosTMP+3
+wt_store:
+    sta MB_RINGW
     rts
 
 vdu_nparam:
@@ -878,9 +923,13 @@ mos_word:
     cmp #0
     beq word0
     cmp #1
-    beq word1
+    bne mw_not1
+    jmp word1
+mw_not1:
     cmp #2
-    beq word2
+    bne mw_not2
+    jmp word2
+mw_not2:
     rts
 
 ; word0 (OSWORD 0)
@@ -919,6 +968,12 @@ word0:
     sta mosCNT
     lda #1
     sta inlinein
+    sta MB_STATUS               ; remote: at the prompt
+    lda mosPTR2+1
+    sta MB_PROMPT               ; remote: prompt (&07) or INPUT (&06)
+    jsr w0_waitkey              ; a key, or a remote request handled
+    bcc w0_loop
+    jmp w0_end                  ; remote line is in the buffer
 w0_loop:
     jsr K_CHRIN
     cmp #13
@@ -944,12 +999,134 @@ w0_end:
     sta (mosPTR2),y
     lda #0
     sta inlinein
+    lda #2
+    sta MB_STATUS               ; remote: running the line
     lda #$0D                    ; echo the newline, as the BBC MOS does
     jsr putpet
+    lda MB_CAPTURE              ; and a newline for the host's capture
+    beq w0_nocap
+    lda #13
+    jsr wr_tee
+w0_nocap:
     lda ESCFLG
     asl                         ; C = ESCAPE pending
     ldy mosCNT
     rts
+
+; w0_waitkey
+;   Summary: wait at the prompt for a key or a remote request.
+;   Function: shows the cursor and polls the keyboard buffer and the
+;            remote mailbox (docs/REMOTE_DEV.md). A key (or the RETURN
+;            that RUN/STOP types) returns C = 0: the screen editor reads
+;            the line. A remote request is handled and acknowledged:
+;            REQ_LINE and REQ_PROGRAM put a line in the buffer and return
+;            C = 1; REQ_CAPTURE switches output capture and keeps waiting.
+;   Input:   mosPTR2/mosMAX/mosMIN/mosHIGH (the OSWORD 0 block).
+;   Output:  C = 1: mosCNT characters in the buffer, echoed on screen.
+;   Uses:    A, X, Y, mosCNT.
+w0_waitkey:
+    lda curson
+    beq wk0_poll
+    lda #0
+    sta BLNSW
+wk0_poll:
+    lda NDX
+    bne wk0_key
+    lda MB_HSEQ
+    cmp MB_CSEQ
+    beq wk0_poll
+    jsr wk_hide
+    lda MB_REQ
+    cmp #REQ_LINE
+    beq wk0_line
+    cmp #REQ_PROGRAM
+    beq wk0_prog
+    cmp #REQ_CAPTURE
+    bne wk0_ack                 ; unknown request: acknowledge, ignore
+    lda MB_LINE
+    cmp MB_CAPTURE
+    beq wk0_ack                 ; no change: keep what is in the ring
+    sta MB_CAPTURE
+    lda #0                      ; switched: start with an empty ring
+    sta MB_RINGW
+    sta MB_RINGR
+wk0_ack:
+    lda MB_HSEQ
+    sta MB_CSEQ
+    jmp w0_waitkey
+wk0_key:
+    jsr wk_hide
+    clc
+    rts
+
+; REQ_PROGRAM: the host has written a program to PAGE. Type LOAD (or
+; CHAIN) "$REMOTE": BASIC's own LOAD then checks it, sets TOP and clears
+; the variables; fs_file answers for $REMOTE without reading a file.
+wk0_prog:
+    lda #1
+    sta MB_PROG
+    ldx #0
+    lda MB_LINE                 ; 0: LOAD, 1: CHAIN
+    beq wk0_pcopy
+    ldx #wk0_chain-wk0_load
+wk0_pcopy:
+    ldy #0
+wk0_pchar:
+    lda wk0_load,x
+    beq wk0_done
+    jsr wk0_put
+    inx
+    bne wk0_pchar
+
+wk0_line:                       ; REQ_LINE: the line in MB_LINE
+    ldx #0
+wk0_lchar:
+    cpx MB_LINELEN
+    bcs wk0_done
+    cpx #MB_LINEMAX
+    bcs wk0_done
+    lda MB_LINE,x
+    jsr wk0_put
+    inx
+    bne wk0_lchar
+wk0_done:
+    lda #2                      ; running, before the host sees the ack
+    sta MB_STATUS
+    lda MB_HSEQ
+    sta MB_CSEQ
+    sec
+    rts
+
+; wk0_put: store A in the line buffer if it is in range and fits (as the
+; screen editor path does), and echo it.
+wk0_put:
+    cmp mosMIN
+    bcc wkp_skip
+    cmp mosHIGH
+    beq wkp_ok
+    bcs wkp_skip
+wkp_ok:
+    ldy mosCNT
+    cpy mosMAX
+    bcs wkp_skip
+    sta (mosPTR2),y
+    inc mosCNT
+    cmp #127                    ; echo straight to the screen: not through
+    bcs wkp_skip                ; OSWRCH, so the host's output capture
+    stx mosTMP+1                ; holds only what BASIC prints
+    tax
+    lda asc2pet,x
+    beq wkp_noecho
+    jsr putpet
+wkp_noecho:
+    ldx mosTMP+1
+wkp_skip:
+    rts
+
+wk0_load:
+    dta 'LOAD "$REMOTE"', 0
+wk0_chain:
+    dta 'CHAIN "$REMOTE"', 0
 
 ; word1 (OSWORD 1)
 ;   Summary: read TIME, 5 bytes, centiseconds.

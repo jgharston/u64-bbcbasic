@@ -669,6 +669,10 @@ fl_retA:
 
 ; OSFILE &FF: load
 fl_load:
+    jsr fl_remote               ; LOAD "$REMOTE": program already at PAGE
+    bcc fl_file
+    jmp fl_rload
+fl_file:
     ldy #6                      ; own load address wanted?
     lda (fsBLK),y
     beq fl_addr
@@ -757,6 +761,46 @@ fl_fits:
     sta (fsBLK),y
     lda #1
     jmp fl_retA
+
+fl_rload:
+    lda #1
+    jmp fl_retA
+
+; fl_remote
+;   Summary: recognise LOAD/CHAIN "$REMOTE" after a remote program request
+;            (docs/REMOTE_DEV.md): the host has written the program to
+;            PAGE by DMA, so there is nothing to read. Only while MB_PROG
+;            is set; it is cleared here, so "$REMOTE" is an ordinary name
+;            otherwise.
+;   Input:   fsPTR = name (CR terminated).
+;   Output:  C = 1 if it is the remote program.
+;   Uses:    A, Y.
+fl_remote:
+    lda MB_PROG
+    beq flr_no
+    ldy #0
+flr_cmp:
+    lda (fsPTR),y
+    cmp flr_name,y
+    bne flr_no
+    iny
+    cpy #7
+    bcc flr_cmp
+    lda (fsPTR),y               ; name must end here
+    cmp #13
+    beq flr_yes
+    cmp #' '
+    bne flr_no
+flr_yes:
+    lda #0
+    sta MB_PROG
+    sec
+    rts
+flr_no:
+    clc
+    rts
+flr_name:
+    dta '$REMOTE', 0
 
 ; uci_send with an empty payload, keeping fsLEN for the caller
 fl_send_nopay:

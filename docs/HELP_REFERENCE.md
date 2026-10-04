@@ -32,8 +32,8 @@ ASSEMBLER    COLOURS      CREDITS
 ERRORS       FILES        KEYBOARD
 LIMITS       MEMORY       MOS
 OPERATORS    OSBYTE       OSWORD
-SPEED        ULTIMATE     VARIABLES
-VDUCODES
+REMOTE       SPEED        ULTIMATE
+VARIABLES    VDUCODES
 ```
 
 ## KEYWORDS
@@ -421,12 +421,35 @@ speed is 1 MHz.
 Things that differ from a BBC Micro in
 this version:
 
-Input lines: 78 characters (C64 screen
-editor). Text screen 40x25, no graphics
-modes or sound yet. LOAD and SAVE work
-between &0800 and &7FFF. Two files open
-at a time. *KEY, *EXEC and *SPOOL are
-not there yet.
+Typed lines: 78 characters (C64 screen
+editor); programs sent from a PC (see
+REMOTE) may have lines up to 251
+characters. Text screen 40x25, no
+graphics modes or sound yet. LOAD and
+SAVE work between &0800 and &7FFF. Two
+files open at a time. *KEY, *EXEC and
+*SPOOL are not there yet.
+```
+
+## REMOTE
+
+```
+Programs can be written on a PC and run
+here: the MOS has a mailbox that a PC
+(or an AI coding agent) reaches through
+the Ultimate's network API. At the >
+prompt the MOS accepts lines and
+programs from it as if typed, and
+copies the output back.
+
+  tools/u64remote.py run prog.bas
+  tools/u64remote.py exec "PRINT 6*7"
+
+AI agents use the same through the MCP
+server tools/u64mcp.py. Nothing changes
+for the user at the keyboard. See
+docs/REMOTE_DEV.md and
+docs/AI_AGENTS.md.
 ```
 
 ## CREDITS

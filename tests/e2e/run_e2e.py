@@ -237,18 +237,23 @@ def test_stop_key(t):
 
 
 def test_time(t):
-    run_line(t, "TIME=0", ">")
-    start = time.time()
+    # TIME read twice through the mailbox, wall-clock time around each
+    # read: the transport latency cancels out (it skewed a screen-based
+    # measurement once on a slow REST round trip)
+    rm = u64remote.Remote(mem=t.bridge)
+
+    def sample():
+        t0 = time.time()
+        r = rm.run_lines(["PRINT TIME"])
+        t1 = time.time()
+        return int(r["output"].split()[0]), (t0 + t1) / 2
+
+    v1, w1 = sample()
     time.sleep(3)
-    screen.type_text(t.bridge, "PRINT TIME\r")
-    rows = screen.wait_for(
-        t.bridge, lambda r: any(re.match(r"^\s+\d+\s*$", x) for x in r[1:6]))
-    elapsed = time.time() - start
-    nums = [int(x) for r in rows[1:4] for x in re.findall(r"\b\d+\b", r)]
-    assert nums, rows[:4]
-    rate = nums[0] / elapsed
+    v2, w2 = sample()
+    rate = (v2 - v1) / (w2 - w1)
     t.notes.append("TIME %.0f/s" % rate)
-    assert 80 <= rate <= 115, "TIME runs at %.0f per second" % rate
+    assert 85 <= rate <= 115, "TIME runs at %.0f per second" % rate
 
 
 def test_inkey(t):
@@ -395,6 +400,88 @@ def test_turbo_cmd(t):
     run_line(t, "*TURBO", "Turbo speed index 15")
 
 
+# --- Remote mailbox (docs/REMOTE_DEV.md), through c64bridge memory access
+
+sys.path.insert(0, os.path.join(ROOT, "tools"))
+import u64remote  # noqa: E402
+import bbctok  # noqa: E402
+
+TOKENISER_LINES = [
+    '10 REM tokeniser test: "quotes" & REM text ~ stays',
+    '20 TIME=0:PRINT TIME:PTR#X=PTR#X+1:HIMEM=HIMEM',
+    '30 IF A%>1 THEN 10 ELSE GOTO 20',
+    '40 ON X GOSUB 10,20,30:RESTORE 40',
+    '50 DEF PROCtest(A,B$):LOCAL I%:ENDPROC',
+    '60 DEF FNsq(X)=X*X:PRINT FNsq(3);~&FF00',
+    '70 DATA 1,"TWO",THREE PRINT',
+    '80 *CAT',
+    '90 A$=STRING$(3,"*")+MID$("HELLO",2,3):P.LEFT$(A$,2)',
+    '100 FOR I%=1 TO 10 STEP 2:NEXT:REPEAT UNTIL TRUE',
+    '110 COLOUR 1:VDU 7,8;:X=GET:Y=INKEY(10):Z$=GET$',
+    '120 CLOSE#0:BPUT#C,65:CALL &C7EE:Q=USR(&C7E0)',
+    '130 PRINTTAB(2,3)"X";SPC(4):CLS:CLG',
+    '140 TRACE ON:TRACE OFF:TRACE 100:ENDPROC:END',
+    '150 GOTO 32767:GOTO 40000',
+    '160 a=1:prints=2:PRINTA:TIMER=3:PROCabc',
+]
+
+
+def remote(t):
+    return u64remote.Remote(mem=t.bridge)
+
+
+def test_remote_exec(t):
+    r = remote(t).run_lines(["PRINT 6*7", 'PRINT "HELLO"'])
+    assert r["ok"] and r["output"] == "        42\nHELLO\n", r
+
+
+def test_remote_run_error(t):
+    prog = '10 FOR I%=1 TO 3\n20 PRINT "LINE ";I%\n30 NEXT\n40 PRINT 1/0\n'
+    r = remote(t).send_program(prog, run=True)
+    assert r["output"].startswith("LINE 1\nLINE 2\nLINE 3\n"), r
+    assert r["error"] == {"number": 18, "message": "Division by zero",
+                          "line": 40}, r
+
+
+def test_remote_input(t):
+    rm = remote(t)
+    r = rm.send_program('10 INPUT "NAME";N$\n20 PRINT "HI ";N$\n', run=True)
+    assert r["state"] == "input" and "NAME?" in r["output"], r
+    r = rm.run_lines(["AGENT"])
+    assert r["output"] == "HI AGENT\n" and r["state"] == "prompt", r
+
+
+def test_remote_long_output(t):
+    # more than the 128-byte ring: the MOS waits while the host drains
+    prog = '10 FOR I%=1 TO 60:PRINT "OUTPUT LINE ";I%:NEXT\n'
+    r = remote(t).send_program(prog, run=True, timeout=60)
+    lines = r["output"].splitlines()
+    assert len(lines) == 60 and lines[-1] == "OUTPUT LINE 60", lines[-3:]
+
+
+def test_remote_tokeniser(t):
+    # the host tokeniser must store exactly what BASIC stores when the
+    # same lines are typed in
+    rm = remote(t)
+    rm.run_lines(["NEW"] + TOKENISER_LINES)
+    image = b"".join(rm.read(0x0800 + i, 0x400) for i in range(0, 0x800, 0x400))
+    want = bbctok.tokenise_program("\n".join(TOKENISER_LINES))
+    got = image[:len(want)]
+    assert got == want, "differs at offset %d: BASIC %s, host %s" % (
+        next(i for i in range(len(want)) if got[i] != want[i]),
+        got.hex(" ")[:120], want.hex(" ")[:120])
+    assert rm.program_text().splitlines()[0].startswith("10 REM")
+
+
+def test_remote_stop(t):
+    rm = remote(t)
+    r = rm.send_program("10 GOTO 10\n", run=True, timeout=2)
+    assert r["state"] == "timeout", r
+    rm.stop()
+    r = rm.run_lines([], timeout=10, prepared=False)
+    assert r["state"] == "prompt", r
+
+
 TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_program,
          test_error, test_mos_error, test_help, test_help_paging,
          test_bad_number,
@@ -402,7 +489,9 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_time, test_inkey, test_get, test_long_line, test_speed,
          test_fs_uver, test_fs_time, test_fs_dir, test_fs_save_load,
          test_fs_channels, test_fs_type, test_fs_errors,
-         test_fs_rename_delete, test_turbo_cmd]
+         test_fs_rename_delete, test_turbo_cmd,
+         test_remote_exec, test_remote_run_error, test_remote_input,
+         test_remote_long_output, test_remote_tokeniser, test_remote_stop]
 
 
 # ----------------------------------------------------------------------------

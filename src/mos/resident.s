@@ -241,7 +241,8 @@ timestep:
 ;            FAULT afterwards. The stack is left as it is: BASIC's error
 ;            handler resets it, discarding the frames of the failed call.
 ;   Input:   stack: Y, X, A, P, PCL, PCH (as pushed by the KERNAL).
-;   Output:  FAULT, errbuf; jumps to (BRKV) with interrupts on.
+;   Output:  FAULT, errbuf, MB_ERRNUM/MB_ERRCNT (remote mailbox); jumps
+;            to (BRKV) with interrupts on.
 ;   Uses:    A, Y.
 
 irq_brk:
@@ -279,6 +280,10 @@ brk_copied:
     lda #BANK_RAM
     jsr map_bank
 brk_go:
+    ldy #0                      ; remote mailbox: report the error
+    lda (FAULT),y
+    sta MB_ERRNUM
+    inc MB_ERRCNT
     cli
     jmp (BRKV)
 
@@ -364,8 +369,7 @@ raise_errbuf:
     sta FAULT+1
     lda #BANK_RAM
     jsr map_bank
-    cli
-    jmp (BRKV)
+    jmp brk_go                  ; report to the mailbox, enter BRKV
 
 res_code_end:
 
@@ -385,8 +389,18 @@ fsSY        dta 0               ; caller's Y
 osfblk      dta 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  ; OSFILE block for *LOAD/*SAVE
 
 res_data_end:
-    .if res_data_end > OSPAGE+$CE
-    .error "Resident MOS overflows into the entry points"
+    .if res_data_end > MBOX
+    .error "Resident MOS overflows into the remote mailbox"
+    .endif
+
+; ----------------------------------------------------------------------------
+; Remote mailbox at MBOX (layout in defs.s, protocol in docs/REMOTE_DEV.md)
+
+    :[MBOX-*] dta 0
+    dta 'BBCR', 1               ; magic, protocol version
+    :[MB_END-*] dta 0
+    .if MB_END > OSPAGE+$CE
+    .error "Remote mailbox overflows into the entry points"
     .endif
 
 ; ----------------------------------------------------------------------------

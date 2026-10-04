@@ -203,3 +203,37 @@ farcall .macro target, bank
     lda tr_a
     jsr tramp
     .endm
+
+; ----------------------------------------------------------------------------
+; Remote mailbox (docs/REMOTE_DEV.md): fixed address in the resident page,
+; reachable by the Ultimate's REST/DMA memory access. The host writes the
+; data first and MB_HSEQ last; the MOS answers by copying it to MB_CSEQ.
+
+MBOX        = $C6E0
+MB_MAGIC    = MBOX+0            ; 4: "BBCR"
+MB_VERSION  = MBOX+4            ; protocol version (1)
+MB_HSEQ     = MBOX+5            ; host -> C64 request sequence number
+MB_CSEQ     = MBOX+6            ; C64 -> host: last request handled
+MB_REQ      = MBOX+7            ; request: 1 line, 3 capture, 4 program
+MB_STATUS   = MBOX+8            ; 0 idle, 1 at prompt, 2 running
+MB_LINENO   = MBOX+9            ; 2: current line (debug, later)
+MB_DEBUG    = MBOX+11           ; debug flags (later)
+MB_RINGW    = MBOX+12           ; output ring: write index (C64)
+MB_RINGR    = MBOX+13           ; output ring: read index (host)
+MB_CAPTURE  = MBOX+14           ; 1: OSWRCH output also goes to the ring
+MB_LINELEN  = MBOX+15           ; length of MB_LINE
+MB_PROG     = MBOX+16           ; 1: a program was written to PAGE
+MB_PROMPT   = MBOX+17           ; page of the line buffer while waiting:
+                                ; &07 BASIC prompt/AUTO, &06 INPUT
+MB_ERRNUM   = MBOX+18           ; number of the last error (ERR)
+MB_ERRCNT   = MBOX+19           ; counts errors (host sees new ones)
+MB_LINE     = MBOX+20           ; 74: line text / request data
+MB_LINEMAX  = 74
+MB_BREAK    = MBOX+94           ; 16: breakpoints (later)
+MB_RING     = MBOX+110          ; 128: output ring
+MB_RINGMASK = $7F
+MB_END      = MBOX+238
+
+REQ_LINE    = 1
+REQ_CAPTURE = 3
+REQ_PROGRAM = 4
