@@ -1557,6 +1557,8 @@ cmd_table:
     dta 'PWD', 0, a(cmd_pwd), BANK_FS
     dta 'RENAME', 0, a(cmd_rename), BANK_FS
     dta 'SAVE', 0, a(cmd_save), BANK_FS
+    dta 'STATUS', 0, a(cmd_status), BANK_FS
+    dta 'SYS', 0, a(cmd_status), BANK_FS
     dta 'TIME', 0, a(cmd_time), BANK_FS
     dta 'TURBO', 0, a(cmd_turbo), BANK_MOS
     dta 'TYPE', 0, a(cmd_type), BANK_FS

@@ -41,8 +41,8 @@ flash.
   open channels (`OPENIN`, `OPENOUT`, `OPENUP`, `BGET#`, `BPUT#`, `PRINT#`,
   `INPUT#`, `PTR#`, `EXT#`, `EOF#`).
 - Commands: `*CAT` (`*.`), `*DIR` (`*CD`), `*PWD`, `*DELETE`, `*MKDIR`,
-  `*RENAME`, `*LOAD`, `*SAVE`, `*TYPE`, `*UVER`, `*TIME`, `*TURBO`, `*FX`,
-  `*HELP`.
+  `*RENAME`, `*LOAD`, `*SAVE`, `*TYPE`, `*UVER`, `*TIME`, `*TURBO`,
+  `*STATUS` (memory, REU, drives, network, clock), `*FX`, `*HELP`.
 - `*HELP` covers every BASIC keyword, command and topic: `*HELP KEYWORDS`,
   `*HELP COMMANDS`, `*HELP TOPICS`.
 

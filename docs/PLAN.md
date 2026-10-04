@@ -718,4 +718,10 @@ when the RAM map for graphics is fixed.
   (IEC, SoftIEC, types, power), current directory and open files, the
   network address, and the date and time. Proposed name `*STATUS`
   (the Master 128's command for showing settings), with `*SYS` as an
-  alias.
+  alias. **Done** (`src/mos/status.s`), with REU size detection that
+  leaves the REU's contents alone (`src/mos/reu.s`). Firmware 3.15a
+  counts the SoftIEC drive and the printer in "get drive info" but does
+  not send their bytes (upstream fix 2026-10-02, #941): `*STATUS` lists
+  only entries that arrived. `uii_parse_deviceinfo` in
+  ultimate-uci-oscar64 trusts the count and should get the same guard
+  (library issue).

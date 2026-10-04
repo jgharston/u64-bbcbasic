@@ -13,18 +13,22 @@
     icl 'uci.s'
     icl 'fs.s'
     icl 'ucmds.s'
+    icl 'reu.s'
+    icl 'status.s'
 
 ; ----------------------------------------------------------------------------
 ; fs_init
-;   Summary: start the filing system: find the Ultimate, no channels open.
+;   Summary: start the filing system: find the REU and the Ultimate, no
+;            channels open.
 ;   Input:   none (cold start).
-;   Output:  uci_ok; channels closed.
+;   Output:  reu_banks, uci_ok; channels closed.
 ;   Uses:    A, X.
 
 fs_init:
     lda #0
     sta ch_open
     sta ch_open+1
+    jsr reu_detect
     jmp uci_init
 
 bank2_end:

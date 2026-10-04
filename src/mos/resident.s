@@ -386,6 +386,10 @@ fsTMP       dta 0,0,0,0         ; scratch
 fsMODE      dta 0               ; OSFIND / OSFILE call in progress
 fsSX        dta 0               ; caller's X during a filing system call
 fsSY        dta 0               ; caller's Y
+reu_banks   dta 0, 0            ; REU size in 64K banks (0: none)
+reu_tmp     dta 0               ; REU byte transfers
+reu_save0   dta 0
+reu_saveS   dta 0
 osfblk      dta 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  ; OSFILE block for *LOAD/*SAVE
 
 res_data_end:

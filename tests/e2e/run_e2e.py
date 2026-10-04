@@ -395,6 +395,22 @@ def test_fs_rename_delete(t):
     run_line(t, 'PRINT "GONE";OPENIN "e2edata"', "GONE0")
 
 
+def test_status(t):
+    # *STATUS: on VICE no Ultimate and no REU (EasyFlash RAM at $DF00
+    # must not look like an REU); on the Ultimates REU, machine, drives
+    r = u64remote.Remote(mem=t.bridge).run_lines(["*STATUS"])
+    out = r["output"]
+    assert "PAGE       &0800" in out and "HIMEM      &8000" in out, out
+    if t.is_vice:
+        assert "REU        none" in out and "Machine" not in out, out
+    else:
+        assert "Machine    Ultimate 64" in out, out
+        assert "Drive      15" in out and "Network    " in out, out
+        reu = [l for l in out.splitlines() if l.startswith("REU")]
+        t.notes.append(reu[0] if reu else "REU line missing")
+        assert reu and reu[0] != "REU        none", out
+
+
 def test_turbo_cmd(t):
     if t.is_vice:
         run_line(t, "*TURBO", "No turbo registers")
@@ -525,7 +541,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_time, test_inkey, test_get, test_long_line, test_speed,
          test_fs_uver, test_fs_time, test_fs_dir, test_fs_save_load,
          test_fs_channels, test_fs_type, test_fs_errors,
-         test_fs_rename_delete, test_turbo_cmd,
+         test_fs_rename_delete, test_turbo_cmd, test_status,
          test_remote_exec, test_remote_run_error, test_remote_input,
          test_remote_long_output, test_remote_tokeniser, test_remote_stop,
          test_remote_debug]

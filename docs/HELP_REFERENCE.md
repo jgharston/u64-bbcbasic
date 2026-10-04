@@ -92,8 +92,8 @@ VDU          VPOS         WIDTH
 *CAT         *DELETE      *DIR
 *FX          *HELP        *LOAD
 *MKDIR       *PWD         *RENAME
-*SAVE        *TIME        *TURBO
-*TYPE        *UVER
+*SAVE        *STATUS      *TIME
+*TURBO       *TYPE        *UVER
 ```
 
 ## KEYBOARD
@@ -630,6 +630,21 @@ switched on by the cartridge's .cfg).
 Index 15 is 48 MHz on an Ultimate 64
 and 64 MHz on an Elite II or C64
 Ultimate. See SPEED.
+```
+
+## *STATUS
+
+Also: `STATUS`, `*SYS`, `SYS`
+
+```
+  *STATUS     (also *SYS)
+
+Shows the system: MOS and cartridge,
+the Ultimate's hardware, CPU speed, REU
+size, BASIC's memory (PAGE, TOP, LOMEM,
+VARTOP, HIMEM, free bytes), open files,
+the current directory, the drives, the
+network address and the clock.
 ```
 
 ## *FX
