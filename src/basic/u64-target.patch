@@ -1,0 +1,77 @@
+--- a/basic.s	2026-10-04 00:29:59.156166585 +0200
++++ b/basic.s	2026-10-04 00:29:59.181609176 +0200
+@@ -134,24 +134,62 @@
+         BRKV=$0316    ; Fixed
+         WRCHV=0       ; Fixed
+ 
++    .elseif .def BUILD_U64_BASIC310
++
++        ; u64-bbcbasic (github.com/xahmol/u64-bbcbasic): BASIC 3.10 as a
++        ; language ROM in a cartridge bank at $8000 on the Ultimate 64 /
++        ; C64 Ultimate. The MOS entry points live in RAM page $C7 (same low
++        ; bytes as on the BBC), the BBC RAM vectors at $0200.
++
++        TARGET_BBC = 1          ; BBC messages
++        MOS_BBC    = 1
++        MOS_U64    = 1
++
++        romstart      = $8000     ; Code start address
++        VERSION       = 3
++        MINORVERSION  = 10
++
++        split     = 0
++        foldup    = 0
++        title     = 0
++        workspace = $0400
++        membot    = 0           ; Use OSBYTE to find memory limits
++        memtop    = 0           ; ...
++
++        zp      = $00           ; Start of ZP addresses
++
++        zpLOMEM = $50           ; Avoid 6510 registers
++
++        FAULT  = $fd            ; Pointer to error block
++        ESCFLG = $ff            ; Escape pending flag
++
++        BRKV   = $0202
++        WRCHV  = $020E
++
+     .else
+         .error "Please specify your build (i.e. -d:BUILD_BBC_BASIC2=1)"
+     .endif
+ 
+     .if .def MOS_BBC
+ 
+-        OS_CLI = $FFF7
+-        OSBYTE = $FFF4
+-        OSWORD = $FFF1
+-        OSWRCH = $FFEE
+-        OSNEWL = $FFE7
+-        OSASCI = $FFE3
+-        OSRDCH = $FFE0
+-        OSFILE = $FFDD
+-        OSARGS = $FFDA
+-        OSBGET = $FFD7
+-        OSBPUT = $FFD4
+-        OSFIND = $FFCE
++        .if .def MOS_U64
++            OSPAGE = $C700      ; MOS entry points in RAM, BBC low bytes
++        .else
++            OSPAGE = $FF00
++        .endif
++
++        OS_CLI = OSPAGE + $F7
++        OSBYTE = OSPAGE + $F4
++        OSWORD = OSPAGE + $F1
++        OSWRCH = OSPAGE + $EE
++        OSNEWL = OSPAGE + $E7
++        OSASCI = OSPAGE + $E3
++        OSRDCH = OSPAGE + $E0
++        OSFILE = OSPAGE + $DD
++        OSARGS = OSPAGE + $DA
++        OSBGET = OSPAGE + $D7
++        OSBPUT = OSPAGE + $D4
++        OSFIND = OSPAGE + $CE
+ 
+         F_LOAD  = zpWORK+2      ; LOAD/SAVE control block
+         F_EXEC  = F_LOAD+4

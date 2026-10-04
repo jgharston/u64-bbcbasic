@@ -1,0 +1,3 @@
+[submodule "lib/bbc-basic"]
+	path = lib/bbc-basic
+	url = https://github.com/ivop/bbc-basic
