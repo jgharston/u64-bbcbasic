@@ -1,0 +1,989 @@
+# U64 BBC BASIC help source -- packed into cartridge banks by
+# tools/genhelp.py, which also writes docs/HELP_REFERENCE.md.
+#
+# Format:
+#   @@ NAME [| ALIAS ...]   starts an entry; *HELP NAME or an alias shows it
+#   text                    paragraphs, word-wrapped to 39 columns
+#   (blank line)            paragraph break
+#     two-space indent      literal line (syntax, examples): not wrapped,
+#                           at most 39 characters
+#   # comment               ignored (only in column 1)
+# Entries KEYWORDS, COMMANDS and TOPICS are generated lists.
+# Text is plain ASCII; "U64:" paragraphs describe this machine.
+
+@@ HELP
+U64 BBC BASIC 0.1.0: BBC BASIC 3.10 for the Ultimate 64 and C64 Ultimate.
+
+  *HELP <keyword>   e.g. *HELP PRINT
+  *HELP *<command>  e.g. *HELP *CAT
+  *HELP <topic>     e.g. *HELP FILES
+  *HELP KEYWORDS    all BASIC keywords
+  *HELP COMMANDS    all * commands
+  *HELP TOPICS      all topics
+  *HELP <start>     entries that begin
+                    with <start>
+
+Long texts stop after each screen: SPACE shows more, ESCAPE (RUN/STOP) stops.
+
+@@ TOPICS
+# generated
+
+@@ KEYWORDS
+# generated
+
+@@ COMMANDS
+# generated
+
+# ---------------------------------------------------------------------------
+# Topics
+
+@@ KEYBOARD
+Letters type in capitals, as with CAPS LOCK on a BBC Micro. Shift gives lower case.
+
+The ASCII characters the C64 keyboard lacks:
+
+  \  pound key       ^  up-arrow
+  _  left-arrow      |  Shift+pound
+  ~  Shift+up-arrow  {  Shift++
+  }  Shift+-         `  Shift+@
+
+RUN/STOP is ESCAPE: it stops a program or a listing. RESTORE also sets ESCAPE.
+
+Lines are edited with the C64 screen editor: move the cursor anywhere and press RETURN to enter a line again. A line can be up to 78 characters after the prompt.
+
+GET and INKEY return the cursor keys as 136-139 (left, right, down, up), DEL as 127 and CLR as 12.
+
+@@ MEMORY
+Memory map while BASIC runs:
+
+  &0000-&0051  BASIC zero page
+  &0052-&006F  MOS zero page
+  &0070-&008F  free for machine code
+  &0090-&00FF  C64 KERNAL
+  &0100-&01FF  6502 stack
+  &0200-&021F  BBC MOS vectors
+  &02A7-&02FF  MOS error buffer
+  &033C-&03FB  MOS variables
+  &0400-&07FF  BASIC workspace
+  &0800-&7FFF  program (PAGE-HIMEM)
+  &8000-&BFFF  BBC BASIC (RAM copy)
+  &C000-&C3FF  text screen
+  &C400-&C7FF  resident MOS
+  &C800-&CFFF  character set
+  &D000-&DFFF  I/O
+  &E000-&FFFF  C64 KERNAL
+
+PAGE is &0800 and HIMEM &8000: 30K for programs. The area &70-&8F is free for your own machine code, as on a BBC Micro.
+
+BASIC runs from RAM because the Ultimate 64 reads cartridge ROM at 1 MHz even in turbo mode.
+
+@@ FILES
+Files are kept on the Ultimate's own storage: USB sticks (/Usb0, /Usb1), the SD card (/SD) and the RAM disk (/Temp, gone after power off). Names are Ultimate paths, relative to the current directory.
+
+  *DIR /Usb0/bbc    choose a directory
+  *CAT              list it
+  SAVE "game"       save the program
+  LOAD "game"       load it again
+  CHAIN "game"      load and run
+
+Two files can be open at the same time (channels &11 and &12): OPENIN, OPENOUT, OPENUP, BGET#, BPUT#, PRINT#, INPUT#, PTR#, EXT#, EOF#, CLOSE#.
+
+Programs are saved in the BBC's tokenised format, so programs from BBC Micro disc images can be loaded once extracted to a file.
+
+See also: *CAT, *DIR, *LOAD, *SAVE, *TYPE, *DELETE, *RENAME, *MKDIR.
+
+@@ ULTIMATE
+U64 BBC BASIC uses the Ultimate's command interface (UCI) for files, the clock and identification, and the U64 turbo registers for speed.
+
+  *UVER    firmware targets
+  *TIME    date and time
+  *TURBO   CPU speed
+  *CAT     files (see FILES)
+
+The cartridge's .cfg file switches on everything needed when the cartridge is started from the Ultimate's file browser: Command Interface, REU, Ultimate Audio and the U64 turbo registers.
+
+Planned: drives and disk images, REU, network, Ultimate Audio, Upic graphics, palette.
+
+@@ ERRORS
+An error stops the program and prints a message; ON ERROR catches it. ERR gives the error number, ERL the line, REPORT prints the message.
+
+Errors from the Ultimate keep the Ultimate's text with these numbers:
+
+  214  file not found
+  189  access denied
+  192  too many open files
+  199  other Ultimate errors
+  198  no room (LOAD too big)
+  222  channel not open
+  254  bad command
+  252  bad number
+
+@@ OPERATORS
+Arithmetic: + - * / ^ (power), DIV and MOD (integers). Comparison: = <> < > <= >=, giving TRUE (-1) or FALSE (0). Logical/bitwise: AND OR EOR NOT.
+
+Indirection reads and writes memory:
+
+  ?A       byte at address A
+  !A       4-byte integer at A
+  $A       string at A (CR ended)
+  A?2      byte at A+2
+  A!4      integer at A+4
+
+Example:
+
+  DIM B% 10:?B%=65:PRINT ?B%
+
+Hexadecimal: &FF is 255; PRINT ~X prints X in hexadecimal.
+
+@@ VARIABLES
+Names are letters, digits and _ and may be long. Types by suffix:
+
+  A    real (5 bytes, ~9 digits)
+  A%   integer (32 bits)
+  A$   string (up to 255 chars)
+
+The integers @% and A% to Z% are resident: they survive RUN, NEW and CLEAR. @% sets the PRINT format; A%, X%, Y% and C% pass registers to CALL and USR.
+
+Arrays: DIM A(10), DIM N$(5,5). Strings keep their space when a new value fits. Space that strings give up is only reclaimed by CLEAR or RUN.
+
+@@ ASSEMBLER
+BBC BASIC contains a 6502 assembler. Square brackets enclose assembly language; P% is the address to assemble at; OPT sets listing and errors.
+
+  10 DIM C% 20
+  20 FOR Z%=0 TO 2 STEP 2
+  30 P%=C%:[OPT Z%
+  40 LDA #65:JSR &C7EE:RTS
+  50 ]:NEXT
+  60 CALL C%
+
+OPT 0 assembles silently; OPT 2 reports errors; add 1 to list. Two passes resolve forward references. Labels start with a dot.
+
+U64: OSWRCH is &C7EE, not &FFEE (see *HELP MOS). Zero page &70-&8F is free for your code.
+
+@@ MOS
+The MOS (machine operating system) entry points, at BBC Micro low bytes in page &C7:
+
+  OSFIND &C7CE   OSGBPB &C7D1
+  OSBPUT &C7D4   OSBGET &C7D7
+  OSARGS &C7DA   OSFILE &C7DD
+  OSRDCH &C7E0   OSASCI &C7E3
+  OSNEWL &C7E7   OSWRCH &C7EE
+  OSWORD &C7F1   OSBYTE &C7F4
+  OSCLI  &C7F7
+
+The RAM vectors are at &0200-&021F as on a BBC Micro (BRKV &0202, WRCHV &020E, ...). See OSBYTE, OSWORD and VDUCODES.
+
+@@ OSBYTE
+OSBYTE calls (*FX a,x,y) available:
+
+  &00   OS version (X=1)
+  &0F   flush keyboard buffer
+  &15   flush keyboard buffer
+  &7C   clear ESCAPE
+  &7D   set ESCAPE
+  &7E   acknowledge ESCAPE
+  &7F   EOF# of channel X
+  &81   INKEY
+  &82   high address (&FFFF)
+  &83   OSHWM / PAGE (&0800)
+  &84   HIMEM (&8000)
+  &85   HIMEM for a mode
+  &86   POS (X) and VPOS (Y)
+  &87   character at cursor
+  &DA   VDU queue length
+  &E5   ESCAPE key off (X<>0)
+
+Other calls are ignored.
+
+@@ OSWORD
+OSWORD calls available: 0 reads a line (screen editor), 1 reads TIME, 2 sets TIME (5 bytes, centiseconds). Others are ignored.
+
+@@ VDUCODES
+VDU codes work as on a BBC Micro where the C64 text screen allows:
+
+  7     bell (not yet)
+  8-11  cursor left/right/down/up
+  12    clear screen (CLS)
+  13    start of line
+  17,n  COLOUR n
+  22,n  MODE n (clears the screen)
+  23,1,n  cursor off (0) / on (1)
+  30    cursor home
+  31,x,y  TAB(x,y)
+  127   delete
+
+Other codes take their usual parameter bytes and are ignored for now: graphics (PLOT, GCOL), windows and the palette are planned.
+
+@@ COLOURS
+COLOUR n sets the text colour, COLOUR 128+n the background. BBC colour numbers map to C64 colours:
+
+  0 black    1 red      2 green
+  3 yellow   4 blue     5 magenta
+  6 cyan     7 white    8 orange
+  9 brown    10 light red
+  11 dark grey  12 grey
+  13 light green  14 light blue
+  15 light grey
+
+@@ SPEED
+On an Ultimate 64 or C64 Ultimate with the U64 turbo registers enabled, BBC BASIC starts at the highest speed of the machine: 48 MHz (Ultimate 64, Elite) or 64 MHz (Elite II, C64 Ultimate). That is 25 to 30 times a BBC Micro.
+
+TIME stays in real time at every speed. *TURBO shows or changes the speed. On an Ultimate II+ or a plain C64 the speed is 1 MHz.
+
+@@ LIMITS
+Things that differ from a BBC Micro in this version:
+
+Input lines: 78 characters (C64 screen editor). Text screen 40x25, no graphics modes or sound yet. LOAD and SAVE work between &0800 and &7FFF. Two files open at a time. *KEY, *EXEC and *SPOOL are not there yet.
+
+@@ CREDITS
+BBC BASIC (C) 1982/1983 Acorn Computers and Sophie Wilson.
+
+Annotated source: Ivo van Poorten (github.com/ivop/bbc-basic), based on J.G. Harston's reconstruction (mdfs.net).
+
+MOS: Xander Mol, GPL-3. Ultimate code ported from ultimate-uci-oscar64 (Scott Hutter, Francesco Sblendorio, Christian Gleissner, Xander Mol).
+
+github.com/xahmol/u64-bbcbasic
+
+# ---------------------------------------------------------------------------
+# * commands
+
+@@ *CAT | CAT | *.
+  *CAT     (also *.)
+
+Lists the current directory: the path, then the files in two columns. Directories end in /. ESCAPE stops the listing.
+
+@@ *DIR | DIR | *CD | CD
+  *DIR <path>     (also *CD)
+
+Changes the current directory. Paths are Ultimate paths: /Usb0/bbc, /SD, /Temp, .. for the parent.
+
+  *DIR /Temp
+  *DIR ..
+
+@@ *PWD | PWD
+  *PWD
+
+Prints the current directory.
+
+@@ *DELETE
+  *DELETE <name>
+
+Deletes a file.
+
+@@ *MKDIR | MKDIR | *CDIR | CDIR
+  *MKDIR <name>   (also *CDIR)
+
+Creates a directory.
+
+@@ *RENAME | RENAME
+  *RENAME <old> <new>
+
+Renames a file.
+
+@@ *LOAD
+  *LOAD <name> <address>
+
+Loads a file into memory at an address (decimal or &hex), between &0800 and &7FFF.
+
+  *LOAD screen &3000
+
+@@ *SAVE
+  *SAVE <name> <start> <end>
+  *SAVE <name> <start> +<length>
+
+Saves memory to a file. The end address is not saved. Memory up to &7FFF can be saved.
+
+  *SAVE code &3000 +&200
+
+@@ *TYPE | TYPE
+  *TYPE <name>
+
+Prints a text file. Lines end in CR; LF and other control codes are skipped. ESCAPE stops.
+
+@@ *UVER | UVER
+  *UVER
+
+Shows the identification of the Ultimate's DOS and control targets.
+
+@@ *TIME
+  *TIME
+
+Prints the date and time of the Ultimate's clock. The BASIC variable TIME is a separate centisecond counter.
+
+@@ *TURBO | TURBO
+  *TURBO          show the speed index
+  *TURBO MAX      fastest (index 15)
+  *TURBO OFF      1 MHz (index 0)
+  *TURBO <n>      speed index 0-15
+
+Needs the U64 turbo registers (Turbo Control in the Ultimate's settings, switched on by the cartridge's .cfg). Index 15 is 48 MHz on an Ultimate 64 and 64 MHz on an Elite II or C64 Ultimate. See SPEED.
+
+@@ *FX | FX
+  *FX a[,x[,y]]
+
+Calls OSBYTE a with X=x and Y=y. See OSBYTE.
+
+  *FX 15     flush the keyboard buffer
+
+@@ *HELP
+  *HELP [subject]
+
+Shows help: see HELP.
+
+# ---------------------------------------------------------------------------
+# BASIC keywords (BBC BASIC 3.10)
+
+@@ ABS
+  ABS(n)
+
+The absolute value of n.
+
+  PRINT ABS(-3.5)   gives 3.5
+
+@@ ACS
+  ACS(n)
+
+Arc cosine of n, in radians.
+
+@@ ADVAL
+  ADVAL(n)
+
+On a BBC Micro reads the analogue port or buffers. U64: returns 0 for now.
+
+@@ AND
+  a AND b
+
+Bitwise AND of two integers; with comparisons a logical AND.
+
+  IF X>0 AND X<10 PRINT "OK"
+
+@@ ASC
+  ASC(s$)
+
+ASCII code of the first character of s$; -1 for an empty string.
+
+@@ ASN
+  ASN(n)
+
+Arc sine of n, in radians.
+
+@@ ATN
+  ATN(n)
+
+Arc tangent of n, in radians.
+
+@@ AUTO
+  AUTO [start[,step]]
+
+Numbers new lines automatically, from 10 in steps of 10 by default. ESCAPE stops.
+
+@@ BGET# | BGET
+  b=BGET#c
+
+Reads one byte from channel c. See FILES.
+
+@@ BPUT# | BPUT
+  BPUT#c,b
+
+Writes byte b to channel c.
+
+@@ CALL
+  CALL address[,params]
+
+Calls machine code. A, X, Y and the carry come from A%, X%, Y% and C%.
+
+@@ CHAIN
+  CHAIN "name"
+
+Loads and runs a program.
+
+@@ CHR$
+  CHR$(n)
+
+The character with code n.
+
+  PRINT CHR$(65)    gives A
+
+@@ CLEAR
+  CLEAR
+
+Removes all variables except the resident integers @% and A%-Z%.
+
+@@ CLG
+  CLG
+
+Clears the graphics area. U64: no graphics yet.
+
+@@ CLOSE# | CLOSE
+  CLOSE#c
+
+Closes channel c; CLOSE#0 closes all channels.
+
+@@ CLS
+  CLS
+
+Clears the text screen.
+
+@@ COLOUR | COLOR
+  COLOUR n
+
+Sets the text colour (n) or background (128+n). See COLOURS.
+
+@@ COS
+  COS(r)
+
+Cosine of r radians.
+
+@@ COUNT
+  COUNT
+
+The number of characters printed since the last new line.
+
+@@ DATA
+  DATA item[,item...]
+
+Values for READ. See READ, RESTORE.
+
+@@ DEF
+  DEF PROCname[(params)]
+  DEF FNname[(params)]=expr
+
+Defines a procedure or function. See PROC, FN.
+
+@@ DEG
+  DEG(r)
+
+Converts radians to degrees.
+
+@@ DELETE
+  DELETE first,last
+
+Deletes program lines first to last.
+
+@@ DIM
+  DIM A(n), B$(x,y)
+  DIM P% n
+
+Declares arrays, or reserves n+1 bytes of memory and puts the address in P%.
+
+@@ DIV
+  a DIV b
+
+Integer division.
+
+  PRINT 7 DIV 2    gives 3
+
+@@ DRAW
+  DRAW x,y
+
+Draws a line to x,y. U64: no graphics yet.
+
+@@ ELSE
+  IF cond THEN a ELSE b
+
+The part of an IF line run when the condition is false. Also after ON ... GOTO.
+
+@@ END
+  END
+
+Ends the program.
+
+@@ ENDPROC
+  ENDPROC
+
+Ends a procedure. See PROC.
+
+@@ ENVELOPE
+  ENVELOPE n,...
+
+Defines a sound envelope. U64: no sound yet.
+
+@@ EOF# | EOF
+  EOF#c
+
+TRUE at the end of the file on channel c.
+
+@@ EOR
+  a EOR b
+
+Bitwise exclusive OR.
+
+@@ ERL
+  ERL
+
+The line number of the last error.
+
+@@ ERR
+  ERR
+
+The number of the last error. See ERRORS.
+
+@@ ERROR
+  ON ERROR statements
+  ON ERROR OFF
+
+Statements to run when an error occurs. See ERRORS.
+
+@@ EVAL
+  EVAL(s$)
+
+Evaluates the expression in s$.
+
+  PRINT EVAL("2*21")   gives 42
+
+@@ EXP
+  EXP(n)
+
+e to the power n.
+
+@@ EXT# | EXT
+  EXT#c
+
+The length of the file on channel c.
+
+@@ FALSE
+  FALSE
+
+The value 0.
+
+@@ FN
+  DEF FNname(params)=expr
+  x=FNname(args)
+
+A user-defined function; multi-line functions end with =value.
+
+  DEF FNsq(x)=x*x
+  PRINT FNsq(7)
+
+@@ FOR
+  FOR v=start TO end [STEP s]
+  ...
+  NEXT [v]
+
+Repeats the statements with v counting from start to end.
+
+@@ GCOL
+  GCOL action,colour
+
+Sets the graphics colour. U64: no graphics yet.
+
+@@ GET
+  k=GET
+
+Waits for a key and returns its code. See KEYBOARD.
+
+@@ GET$
+  k$=GET$
+
+Waits for a key and returns it as a string.
+
+@@ GOSUB
+  GOSUB line
+
+Calls the subroutine at line; RETURN comes back.
+
+@@ GOTO
+  GOTO line
+
+Continues at line.
+
+@@ HIMEM
+  HIMEM
+
+The top of BASIC's memory (&8000).
+
+@@ IF
+  IF cond [THEN] stmts [ELSE stmts]
+
+Runs the statements when the condition is TRUE (not 0). The whole IF is one line.
+
+@@ INKEY
+  k=INKEY(t)
+
+Waits up to t centiseconds for a key; -1 if none came. INKEY(0) does not wait.
+
+@@ INKEY$
+  k$=INKEY$(t)
+
+As INKEY, returning a string (empty if no key).
+
+@@ INPUT
+  INPUT ["prompt",] v[,v...]
+  INPUT LINE a$
+
+Reads values from the keyboard. INPUT LINE reads a whole line.
+
+@@ INPUT#
+  INPUT#c,v[,v...]
+
+Reads values written by PRINT#c.
+
+@@ INSTR
+  INSTR(a$,b$[,start])
+
+The position of b$ in a$, or 0.
+
+  PRINT INSTR("HELLO","LL")   gives 3
+
+@@ INT
+  INT(n)
+
+The largest whole number not above n.
+
+@@ LEFT$
+  LEFT$(s$,n)
+
+The first n characters of s$.
+
+@@ LEN
+  LEN(s$)
+
+The length of s$.
+
+@@ LET
+  [LET] v=expr
+
+Assignment; LET may be left out.
+
+@@ LIST
+  LIST [first][,last]
+
+Lists the program. ESCAPE stops.
+
+@@ LISTO
+  LISTO n
+
+Listing options: 1 space after the line number, 2 indent FOR loops, 4 indent REPEAT loops (add them up).
+
+@@ LN
+  LN(n)
+
+Natural logarithm.
+
+@@ LOAD
+  LOAD "name"
+
+Loads a program (see FILES). For memory dumps see *LOAD.
+
+@@ LOCAL
+  LOCAL v[,v...]
+
+Makes variables local to a procedure or function.
+
+@@ LOG
+  LOG(n)
+
+Logarithm base 10.
+
+@@ LOMEM
+  LOMEM
+
+The start of the variables (after the program).
+
+@@ MID$
+  MID$(s$,start[,n])
+
+n characters of s$ from position start.
+
+@@ MOD
+  a MOD b
+
+The remainder of integer division.
+
+@@ MODE
+  MODE n
+
+Selects a screen mode. U64: text only for now; MODE clears the screen.
+
+@@ MOVE
+  MOVE x,y
+
+Moves the graphics cursor. U64: no graphics yet.
+
+@@ NEW
+  NEW
+
+Removes the program (OLD brings it back if nothing was typed in between).
+
+@@ NEXT
+  NEXT [v]
+
+Ends a FOR loop. See FOR.
+
+@@ NOT
+  NOT n
+
+Bitwise inversion; NOT TRUE is FALSE.
+
+@@ OLD
+  OLD
+
+Brings back a program after NEW or BREAK.
+
+@@ ON
+  ON n GOTO l1,l2,... [ELSE ...]
+  ON n GOSUB l1,l2,...
+
+Jumps to the n-th line in the list. See also ERROR.
+
+@@ OPENIN
+  c=OPENIN "name"
+
+Opens a file for reading; 0 if it cannot be opened. See FILES.
+
+@@ OPENOUT
+  c=OPENOUT "name"
+
+Creates a file (or empties an existing one) for writing.
+
+@@ OPENUP
+  c=OPENUP "name"
+
+Opens an existing file for reading and writing; 0 if it cannot be opened.
+
+@@ OPT
+  [OPT n
+
+Assembler option. See ASSEMBLER.
+
+@@ OR
+  a OR b
+
+Bitwise OR; with comparisons a logical OR.
+
+@@ OSCLI
+  OSCLI string
+
+Runs a * command from a string, so it can contain variables.
+
+  OSCLI "TURBO "+STR$(S%)
+
+@@ PAGE
+  PAGE
+
+The start of the program (&0800).
+
+@@ PI
+  PI
+
+3.14159265.
+
+@@ PLOT
+  PLOT k,x,y
+
+Graphics plotting. U64: no graphics yet.
+
+@@ POINT
+  POINT(x,y)
+
+The colour of a pixel. U64: no graphics yet.
+
+@@ POS
+  POS
+
+The column of the text cursor.
+
+@@ PRINT
+  PRINT [items]
+
+Prints values. Separators: ; joins, , moves to the next field (set by @%), ' starts a new line. TAB(x) and SPC(n) position the cursor; ~ prints hexadecimal; a ; at the end keeps the cursor on the line.
+
+  PRINT "A=";A,~B;
+
+@@ PRINT#
+  PRINT#c,v[,v...]
+
+Writes values to channel c, typed, for INPUT#.
+
+@@ PROC
+  DEF PROCname(params)
+  ...
+  ENDPROC
+  PROCname(args)
+
+A named procedure with its own LOCAL variables.
+
+@@ PTR# | PTR
+  PTR#c
+  PTR#c=n
+
+The position in the file on channel c; can be set.
+
+@@ RAD
+  RAD(d)
+
+Converts degrees to radians.
+
+@@ READ
+  READ v[,v...]
+
+Reads the next DATA values.
+
+@@ REM
+  REM text
+
+A remark; the rest of the line is ignored.
+
+@@ RENUMBER
+  RENUMBER [start[,step]]
+
+Renumbers the program, GOTO and GOSUB targets included.
+
+@@ REPEAT
+  REPEAT
+  ...
+  UNTIL cond
+
+Repeats until the condition is TRUE.
+
+@@ REPORT
+  REPORT
+
+Prints the message of the last error.
+
+@@ RESTORE
+  RESTORE [line]
+
+Lets READ start again at the first DATA, or at a line.
+
+@@ RETURN
+  RETURN
+
+Ends a GOSUB subroutine.
+
+@@ RIGHT$
+  RIGHT$(s$,n)
+
+The last n characters of s$.
+
+@@ RND
+  RND       random integer
+  RND(1)    0 to 1
+  RND(n)    1 to n
+  RND(-n)   sets the seed
+
+Random numbers.
+
+@@ RUN
+  RUN
+
+Runs the program, clearing the variables.
+
+@@ SAVE
+  SAVE "name"
+
+Saves the program (see FILES). For memory see *SAVE.
+
+@@ SGN
+  SGN(n)
+
+-1, 0 or 1 by the sign of n.
+
+@@ SIN
+  SIN(r)
+
+Sine of r radians.
+
+@@ SOUND
+  SOUND c,a,p,d
+
+Plays a note on a BBC Micro. U64: no sound yet (SID support planned).
+
+@@ SPC
+  PRINT SPC(n)
+
+Prints n spaces.
+
+@@ SQR
+  SQR(n)
+
+Square root.
+
+@@ STEP
+  FOR v=a TO b STEP s
+
+The step of a FOR loop.
+
+@@ STOP
+  STOP
+
+Stops the program with a message.
+
+@@ STR$
+  STR$(n)
+  STR$~(n)
+
+n as a string (decimal, or hexadecimal with ~).
+
+@@ STRING$
+  STRING$(n,s$)
+
+s$ repeated n times.
+
+@@ TAB
+  PRINT TAB(x)
+  PRINT TAB(x,y)
+
+Moves to column x, or to column x of row y.
+
+@@ TAN
+  TAN(r)
+
+Tangent of r radians.
+
+@@ THEN
+  IF cond THEN statements
+
+Optional word in an IF line.
+
+@@ TIME
+  TIME
+  TIME=n
+
+A clock counting centiseconds; can be set. It keeps real time at every CPU speed. For the date and time see *TIME.
+
+@@ TO
+  FOR v=a TO b
+
+The end value of a FOR loop.
+
+@@ TRACE
+  TRACE ON | TRACE OFF | TRACE n
+
+Prints line numbers as they run (up to line n).
+
+@@ TRUE
+  TRUE
+
+The value -1.
+
+@@ UNTIL
+  UNTIL cond
+
+Ends a REPEAT loop.
+
+@@ USR
+  x=USR(address)
+
+Calls machine code and returns A, X, Y and P packed in an integer. See CALL.
+
+@@ VAL
+  VAL(s$)
+
+The number at the start of s$.
+
+@@ VDU
+  VDU n[,n...]
+  VDU n;
+
+Sends bytes to the screen driver; n; sends two bytes. See VDUCODES for the codes.
+
+@@ VPOS
+  VPOS
+
+The row of the text cursor.
+
+@@ WIDTH
+  WIDTH n
+
+Starts a new line after n characters (WIDTH 0: off).

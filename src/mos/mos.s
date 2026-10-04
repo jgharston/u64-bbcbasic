@@ -1,8 +1,8 @@
 ; ----------------------------------------------------------------------------
 ;
-; U64 BBC BASIC -- cartridge bank 0: boot and MOS
+; U64 BBC BASIC -- cartridge bank 0: boot and MOS core
 ;
-; Assemble with -d:CART_EF=1 or -d:CART_TMB=1 (see Makefile).
+; Included by cart.s (assembled with -d:CART_EF=1 or -d:CART_TMB=1).
 ;
 ; Bank 0 is mapped at $8000-$BFFF during cold start and during every MOS
 ; call (through the trampoline in resident.s). BBC BASIC 3.10 is copied
@@ -25,12 +25,6 @@
 ; partial update could be seen.
 ;
 ; ----------------------------------------------------------------------------
-
-    opt h-                      ; raw binary, no Atari header
-
-    icl 'defs.s'
-
-    org $8000
 
 ; ----------------------------------------------------------------------------
 ; CBM80 cartridge header: the KERNAL reset routine finds it and jumps to
@@ -70,6 +64,7 @@ cold:
     jsr keyboard_init
     jsr video_init
     cli
+    farcall fs_init, BANK_FS    ; find the Ultimate (up to 0.5 s)
     jsr banner
     jmp enter_lang
 
@@ -675,7 +670,8 @@ rd_ret:
 ;   Implemented: &00 OS version, &0F/&15 flush keyboard, &7C clear escape,
 ;   &7D set escape, &7E acknowledge escape, &80 ADVAL (0), &81 INKEY,
 ;   &82 high address, &83 OSHWM (PAGE), &84/&85 HIMEM, &86 POS/VPOS,
-;   &87 character at cursor, &DA VDU queue, &E5 escape key on/off.
+;   &87 character at cursor, &DA VDU queue, &E5 escape key on/off,
+;   &7F EOF# (filing system, bank 2).
 
 mos_byte:
     sta by_a
@@ -710,7 +706,7 @@ by_found:
 
 byte_codes:
     dta $0F, $15, $7C, $7D, $7E, $80, $81, $82, $83, $84, $85, $86
-    dta $87, $DA, $E5, 0
+    dta $87, $DA, $E5, $7F, 0
 byte_handlers:
     dta a(by_flush-1)
     dta a(by_flush-1)
@@ -727,6 +723,7 @@ byte_handlers:
     dta a(by_char-1)
     dta a(by_vduq-1)
     dta a(by_escdis-1)
+    dta a(by_eof-1)
 
 by_ret:
     lda by_a
@@ -798,6 +795,9 @@ by_vduq:                        ; &DA: new = (old AND Y) EOR X, old in X
     eor mosTMP+1
     sta vduq
     ldx mosTMP
+    jmp by_ret
+by_eof:                         ; &7F: EOF#, X = channel -> X = $FF at end
+    farcall fs_eof, BANK_FS
     jmp by_ret
 by_escdis:                      ; &E5: X <> 0 disables the ESCAPE key
     lda escdis
@@ -986,8 +986,9 @@ w2_loop:
 ;   Summary: run a * command.
 ;   Function: skips leading spaces and '*', looks the command word up in
 ;            cmd_table (case-insensitive; a '.' abbreviates, e.g. *H.),
-;            and jumps to its handler with Y at the first character after
-;            the word. Unknown commands raise error 254 "Bad command".
+;            and calls its handler in its bank through the trampoline,
+;            with Y at the first character after the word. "*." is *CAT.
+;            Unknown commands raise error 254 "Bad command".
 ;   Input:   X/Y = address of the CR-terminated command line.
 ;   Output:  per command.
 ;   Uses:    mosPTR = command line, mosTMP (word start, handler address).
@@ -1008,8 +1009,19 @@ cli_next:
     bne cli_skip
 cli_start:
     cmp #13
-    bne cli_match
+    bne cli_dot
     rts
+cli_dot:
+    cmp #'.'                    ; "*." is *CAT, as on the BBC
+    bne cli_match
+    iny
+    ldx #<cmd_cat
+    lda #>cmd_cat
+    stx tramp_tgt
+    sta tramp_tgt+1
+    lda #BANK_FS
+    sta tramp_bank
+    jmp tramp
 cli_match:
     sty mosTMP                  ; start of the command word
     ldx #0
@@ -1053,13 +1065,16 @@ cli_nextcmd:
     inx
     inx
     inx
+    inx
     bne cli_try
 cli_found:
-    lda cmd_table+1,x
-    sta mosTMP+1
+    lda cmd_table+1,x           ; handler address and bank
+    sta tramp_tgt
     lda cmd_table+2,x
-    sta mosTMP+2
-    jmp (mosTMP+1)              ; Y = first character after the word
+    sta tramp_tgt+1
+    lda cmd_table+3,x
+    sta tramp_bank
+    jmp tramp                   ; Y = first character after the word
 cli_bad:
     brk
     dta 254, 'Bad command', 0
@@ -1067,10 +1082,25 @@ cli_badnum:
     brk
     dta 252, 'Bad number', 0
 
-; Command table: upper-case name, 0, handler address. Ends with 0.
+; Command table: upper-case name, 0, handler address, handler bank.
+; Ends with 0. Abbreviations match the first entry in this order.
 cmd_table:
-    dta 'FX', 0, a(cmd_fx)
-    dta 'HELP', 0, a(cmd_help)
+    dta 'CAT', 0, a(cmd_cat), BANK_FS
+    dta 'DIR', 0, a(cmd_dir), BANK_FS
+    dta 'CD', 0, a(cmd_dir), BANK_FS
+    dta 'DELETE', 0, a(cmd_delete), BANK_FS
+    dta 'FX', 0, a(cmd_fx), BANK_MOS
+    dta 'HELP', 0, a(cmd_help), BANK_MOS
+    dta 'LOAD', 0, a(cmd_load), BANK_FS
+    dta 'MKDIR', 0, a(cmd_mkdir), BANK_FS
+    dta 'CDIR', 0, a(cmd_mkdir), BANK_FS
+    dta 'PWD', 0, a(cmd_pwd), BANK_FS
+    dta 'RENAME', 0, a(cmd_rename), BANK_FS
+    dta 'SAVE', 0, a(cmd_save), BANK_FS
+    dta 'TIME', 0, a(cmd_time), BANK_FS
+    dta 'TURBO', 0, a(cmd_turbo), BANK_MOS
+    dta 'TYPE', 0, a(cmd_type), BANK_FS
+    dta 'UVER', 0, a(cmd_uver), BANK_FS
     dta 0
 
 ; toupper
@@ -1092,7 +1122,9 @@ tu_done:
 ;   Uses:    mosARGS, mosNUM.
 cmd_fx:
     jsr cli_byte
-    bcs cli_bad
+    bcc fx_first
+    jmp cli_bad
+fx_first:
     sta mosARGS
     lda #0
     sta mosARGS+1
@@ -1119,7 +1151,9 @@ cli_byte:
     jsr cli_number
     bcs cb_none
     lda mosNUM+1
-    bne cli_badnum
+    beq cb_ok
+    jmp cli_badnum
+cb_ok:
     lda mosNUM
     clc
 cb_none:
@@ -1237,50 +1271,417 @@ cn_yes:
     clc
     rts
 
-; cmd_help
-;   Summary: *HELP: print the MOS name and version.
-;   Input:   none.  Output: text.  Uses: A, X.
-cmd_help:
+; cmd_turbo
+;   Summary: *TURBO [MAX|OFF|<0-15>]: show or set the CPU speed.
+;   Function: without argument prints the current speed index; MAX = 15
+;            (the device's maximum), OFF = 0 (1 MHz), a number sets that
+;            U64 speed index. Badlines stay suppressed at turbo speeds.
+;            Needs the U64 turbo registers; raises "No turbo" otherwise.
+;   Input:   mosPTR/Y.  Output: text or new speed.  Uses: A, X, Y, mosNUM.
+cmd_turbo:
+    lda turbo_state
+    cmp #2
+    beq ct_ok
+    brk
+    dta 199, 'No turbo registers (Turbo Control setting)', 0
+ct_ok:
+    jsr cli_skipsp
+    cmp #13
+    bne ct_arg
+    lda U64_TURBO               ; show
+    and #$0F
+    sta mosNUM
     ldx #0
-help_loop:
-    lda help_text,x
-    beq help_done
+ct_show:
+    lda ct_text,x
+    beq ct_num
     jsr OSASCI
     inx
-    bne help_loop
-help_done:
+    bne ct_show
+ct_num:
+    lda mosNUM
+    jsr print_dec
+    jmp OSNEWL
+ct_arg:
+    jsr toupper
+    cmp #'M'
+    beq ct_max
+    cmp #'O'
+    beq ct_off
+    jsr cli_byte
+    bcs ct_syntax
+    cmp #16
+    bcs ct_badnum
+    bcc ct_set
+ct_max:
+    lda #15
+    bne ct_set
+ct_off:
+    lda #0
+ct_set:
+    ora #$80                    ; no badline stalls
+    sta U64_TURBO
+    rts
+ct_badnum:
+    jmp cli_badnum
+ct_syntax:
+    jmp cli_bad
+ct_text:
+    dta 'Turbo speed index ', 0
+
+; cli_skipsp
+;   Summary: skip spaces in the command line.
+;   Input:   mosPTR/Y.  Output: A = next character, Y at it.
+cli_skipsp:
+    lda (mosPTR),y
+    cmp #' '
+    bne csp_done
+    iny
+    bne cli_skipsp
+csp_done:
     rts
 
-help_text:
-    dta 13, 'U64 BBC BASIC 0.1.0', 13
-    dta '  MOS for the Ultimate 64 / C64 Ultimate', 13
-    dta '  github.com/xahmol/u64-bbcbasic', 13, 0
+; print_dec
+;   Summary: print A (0-255) in decimal without leading zeros.
+;   Input:   A.  Output: text.  Uses: A, X, mosTMP.
+print_dec:
+    ldx #0                      ; X = 1 once a digit has been printed
+    stx mosTMP+1
+    ldx #100
+    jsr pd_digit
+    ldx #10
+    jsr pd_digit
+    ora #'0'
+    jmp OSWRCH
+pd_digit:
+    stx mosTMP
+    ldx #'0'-1
+pd_sub:
+    inx
+    sec
+    sbc mosTMP
+    bcs pd_sub
+    adc mosTMP
+    cpx #'0'
+    bne pd_print
+    ldy mosTMP+1
+    beq pd_skip
+pd_print:
+    pha
+    txa
+    jsr OSWRCH
+    pla
+    ldy #1
+    sty mosTMP+1
+pd_skip:
+    rts
 
 ; ----------------------------------------------------------------------------
-; Filing system entry points (Phase 2: UCI DOS and IEC).
-; mos_find:  CLOSE#0 (A = 0) succeeds, anything else raises the error.
-; mos_args:  "read filing system number" (A = 0, Y = 0) returns A = 0.
-; mos_file, mos_bget, mos_bput, mos_gbpb: error 214.
-;   Input:   as the BBC MOS calls.  Output: as above.
+; cmd_help
+;   Summary: *HELP [subject]: show a help text from the help banks.
+;   Function: copies the subject (upper case, at most 31 characters) to
+;            errbuf+1 (free unless an error is being raised); no subject
+;            means HELP. Looks for an exact name in the help index (bank
+;            BANK_HELP, built by tools/genhelp.py) and shows its text;
+;            otherwise lists the names that start with the subject.
+;   Input:   mosPTR/Y = command line after HELP.
+;   Output:  text.
+;   Uses:    A, X, Y, mosPTR, mosNUM, mosARGS, mosCNT, errbuf.
 
-mos_find:
-    cmp #0
-    bne fs_none
-    rts
-mos_args:
-    ora #0
-    bne fs_none
-    cpy #0
-    bne fs_none
-    lda #0                      ; no filing system
-    rts
-mos_file:
-mos_bget:
-mos_bput:
-mos_gbpb:
-fs_none:
+HELP_INDEX  = $8006             ; first index record
+HELP_MAXARG = 31
+
+cmd_help:
+    jsr cli_skipsp
+    ldx #0
+hl_copy:
+    lda (mosPTR),y
+    cmp #13
+    beq hl_copied
+    cmp #' '
+    beq hl_copied
+    jsr toupper
+    sta errbuf+1,x
+    inx
+    iny
+    cpx #HELP_MAXARG
+    bcc hl_copy
+hl_copied:
+    lda #0
+    sta errbuf+1,x
+    cpx #0
+    bne hl_check
+    ldx #4                      ; no subject: HELP
+hl_def:
+    lda hl_default,x
+    sta errbuf+1,x
+    dex
+    bpl hl_def
+hl_check:
+    lda #<$8000                 ; help banks present?
+    sta mosPTR
+    lda #>$8000
+    sta mosPTR+1
+    ldy #3
+hl_magic:
+    ldx #BANK_HELP
+    jsr bank_peek
+    cmp hl_magictext,y
+    bne hl_nohelp
+    dey
+    bpl hl_magic
+    jsr hl_find                 ; exact match?
+    bcs hl_prefix
+    jmp hl_show
+hl_prefix:
+    jmp hl_list
+hl_nohelp:
     brk
-    dta 214, 'No filing system yet', 0
+    dta 254, 'No help in this cartridge', 0
+
+hl_default:
+    dta 'HELP', 0
+hl_magictext:
+    dta 'UHLP'
+
+; hl_start
+;   Summary: point mosPTR at the first index record, mosNUM = count.
+hl_start:
+    lda #<$8004
+    sta mosPTR
+    lda #>$8004
+    sta mosPTR+1
+    ldx #BANK_HELP
+    ldy #0
+    jsr bank_peek
+    sta mosNUM
+    iny
+    jsr bank_peek
+    sta mosNUM+1
+    lda #<HELP_INDEX
+    sta mosPTR
+    lda #>HELP_INDEX
+    sta mosPTR+1
+    rts
+
+; hl_next
+;   Summary: step mosPTR past the current index record, count down.
+;   Output:  Z = 1 when no records are left.  Uses: A, X, Y.
+hl_next:
+    ldx #BANK_HELP
+    ldy #0
+hn_name:
+    jsr bank_peek
+    beq hn_end
+    iny
+    bne hn_name
+hn_end:
+    tya                         ; skip name, 0, bank, address
+    clc
+    adc #4
+    adc mosPTR
+    sta mosPTR
+    bcc hn_count
+    inc mosPTR+1
+hn_count:
+    lda mosNUM
+    bne hn_dec
+    dec mosNUM+1
+hn_dec:
+    dec mosNUM
+    lda mosNUM
+    ora mosNUM+1
+    rts
+
+; hl_find
+;   Summary: find the subject (errbuf+1) in the index.
+;   Output:  C = 0: mosPTR at the record, Y at its name's 0 terminator;
+;            C = 1: not found.
+;   Uses:    A, X, Y, mosNUM.
+hl_find:
+    jsr hl_start
+hf_record:
+    lda mosNUM
+    ora mosNUM+1
+    beq hf_none
+    ldx #BANK_HELP
+    ldy #0
+hf_cmp:
+    jsr bank_peek
+    cmp errbuf+1,y
+    bne hf_skip
+    cmp #0
+    beq hf_found
+    iny
+    bne hf_cmp
+hf_skip:
+    jsr hl_next
+    jmp hf_record
+hf_found:
+    clc
+    rts
+hf_none:
+    sec
+    rts
+
+; hl_show
+;   Summary: show the text of the index record at mosPTR (Y at the name's
+;            terminator), 22 lines per page.
+;   Function: SPACE (any key) shows the next page; ESCAPE stops and is
+;            acknowledged. Text bytes are read through bank_peek.
+;   Uses:    A, X, Y, mosPTR, mosARGS (bank, line count).
+hl_show:
+    ldx #BANK_HELP
+    iny
+    jsr bank_peek
+    sta mosARGS                 ; bank of the text
+    iny
+    jsr bank_peek
+    pha
+    iny
+    jsr bank_peek
+    sta mosPTR+1
+    pla
+    sta mosPTR
+    lda #0
+    sta mosARGS+1               ; lines on this page
+    jsr OSNEWL
+hs_loop:
+    bit ESCFLG
+    bmi hs_stop
+    ldx mosARGS
+    ldy #0
+    jsr bank_peek
+    beq hs_done
+    inc mosPTR
+    bne hs_char
+    inc mosPTR+1
+hs_char:
+    cmp #13
+    beq hs_line
+    jsr OSWRCH
+    jmp hs_loop
+hs_line:
+    jsr OSNEWL
+    inc mosARGS+1
+    lda mosARGS+1
+    cmp #22
+    bcc hs_loop
+    ldx #0                      ; page full: wait
+hs_prompt:
+    lda hs_more,x
+    beq hs_wait
+    jsr OSWRCH
+    inx
+    bne hs_prompt
+hs_wait:
+    jsr OSRDCH
+    bcs hs_stop
+    lda #13                     ; wipe the prompt line
+    jsr OSWRCH
+    ldx #38
+hs_wipe:
+    lda #' '
+    jsr OSWRCH
+    dex
+    bpl hs_wipe
+    lda #13
+    jsr OSWRCH
+    lda #0
+    sta mosARGS+1
+    jmp hs_loop
+hs_stop:
+    lda #$7E                    ; acknowledge ESCAPE
+    jsr OSBYTE
+    jsr OSNEWL
+hs_done:
+    rts
+
+hs_more:
+    dta '-- SPACE: more, ESCAPE: stop --', 0
+
+; hl_list
+;   Summary: list the index names that start with the subject, in
+;            columns of 13; "No help on ..." if there are none.
+;   Uses:    A, X, Y, mosPTR, mosNUM, mosCNT (column), mosARGS (found).
+hl_list:
+    jsr hl_start
+    lda #0
+    sta mosCNT
+    sta mosARGS
+hli_record:
+    lda mosNUM
+    ora mosNUM+1
+    beq hli_end
+    ldx #BANK_HELP
+    ldy #0
+hli_cmp:
+    lda errbuf+1,y              ; end of the subject: prefix matches
+    beq hli_match
+    jsr bank_peek
+    cmp errbuf+1,y
+    bne hli_next
+    iny
+    bne hli_cmp
+hli_match:
+    inc mosARGS
+    ldy #0
+hli_print:
+    jsr bank_peek
+    beq hli_pad
+    jsr OSWRCH
+    iny
+    bne hli_print
+hli_pad:
+    lda mosCNT                  ; three columns of 13
+    cmp #26
+    bcs hli_nl
+    clc
+    adc #13
+    sta mosCNT
+hli_sp:
+    cpy #13
+    bcs hli_next
+    lda #' '
+    jsr OSWRCH
+    iny
+    bne hli_sp
+hli_nl:
+    jsr OSNEWL
+    lda #0
+    sta mosCNT
+hli_next:
+    jsr hl_next
+    jmp hli_record
+hli_end:
+    lda mosCNT
+    beq hli_nonl
+    jsr OSNEWL
+hli_nonl:
+    lda mosARGS
+    bne hli_done
+    ldx #0
+hli_none:
+    lda hl_nonetext,x
+    beq hli_subj
+    jsr OSWRCH
+    inx
+    bne hli_none
+hli_subj:
+    ldx #0
+hli_subjloop:
+    lda errbuf+1,x
+    beq hli_tail
+    jsr OSWRCH
+    inx
+    bne hli_subjloop
+hli_tail:
+    jsr OSNEWL
+hli_done:
+    rts
+
+hl_nonetext:
+    dta 'No help on ', 0
 
 ; ----------------------------------------------------------------------------
 ; Character tables (generated by tools/gentables.py)

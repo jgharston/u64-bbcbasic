@@ -17,12 +17,15 @@
 
 ; ----------------------------------------------------------------------------
 ; tramp
-;   Summary: call a MOS routine in bank 0 from any memory configuration.
-;   Function: saves the caller's bank on the stack, maps bank 0, calls the
-;            routine, maps the caller's bank back. Re-entrant (a MOS
+;   Summary: call a MOS routine in any cartridge bank from any memory
+;            configuration.
+;   Function: saves the caller's bank on the stack, maps tramp_bank, calls
+;            the routine, maps the caller's bank back. Re-entrant (a MOS
 ;            routine may call OSWRCH etc. again): each level keeps its own
-;            bank on the stack, and tramp_tgt is used before the call only.
-;   Input:   tramp_tgt = routine; A, X, Y, C, V = its arguments.
+;            bank on the stack, and tramp_tgt/tramp_bank are only read
+;            before the call.
+;   Input:   tramp_tgt = routine, tramp_bank = its bank; A, X, Y, C, V =
+;            the routine's arguments.
 ;   Output:  A, X, Y and P as the routine left them.
 ;   Uses:    tr_a, tr_p, curbank; 3 bytes of stack plus the routine's.
 
@@ -30,7 +33,7 @@ tramp:
     sta tr_a
     lda curbank
     pha
-    lda #BANK_MOS
+    lda tramp_bank
     jsr map_bank
     lda tr_a
     jsr tramp_jmp
@@ -51,33 +54,54 @@ tramp_jmp:
 
 ; v_cli .. v_find (macro vstub)
 ;   Summary: default targets of the BBC RAM vectors at $0200: call the
-;            matching MOS routine through tramp.
+;            matching MOS routine in its bank through tramp.
 ;   Input:   A, X, Y, C, V as for the MOS call (lda/sta leave C and V
 ;            alone; the final lda restores N and Z for A).
 ;   Output:  as the MOS routine.
-;   Uses:    tr_a, tramp_tgt.
+;   Uses:    tr_a, tramp_tgt, tramp_bank.
 
-vstub .macro target
+vstub .macro target, bank
     sta tr_a
     lda #<:target
     sta tramp_tgt
     lda #>:target
     sta tramp_tgt+1
+    lda #:bank
+    sta tramp_bank
     lda tr_a
     jmp tramp
     .endm
 
-v_cli   vstub mos_cli
-v_byte  vstub mos_byte
-v_word  vstub mos_word
-v_wrch  vstub mos_wrch
-v_rdch  vstub mos_rdch
-v_file  vstub mos_file
-v_args  vstub mos_args
-v_bget  vstub mos_bget
-v_bput  vstub mos_bput
-v_gbpb  vstub mos_gbpb
-v_find  vstub mos_find
+v_cli   vstub mos_cli, BANK_MOS
+v_byte  vstub mos_byte, BANK_MOS
+v_word  vstub mos_word, BANK_MOS
+v_wrch  vstub mos_wrch, BANK_MOS
+v_rdch  vstub mos_rdch, BANK_MOS
+v_file  vstub fs_file, BANK_FS
+v_args  vstub fs_args, BANK_FS
+v_bget  vstub fs_bget, BANK_FS
+v_bput  vstub fs_bput, BANK_FS
+v_gbpb  vstub fs_gbpb, BANK_FS
+v_find  vstub fs_find, BANK_FS
+
+; ----------------------------------------------------------------------------
+; bank_peek
+;   Summary: read one byte from another cartridge bank (help texts).
+;   Input:   X = bank, mosPTR/Y = address in $8000-$BFFF.
+;   Output:  A = byte. X and Y preserved; the caller's bank is mapped back.
+;   Uses:    flags; 1 byte of stack.
+
+bank_peek:
+    lda curbank
+    pha
+    txa
+    jsr map_bank
+    lda (mosPTR),y
+    sta tr_p
+    pla
+    jsr map_bank
+    lda tr_p
+    rts
 
 ; ----------------------------------------------------------------------------
 ; map_bank
@@ -323,8 +347,45 @@ irq_keytab:
 keytabs:
     dta a(kt_unshift), a(kt_shift), a(K_KEYTAB_C), a(K_KEYTAB_CT)
 
+; ----------------------------------------------------------------------------
+; raise_errbuf
+;   Summary: raise the BBC error block that is already in errbuf (built by
+;            the UCI code from an Ultimate status message).
+;   Function: like irq_brk after its copy: FAULT = errbuf, the RAM copy of
+;            BASIC mapped, then BASIC's error handler through BRKV, which
+;            resets the stack (no frames are leaked).
+;   Input:   errbuf = error number, message, 0.
+;   Output:  does not return.
+
+raise_errbuf:
+    lda #<errbuf
+    sta FAULT
+    lda #>errbuf
+    sta FAULT+1
+    lda #BANK_RAM
+    jsr map_bank
+    cli
+    jmp (BRKV)
+
 res_code_end:
-    .if res_code_end > OSPAGE+$CE
+
+; ----------------------------------------------------------------------------
+; Resident MOS RAM: copied from ROM as zeros, so it starts cleared.
+; Filing system state (bank 2, foreground only).
+
+ch_open     dta 0, 0            ; per channel: 0 closed, else OSFIND mode
+ch_ptr      dta 0,0,0,0, 0,0,0,0    ; per channel: PTR#, 32 bits
+ch_ext      dta 0,0,0,0, 0,0,0,0    ; per channel: EXT#, 32 bits
+uci_ok      dta 0               ; 1: Ultimate command interface found
+uciHDR      dta 0,0,0,0,0,0,0,0 ; UCI command header (target, command, args)
+fsTMP       dta 0,0,0,0         ; scratch
+fsMODE      dta 0               ; OSFIND / OSFILE call in progress
+fsSX        dta 0               ; caller's X during a filing system call
+fsSY        dta 0               ; caller's Y
+osfblk      dta 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  ; OSFILE block for *LOAD/*SAVE
+
+res_data_end:
+    .if res_data_end > OSPAGE+$CE
     .error "Resident MOS overflows into the entry points"
     .endif
 

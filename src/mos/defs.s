@@ -70,7 +70,9 @@ NVECTORS    = 16
 FAULT       = $FD               ; pointer to the last error block
 ESCFLG      = $FF               ; bit 7 set: Escape pending
 
-; MOS zero page: $52-$8F (BBC BASIC uses $00-$51, the KERNAL $90-$FF)
+; MOS zero page: $52-$6F. BBC BASIC uses $00-$51, the KERNAL $90-$FF;
+; $70-$8F stays free for users' machine code, as &70-&8F on a BBC Micro.
+; Foreground only: interrupt handlers never use it.
 zpMOS       = $52
 mosPTR      = zpMOS+0           ; general pointer (2)
 mosPTR2     = zpMOS+2           ; second pointer (2)
@@ -81,6 +83,19 @@ mosMIN      = zpMOS+10          ; line input lowest accepted char
 mosHIGH     = zpMOS+11          ; line input highest accepted char
 mosNUM      = zpMOS+12          ; *command number parsing (2)
 mosARGS     = zpMOS+14          ; *FX arguments (3)
+
+; Filing system and UCI zero page (bank 2)
+fsPTR       = $63               ; 2: filename / data pointer
+fsLEN       = $65               ; 2: length
+fsCNT       = $67               ; 2: byte counter
+fsADDR      = $69               ; 2: memory address for transfers
+fsTGT       = $6B               ; UCI target of the current file operation
+fsCH        = $6C               ; channel index 0/1
+uciHLEN     = $6D               ; UCI command header length
+fsBLK       = $6E               ; 2: OSFILE parameter block
+    .if fsBLK+1 > $6F
+    .error "MOS zero page overflows into the user area $70-$8F"
+    .endif
 
 ; ----------------------------------------------------------------------------
 ; C64 KERNAL
@@ -169,3 +184,22 @@ ramvars_end = inkey_t0+2
 errbuf      = $02A7
 ERRMAX      = $0300-errbuf      ; 89 bytes: number, message, terminator
 VDUBUFLEN   = 9                 ; longest VDU parameter list (VDU 23)
+
+; ----------------------------------------------------------------------------
+; farcall target, bank
+;   Summary: call a routine in another cartridge bank (through tramp).
+;   Input:   A, X, Y, C, V = the routine's arguments.
+;   Output:  A, X, Y, P as the routine left them.
+;   Uses:    tr_a, tramp_tgt, tramp_bank.
+
+farcall .macro target, bank
+    sta tr_a
+    lda #<:target
+    sta tramp_tgt
+    lda #>:target
+    sta tramp_tgt+1
+    lda #:bank
+    sta tramp_bank
+    lda tr_a
+    jsr tramp
+    .endm

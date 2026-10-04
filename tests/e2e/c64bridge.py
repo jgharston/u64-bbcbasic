@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import threading
+import time
 
 
 class BridgeError(Exception):
@@ -96,10 +97,21 @@ class Bridge:
 
     # --- convenience wrappers
 
+    def _retry(self, tool, **args):
+        """Call a memory tool, retrying when the firmware refuses the DMA
+        access (seen on an Ultimate 64-II while a UCI file transfer runs)."""
+        for attempt in range(6):
+            try:
+                return self.call_full(tool, **args)
+            except BridgeError as e:
+                if "firmware reported failure" not in str(e) or attempt == 5:
+                    raise
+                time.sleep(0.3)
+
     def read(self, address, length):
         """Read memory, return bytes."""
-        text, meta = self.call_full("c64_memory", op="read",
-                                    address="$%04X" % address, length=length)
+        text, meta = self._retry("c64_memory", op="read",
+                                 address="$%04X" % address, length=length)
         if "hexData" in meta:
             data = bytes.fromhex(meta["hexData"].lstrip("$"))
             if len(data) >= length:
@@ -107,8 +119,8 @@ class Bridge:
         return parse_hex_dump(text, address, length)
 
     def write(self, address, data):
-        self.call("c64_memory", op="write", address="$%04X" % address,
-                  bytes=" ".join("%02X" % b for b in data))
+        self._retry("c64_memory", op="write", address="$%04X" % address,
+                    bytes=" ".join("%02X" % b for b in data))
 
     def close(self):
         try:

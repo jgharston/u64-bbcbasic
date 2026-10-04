@@ -6,9 +6,11 @@ for the Ultimate's features (UCI file system, drives, clock, turbo,
 network, Ultimate Audio, Upic) are planned as `*` commands.
 
 **Status: early development (0.1.0).** It boots to the BBC BASIC `>` prompt
-and runs BASIC programs in text mode, at the device's maximum turbo speed.
-There is no filing system yet, and no graphics or sound. See
-[docs/PLAN.md](docs/PLAN.md) for the plan and roadmap.
+and runs BASIC programs in text mode, at the device's maximum turbo speed,
+with files on the Ultimate's USB/SD/RAM disk and a built-in help system
+(`*HELP`). There are no graphics or sound yet. See
+[docs/PLAN.md](docs/PLAN.md) for the plan and roadmap, and
+[docs/HELP_REFERENCE.md](docs/HELP_REFERENCE.md) for the full reference.
 
 ## Cartridges
 
@@ -35,7 +37,14 @@ flash.
 - MOS entry points: `OSWRCH` = &C7EE, `OSBYTE` = &C7F4, `OSWORD` = &C7F1,
   `OSCLI` = &C7F7, … (BBC low bytes, page &C7). The RAM vectors are at
   &0200, as on the BBC.
-- `*FX`, `*HELP`.
+- Files on the Ultimate (see `*HELP FILES`): `LOAD`, `SAVE`, `CHAIN`, two
+  open channels (`OPENIN`, `OPENOUT`, `OPENUP`, `BGET#`, `BPUT#`, `PRINT#`,
+  `INPUT#`, `PTR#`, `EXT#`, `EOF#`).
+- Commands: `*CAT` (`*.`), `*DIR` (`*CD`), `*PWD`, `*DELETE`, `*MKDIR`,
+  `*RENAME`, `*LOAD`, `*SAVE`, `*TYPE`, `*UVER`, `*TIME`, `*TURBO`, `*FX`,
+  `*HELP`.
+- `*HELP` covers every BASIC keyword, command and topic: `*HELP KEYWORDS`,
+  `*HELP COMMANDS`, `*HELP TOPICS`.
 
 ## Building from source
 
@@ -67,4 +76,5 @@ for `make deploy` and the tests.
   [Atari port](https://github.com/ivop/atari-bbc-basic).
 - Ultimate knowledge: [ultimate-uci-oscar64](https://github.com/xahmol/ultimate-uci-oscar64).
 - MOS, tools and tests: Xander Mol, GPL-3.0 (see `LICENSE`). The BBC BASIC
-  interpreter itself is not covered by this licence (see docs/PLAN.md §2).
+  interpreter itself is not covered by this licence: see
+  [NOTICE.md](NOTICE.md).

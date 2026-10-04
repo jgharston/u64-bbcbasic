@@ -182,7 +182,21 @@ def test_mos_error(t):
 
 
 def test_help(t):
-    run_line(t, "*HELP", "MOS for the Ultimate 64")
+    run_line(t, "*HELP", "*HELP KEYWORDS")
+    run_line(t, "*HELP PRINT", "Prints values")
+    run_line(t, "*HELP *CAT", "Lists the current directory")
+    run_line(t, "*HELP OPEN", "OPENUP")
+    run_line(t, "*HELP FROB", "No help on FROB")
+
+
+def test_help_paging(t):
+    # MEMORY is longer than one page: the prompt, then SPACE for more
+    run_line(t, "*HELP MEMORY", "SPACE: more")
+    screen.type_text(t.bridge, " ")
+    screen.wait_text(t.bridge, "even in turbo mode")
+    run_line(t, "*HELP KEYWORDS", "SPACE: more")
+    screen.type_text(t.bridge, " ")
+    screen.wait_text(t.bridge, "WIDTH")
 
 
 def test_bad_number(t):
@@ -270,10 +284,125 @@ def test_speed(t):
     t.notes.append("5000 FOR loops: %d cs" % cs[0])
 
 
+# --- Filing system and Ultimate commands (bank 2). Work in /Temp, the
+# Ultimate's RAM disk; on VICE (no command interface) only the error.
+
+def ult(t):
+    """True on an Ultimate; on VICE checks the 'no Ultimate' error instead."""
+    if t.is_vice:
+        run_line(t, "*CAT", "No Ultimate command interface")
+        return False
+    return True
+
+
+def test_fs_uver(t):
+    if ult(t):
+        run_line(t, "*UVER", "ULTIMATE-II DOS")
+
+
+def test_fs_time(t):
+    if ult(t):
+        run_line(t, "*TIME", "/")
+        screen.wait_for(t.bridge, lambda rows: any(
+            re.search(r"20\d\d/\d\d/\d\d \d\d:\d\d:\d\d", r) for r in rows))
+
+
+def test_fs_dir(t):
+    if ult(t):
+        run_line(t, "*DIR /Temp", ">")
+        run_line(t, "*PWD", "/Temp")
+        # leftovers of an interrupted run (errors for missing files are fine)
+        for f in ("e2etest", "e2eren", "e2edata", "e2etext"):
+            run_line(t, "*DELETE " + f, ">")
+
+
+def test_fs_save_load(t):
+    if not ult(t):
+        return
+    run_line(t, "NEW", ">")
+    screen.type_text(t.bridge, '10 PRINT "SAVED";6*7\r')
+    run_line(t, 'SAVE "e2etest"', ">")
+    run_line(t, 'SAVE "e2etest"', ">")          # overwrite an existing file
+    run_line(t, 'X=OPENOUT "e2etest":CLOSE#X', ">")   # SAVE after a colon
+    run_line(t, 'SAVE "e2etest"', ">")                 # is a syntax error
+    run_line(t, "NEW", ">")
+    run_line(t, 'LOAD "e2etest"', ">")
+    run_line(t, "RUN", "SAVED42")
+    run_line(t, "NEW", ">")
+    run_line(t, 'CHAIN "e2etest"', "SAVED42")
+    run_line(t, "*CAT", "e2etest")
+
+
+def test_fs_channels(t):
+    if not ult(t):
+        return
+    run_line(t, "NEW", ">")
+    lines = ['10 X=OPENOUT "e2edata":FOR I%=1 TO 300:BPUT#X,I% MOD 256:NEXT',
+             '20 PRINT#X,"WORD",12345:CLOSE#X',
+             '30 Y=OPENIN "e2edata":PRINT "EXT";EXT#Y',
+             '40 PTR#Y=99:PRINT "B";BGET#Y;"P";PTR#Y',
+             '50 PTR#Y=300:INPUT#Y,A$,N:PRINT A$;N;EOF#Y',
+             '60 CLOSE#Y:PRINT "MISSING";OPENIN "e2enone"']
+    for l in lines:
+        screen.type_text(t.bridge, l + "\r")
+    rows = run_line(t, "RUN", "MISSING", timeout=30)
+    text = "\n".join(rows)
+    assert "EXT" in text and "B100P100" in text.replace(" ", ""), text
+    assert "WORD12345-1" in text.replace(" ", ""), text
+    assert "MISSING0" in text.replace(" ", ""), text
+
+
+def test_fs_type(t):
+    if not ult(t):
+        return
+    run_line(t, "NEW", ">")
+    screen.type_text(t.bridge, '10 X=OPENOUT "e2etext":FOR I%=1 TO 3\r')
+    screen.type_text(t.bridge, '20 FOR J%=1 TO 5:BPUT#X,64+I%:NEXT:BPUT#X,13\r')
+    screen.type_text(t.bridge, '30 NEXT:CLOSE#X\r')
+    run_line(t, "RUN", ">")
+    rows = run_line(t, "*TYPE e2etext", "CCCCC")
+    assert "AAAAA" in "\n".join(rows), rows[:5]
+
+
+def test_fs_errors(t):
+    if not ult(t):
+        return
+    run_line(t, 'LOAD "e2enone"', "doesn't exist")
+    run_line(t, "REPORT:PRINT ERR", "214")
+    run_line(t, "*DIR /nosuchdir", "directory")
+    run_line(t, "*LOAD e2etest &0100", "Address out of range")
+
+
+def test_fs_rename_delete(t):
+    if not ult(t):
+        return
+    run_line(t, "*RENAME e2etest e2eren", ">")
+    run_line(t, "NEW", ">")
+    run_line(t, 'CHAIN "e2eren"', "SAVED42")
+    for f in ("e2eren", "e2edata", "e2etext"):
+        run_line(t, "*DELETE " + f, ">")
+    run_line(t, 'PRINT "GONE";OPENIN "e2edata"', "GONE0")
+
+
+def test_turbo_cmd(t):
+    if t.is_vice:
+        run_line(t, "*TURBO", "No turbo registers")
+        return
+    run_line(t, "*TURBO", "Turbo speed index 15")
+    run_line(t, "*TURBO 0", ">")
+    run_line(t, "*TURBO", "Turbo speed index 0")
+    run_line(t, "*TURBO MAX", ">")
+    run_line(t, "*TURBO", "Turbo speed index 15")
+
+
 TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_program,
-         test_error, test_mos_error, test_help, test_bad_number,
+         test_error, test_mos_error, test_help, test_help_paging,
+         test_bad_number,
          test_vdu_overflow, test_fx_escape, test_stop_key,
-         test_time, test_inkey, test_get, test_long_line, test_speed]
+         test_time, test_inkey, test_get, test_long_line, test_speed,
+         test_fs_uver, test_fs_time, test_fs_dir, test_fs_save_load,
+         test_fs_channels, test_fs_type, test_fs_errors,
+         test_fs_rename_delete, test_turbo_cmd]
 
 
 # ----------------------------------------------------------------------------

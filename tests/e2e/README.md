@@ -44,7 +44,8 @@ ESCFLG directly and notes it.
 | program | entering, RUN and LIST of a program line |
 | error | an error raised by BASIC (`Division by zero`) |
 | mos_error | an error raised in the MOS bank (`Bad command`): the copy to RAM |
-| help | `*HELP` |
+| help | `*HELP`, keyword and command texts, prefix list, unknown subject |
+| help_paging | a long text stops after a page; SPACE shows the rest |
 | bad_number | `*FX 300` gives `Bad number` |
 | vdu_overflow | `*FX 218,200` (VDU queue count 200) cannot overrun the 9-byte parameter buffer |
 | fx_escape | `*FX 125` sets ESCAPE inside a program; BASIC reports it and recovers |
@@ -54,3 +55,15 @@ ESCFLG directly and notes it.
 | get | `GET` returns the ASCII code of a typed key |
 | long_line | a 77-character input line (wrapped logical line) |
 | speed | 5000 empty FOR loops, reported as a note (VICE 1 MHz ~183 cs, U64 turbo 3-4 cs) |
+| fs_uver, fs_time | `*UVER`, `*TIME` (on VICE: the "No Ultimate command interface" error) |
+| fs_dir | `*DIR /Temp`, `*PWD` |
+| fs_save_load | SAVE, NEW, LOAD, RUN, CHAIN, `*CAT` |
+| fs_channels | OPENOUT, BPUT#, PRINT#, OPENIN, EXT#, PTR# seek, BGET#, INPUT#, EOF#, OPENIN of a missing file gives 0 |
+| fs_type | `*TYPE` of a file written with BPUT# |
+| fs_errors | missing file (error 214), missing directory, `*LOAD` below &0800 |
+| fs_rename_delete | `*RENAME`, `*DELETE` (also cleans up) |
+| turbo_cmd | `*TURBO`, `*TURBO 0`, `*TURBO MAX` |
+
+The filing system tests work in `/Temp`, the Ultimate's RAM disk, and
+delete their files. While a UCI file transfer runs, an Ultimate 64-II can
+refuse a REST memory access; the client retries those.

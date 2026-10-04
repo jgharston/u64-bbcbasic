@@ -555,3 +555,49 @@ Elite, firmware 3.15a) by the E2E suite (`make e2e`, `tests/e2e/`).
   garbage collector (BBC BASIC reuses a string's space when the new value
   fits, and CLEAR/RUN reclaim the rest). That is interpreter behaviour,
   documented for users, not patched.
+
+## 14. Decisions (2026-10-04)
+
+Asked interactively, each with a recommendation; all recommendations taken:
+
+| Decision | Choice |
+|---|---|
+| Version control | Branch `phase1-mos`, a commit per tested step |
+| UCI assembler port | In this repo (`src/mos/uci.s`) first; moves to `ultimate-uci-oscar64/asm/mads/` with a library release once stable |
+| Faster maths | Interpreter stays unmodified (`make compare-core`); cartridge tables only for MOS work (graphics, sound, fonts) |
+| PETSCII | Switchable PETSCII mode (`*PETSCII` / `*ASCII`), with codes 128-255 printing PETSCII graphics in ASCII mode |
+| Licence | Ship the full `.crt` with `NOTICE.md`; courtesy message to Ivo van Poorten and J.G. Harston before the first public release |
+| Help | Full reference in cartridge banks: every keyword, command and topic (`*HELP`), single source `src/help/help.txt` also generating `docs/HELP_REFERENCE.md` |
+
+## 15. Phase 2/3 status (2026-10-04)
+
+Done and tested on both Ultimates (VICE: the "no Ultimate" path):
+
+- **Bank layout:** 0 MOS core and help reader, 1 BASIC, 2 UCI driver,
+  filing system and Ultimate commands, 3-4 help (157 entries). Banks 0 and
+  2 come from one assembly (`src/mos/cart.s`); the trampoline takes a
+  target bank.
+- **UCI driver** (`src/mos/uci.s`): detect/unlock, send with streamed
+  payload, packet reads straight to memory, status into the error buffer,
+  every wait leaves on ESCAPE. Error numbers: 214 not found / doesn't
+  exist, 189 access denied, 199 other.
+- **Filing system** on the Ultimate's DOS targets: LOAD, SAVE, CHAIN,
+  OPENIN/OPENOUT/OPENUP (two channels, &11 and &12), BGET#, BPUT#, PRINT#,
+  INPUT#, PTR# (with seek), EXT#, EOF#, CLOSE#. LOAD/SAVE are single
+  transfers between &0800 and &7FFF.
+- **Commands:** `*CAT` / `*.`, `*DIR` / `*CD`, `*PWD`, `*DELETE`,
+  `*MKDIR` / `*CDIR`, `*RENAME`, `*LOAD`, `*SAVE`, `*TYPE`, `*UVER`,
+  `*TIME`, `*TURBO`, `*FX`, `*HELP`.
+- **Help:** `*HELP [subject]`, exact match or prefix list, paged.
+  `genhelp.py` fails the build when a MOS command has no help entry.
+- **Guardrails:** MOS zero page reduced to `$52-$6F` (`&70-&8F` free for
+  users, as on a BBC Micro); filing system state in the resident page.
+
+Found on the way:
+- The firmware's message for a missing file is "File doesn't exist".
+- While a UCI file transfer runs, the Ultimate 64-II can refuse a REST
+  memory access ("firmware reported failure"). The E2E client retries.
+
+Next: IEC filing system fallback (Ultimate II+ without UCI, VICE), drives
+and disk images (`*MOUNT`), the PETSCII mode, graphics (MODE/PLOT/DRAW/GCOL)
+and SOUND.

@@ -15,7 +15,10 @@ Types:
 CRT format: VICE manual chapter 17 (header $40 bytes, big-endian fields,
 subtype at offset $1A).
 
-Usage: mkcrt.py --type ef|tmb --name NAME -o OUT.crt BANK0.bin [BANK1.bin ...]
+Usage: mkcrt.py --type ef|tmb --name NAME -o OUT.crt BANK [BANK ...]
+
+Each BANK is a file of 16K banks, all used in order, or FILE:N for only
+the N-th 16K bank of FILE. Banks are numbered in the order given.
 """
 import argparse
 import struct
@@ -48,10 +51,16 @@ def main():
     out += name
     assert len(out) == 0x40
 
-    for n, path in enumerate(args.banks):
+    banks = []
+    for spec in args.banks:
+        path, _, index = spec.partition(":")
         data = open(path, "rb").read()
-        if len(data) != 0x4000:
-            raise SystemExit("%s: %d bytes, expected 16384" % (path, len(data)))
+        if len(data) % 0x4000:
+            raise SystemExit("%s: %d bytes, not a multiple of 16384" % (path, len(data)))
+        chunks = [data[i:i + 0x4000] for i in range(0, len(data), 0x4000)]
+        banks += [chunks[int(index)]] if index else chunks
+
+    for n, data in enumerate(banks):
         if split:
             out += chip(n, 0x8000, data[:0x2000], 2)   # 2 = flash
             out += chip(n, 0xA000, data[0x2000:], 2)
