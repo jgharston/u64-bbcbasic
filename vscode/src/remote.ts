@@ -1,0 +1,279 @@
+// Remote control of U64 BBC BASIC through the MOS mailbox.
+//
+// TypeScript port of tools/u64remote.py (protocol: docs/REMOTE_DEV.md),
+// talking to the Ultimate's REST API with Node's http module. No VS Code
+// dependency, so it can be tested from Node against a real machine.
+
+import * as http from 'http';
+import { tokeniseProgram, detokenise } from './tokenizer';
+
+// Mailbox layout (src/mos/defs.s)
+export const MBOX = 0xc6e0;
+const MB = {
+    HSEQ: 5, CSEQ: 6, REQ: 7, STATUS: 8, RINGW: 12, RINGR: 13, CAPTURE: 14,
+    LINELEN: 15, PROMPT: 17, ERRNUM: 18, ERRCNT: 19, LINE: 20, RING: 110,
+};
+const MB_SIZE = 238, MB_LINEMAX = 74, RING = 128;
+const REQ_LINE = 1, REQ_CAPTURE = 3, REQ_PROGRAM = 4;
+const PAGE = 0x0800, HIMEM = 0x8000, ESCFLG = 0x00ff, SCREEN = 0xc000;
+
+export type State = 'prompt' | 'input' | 'running' | 'idle' | 'timeout';
+
+export interface MachineState {
+    state: State; errorCount: number; lastError: number; capture: boolean;
+}
+
+export interface BasicError { number: number; message: string; line: number | null; }
+
+export interface RunResult {
+    ok: boolean; state: State; output: string; error: BasicError | null;
+    elapsed: number; programBytes?: number;
+}
+
+export class RemoteError extends Error {}
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+export class Remote {
+    constructor(public host: string, private password?: string, private requestTimeout = 10000) {}
+
+    // --- REST ---------------------------------------------------------------
+
+    private request(method: string, path: string, body?: Uint8Array): Promise<Buffer> {
+        return new Promise((resolve, reject) => {
+            const headers: Record<string, string> = {};
+            if (body) { headers['Content-Type'] = 'application/octet-stream'; }
+            if (this.password) { headers['X-Password'] = this.password; }
+            const req = http.request({ host: this.host, port: 80, method, path, headers,
+                                       timeout: this.requestTimeout }, res => {
+                const chunks: Buffer[] = [];
+                res.on('data', c => chunks.push(c));
+                res.on('end', () => (res.statusCode ?? 500) >= 400
+                    ? reject(new RemoteError(`${method} ${path}: HTTP ${res.statusCode}`))
+                    : resolve(Buffer.concat(chunks)));
+            });
+            req.on('timeout', () => req.destroy(new RemoteError(`${this.host}: time-out`)));
+            req.on('error', e => reject(e instanceof RemoteError ? e : new RemoteError(`${this.host}: ${e.message}`)));
+            if (body) { req.write(body); }
+            req.end();
+        });
+    }
+
+    /** Retried: the firmware refuses DMA while a UCI transfer runs. */
+    private async retry<T>(f: () => Promise<T>): Promise<T> {
+        for (let attempt = 0; ; attempt++) {
+            try { return await f(); } catch (e) {
+                if (attempt >= 5) { throw e; }
+                await sleep(200);
+            }
+        }
+    }
+
+    async read(address: number, length: number): Promise<Buffer> {
+        const hex = address.toString(16).toUpperCase().padStart(4, '0');
+        const data = await this.retry(() =>
+            this.request('GET', `/v1/machine:readmem?address=${hex}&length=${length}`));
+        if (data.length < length) { throw new RemoteError(`short read at $${hex}`); }
+        return data.subarray(0, length);
+    }
+
+    async write(address: number, data: Uint8Array | number[]): Promise<void> {
+        const hex = address.toString(16).toUpperCase().padStart(4, '0');
+        await this.retry(() => this.request('POST', `/v1/machine:writemem?address=${hex}`,
+                                            Uint8Array.from(data)));
+    }
+
+    async info(): Promise<any> {
+        return JSON.parse((await this.request('GET', '/v1/info')).toString());
+    }
+
+    // --- mailbox --------------------------------------------------------------
+
+    async mailbox(): Promise<Buffer> {
+        const mb = await this.read(MBOX, MB_SIZE);
+        if (mb.subarray(0, 4).toString('latin1') !== 'BBCR') {
+            throw new RemoteError(`U64 BBC BASIC is not running on ${this.host}`);
+        }
+        return mb;
+    }
+
+    stateOf(mb: Buffer): MachineState {
+        const waiting = mb[MB.STATUS] === 1;
+        return {
+            state: waiting ? (mb[MB.PROMPT] === 0x07 ? 'prompt' : 'input')
+                           : (mb[MB.STATUS] === 2 ? 'running' : 'idle'),
+            errorCount: mb[MB.ERRCNT], lastError: mb[MB.ERRNUM], capture: mb[MB.CAPTURE] !== 0,
+        };
+    }
+
+    async state(): Promise<MachineState> { return this.stateOf(await this.mailbox()); }
+
+    async post(request: number, data: Uint8Array | number[] = [], timeout = 10000): Promise<void> {
+        if (data.length > MB_LINEMAX) { throw new RemoteError(`line longer than ${MB_LINEMAX} characters`); }
+        const mb = await this.mailbox();
+        const seq = (mb[MB.HSEQ] + 1) & 0xff;
+        await this.write(MBOX + MB.LINE, Array.from(data));
+        await this.write(MBOX + MB.LINELEN, [data.length]);
+        await this.write(MBOX + MB.REQ, [request]);
+        await this.write(MBOX + MB.HSEQ, [seq]);           // last: makes it valid
+        const deadline = Date.now() + timeout;
+        while ((await this.read(MBOX + MB.CSEQ, 1))[0] !== seq) {
+            if (Date.now() > deadline) { throw new RemoteError('the MOS did not take the request'); }
+            await sleep(50);
+        }
+    }
+
+    async waitLineWanted(timeout: number): Promise<MachineState> {
+        const deadline = Date.now() + timeout;
+        for (;;) {
+            const st = await this.state();
+            if (st.state === 'prompt' || st.state === 'input') { return st; }
+            if (Date.now() > deadline) { throw new RemoteError(`BASIC is busy (${st.state})`); }
+            await sleep(100);
+        }
+    }
+
+    async drain(mb?: Buffer): Promise<number[]> {
+        mb = mb ?? await this.mailbox();
+        const w = mb[MB.RINGW], r = mb[MB.RINGR];
+        if (w === r) { return []; }
+        const ring = Array.from(mb.subarray(MB.RING, MB.RING + RING));
+        const out = w > r ? ring.slice(r, w) : ring.slice(r).concat(ring.slice(0, w));
+        await this.write(MBOX + MB.RINGR, [w]);
+        return out;
+    }
+
+    // --- operations -----------------------------------------------------------
+
+    /** Type lines at the prompt or INPUT; collect output and errors.
+     *  onOutput receives output text as it arrives. */
+    async runLines(lines: string[], timeout = 30000, onOutput?: (text: string) => void,
+                   prepared?: { errorsBefore: number }): Promise<RunResult> {
+        let errorsBefore: number;
+        if (prepared) {
+            errorsBefore = prepared.errorsBefore;
+        } else {
+            const st = await this.waitLineWanted(10000);
+            errorsBefore = st.errorCount;
+            await this.post(REQ_CAPTURE, [1]);
+            await this.drain();
+        }
+        const raw: number[] = [];
+        const start = Date.now(), deadline = start + timeout;
+        const pending = [...lines];
+        let state: State = 'running';
+        let shown = '';
+        const emit = () => {
+            if (!onOutput) { return; }
+            const text = cleanOutput(raw);
+            if (text.length > shown.length) { onOutput(text.slice(shown.length)); shown = text; }
+        };
+        for (;;) {
+            const mb = await this.mailbox();
+            raw.push(...await this.drain(mb));
+            emit();
+            const st = this.stateOf(mb);
+            if (st.state === 'prompt' || st.state === 'input') {
+                if (pending.length) {
+                    await this.post(REQ_LINE, latin1(pending.shift()!));
+                    continue;
+                }
+                await sleep(50);
+                raw.push(...await this.drain());
+                emit();
+                state = st.state;
+                break;
+            }
+            if (Date.now() > deadline) { state = 'timeout'; break; }
+            await sleep(30);
+        }
+        const st = await this.state();
+        const output = cleanOutput(raw);
+        const result: RunResult = { ok: state !== 'timeout', state, output, error: null,
+                                    elapsed: (Date.now() - start) / 1000 };
+        if (st.errorCount !== errorsBefore) {
+            const message = lastLine(output);
+            const m = /^(.*) at line (\d+)$/.exec(message);
+            result.ok = false;
+            result.error = { number: st.lastError, message: m ? m[1] : message,
+                             line: m ? Number(m[2]) : null };
+        }
+        return result;
+    }
+
+    async sendProgram(text: string, run: boolean, timeout = 30000,
+                      onOutput?: (text: string) => void): Promise<RunResult> {
+        const { image } = tokeniseProgram(text);
+        if (PAGE + image.length > HIMEM - 1024) {
+            throw new RemoteError(`program too big (${image.length} bytes)`);
+        }
+        const st = await this.waitLineWanted(10000);
+        if (st.state !== 'prompt') { throw new RemoteError('BASIC is waiting for INPUT, not at the prompt'); }
+        await this.post(REQ_CAPTURE, [1]);
+        await this.drain();
+        await this.write(PAGE, image);
+        await this.post(REQ_PROGRAM, [run ? 1 : 0]);
+        const r = await this.runLines([], timeout, onOutput, { errorsBefore: st.errorCount });
+        r.programBytes = image.length;
+        return r;
+    }
+
+    async stop(): Promise<void> { await this.write(ESCFLG, [0x80]); }
+
+    async screen(): Promise<string[]> {
+        const data = await this.read(SCREEN, 1000);
+        const rows: string[] = [];
+        for (let r = 0; r < 25; r++) {
+            rows.push(Array.from(data.subarray(r * 40, r * 40 + 40), c => screenChar(c)).join('').replace(/\s+$/, ''));
+        }
+        return rows;
+    }
+
+    async programText(): Promise<string> {
+        const parts: Buffer[] = [];
+        for (let i = 0; i < 0x4000; i += 0x1000) { parts.push(await this.read(PAGE + i, 0x1000)); }
+        const image = Buffer.concat(parts);
+        const end = image.indexOf(Buffer.from([0x0d, 0xff]));
+        if (image[0] !== 0x0d || end < 0) { throw new RemoteError('no program at PAGE'); }
+        return detokenise(image.subarray(0, end + 2));
+    }
+}
+
+function latin1(text: string): number[] {
+    return Array.from(text, ch => ch.charCodeAt(0) & 0xff);
+}
+
+const VDU_PARAMS = [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 1, 2, 5, 0, 0, 1, 9, 8, 5, 0, 0, 4, 4, 0, 2];
+
+/** Captured VDU bytes -> text: CR -> newline, VDU sequences dropped,
+ *  prompt-only lines removed (as tools/u64remote.py clean_output). */
+export function cleanOutput(raw: number[]): string {
+    const out: string[] = [];
+    for (let i = 0; i < raw.length; i++) {
+        const b = raw[i];
+        if (b === 13) { out.push('\n'); }
+        else if (b === 10 || b === 127) { /* skip */ }
+        else if (b < 32) { i += VDU_PARAMS[b]; }
+        else if (b < 127) { out.push(String.fromCharCode(b)); }
+    }
+    return out.join('').split('\n').filter(l => l.trim() && l !== '>').map(l => l + '\n').join('');
+}
+
+function lastLine(text: string): string {
+    const lines = text.split('\n').filter(l => l.trim());
+    return lines.length ? lines[lines.length - 1].trim() : '';
+}
+
+/** Screen code -> ASCII for the MOS character set (tools/gentables.py). */
+function screenChar(code: number): string {
+    const c = code & 0x7f;
+    const special: Record<number, string> = { 0x1c: '\\', 0x1e: '^', 0x1f: '_', 0x7a: '`',
+                                              0x5b: '{', 0x69: '|', 0x5d: '}', 0x5e: '~',
+                                              0x00: '@', 0x1b: '[', 0x1d: ']' };
+    if (c in special) { return special[c]; }
+    if (c >= 0x01 && c <= 0x1a) { return String.fromCharCode(c + 0x60); }
+    if (c >= 0x41 && c <= 0x5a) { return String.fromCharCode(c); }
+    if (c >= 0x20 && c <= 0x3f) { return String.fromCharCode(c); }
+    return '#';
+}

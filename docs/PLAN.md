@@ -601,3 +601,100 @@ Found on the way:
 Next: IEC filing system fallback (Ultimate II+ without UCI, VICE), drives
 and disk images (`*MOUNT`), the PETSCII mode, graphics (MODE/PLOT/DRAW/GCOL)
 and SOUND.
+
+## 16. Design note for graphics and sound (owner, 2026-10-04)
+
+Aim for the highest compatibility with BBC Micro programs, including their
+graphics and sound: MODE 0-7 semantics, VDU 4/5, 18-29 (GCOL, palette,
+windows, origin), PLOT (lines, triangles, fills, circles), POINT, CLG,
+SOUND with its four channels, and ENVELOPE. At the same time make full
+use of the C64: VIC-II (hires/multicolour bitmaps, sprites, raster
+effects, the 16 colours with palette control, Upic) and SID (three voices
+with waveforms, ADSR, filter; second SID, Ultimate Audio).
+
+If one model cannot serve both, add a switch between a **BBC Micro mode**
+(BBC behaviour first: BBC screen modes mapped onto the C64, BBC sound
+semantics on SID) and a **Commodore mode** (C64 behaviour first: direct
+VIC/SID access, PETSCII, C64 colours, sprites), for example `*BBC` /
+`*C64`, with the current mode remembered and shown at start-up. This
+joins the decided PETSCII mode (section 14). To design in detail when
+graphics and sound are started.
+
+## 17. Using the REU (16 MB) — proposals (2026-10-04)
+
+Working assumption from the owner: an REU is always there (the `.cfg`
+switches it on; the Ultimate II+ has one as well). The MOS detects it and
+its size at start-up; without an REU these features report "No REU" and
+everything else keeps working.
+
+**Speed fact first.** REU DMA moves one byte per bus cycle, about 1 MB/s,
+and stops the CPU meanwhile. At 48/64 MHz the CPU copies RAM to RAM faster
+(roughly 5-10 MB/s). So the REU is not a faster RAM. It gives capacity,
+and the Ultimate can fill it directly from files. It speeds things up
+where the alternative is slower than 1 MB/s: the 1 MHz cartridge ROM, UCI
+commands per byte, and the network.
+
+Proposals, most useful first:
+
+1. **REU as a fast filing system and file cache.**
+   - `*FS REU` or a `:R.` drive: a RAM disk of up to 16 MB with a
+     directory, used by LOAD, SAVE, OPENIN and BGET#. LOAD and SAVE
+     become DMA transfers; BGET#/BPUT# become RAM speed instead of one
+     UCI command per byte.
+   - The Ultimate filing system can read whole files into the REU
+     (DOS "load REU", one command for the whole file). OPENIN then only
+     fetches the file once, and BGET# reads from the REU through a
+     small RAM window.
+   - This removes today's main bottleneck: per-byte file I/O.
+2. **Program and session snapshots.**
+   - `*SNAPSHOT n` and `*RESTORE n` save and restore all of PAGE..HIMEM
+     plus the BASIC workspace (&0400-&07FF) and zero page: about 31K, so
+     500 slots in 16 MB.
+   - Uses: instant switching between programs including their
+     variables; an automatic snapshot before every RUN, so `*UNDO` can
+     recover from a crash or a NEW; and the remote debugger (rewind to
+     the state before a run).
+3. **Overlays for the MOS.**
+   - The cartridge banks are copied to the REU at start-up. MOS code
+     that should run fast (OSWRCH, the VDU and graphics driver, the
+     filing system) is pulled into a RAM overlay area by DMA, instead of
+     running at 1 MHz from cartridge ROM.
+   - Better still, the most-used parts move to RAM permanently and the
+     rest is paged in.
+   - This needs a RAM overlay window, competing with program space and
+     the graphics bitmap, so it is to be sized when graphics are
+     designed.
+4. **Graphics.**
+   - Several full screens (bitmap and colour, 9-10K each) in the REU:
+     double buffering, instant MODE switching back to the text screen
+     with its content kept, and picture libraries.
+   - Upic: 48K pictures are kept in the REU, so BASIC keeps its full
+     memory while editing and swaps the picture in only for display.
+   - Sprite and character-set sheets.
+5. **Sound.**
+   - Ultimate Audio plays samples straight from the REU (this is how the
+     library's audio and MOD player work). SOUND and ENVELOPE can get
+     sampled instruments, and `*MODPLAY` keeps the module in the REU.
+6. **Big data for programs, without changing the interpreter.**
+   - OSWORD calls and `*` commands for block moves between memory and
+     the REU (`OSWORD &E0`: address, REU offset, length, direction), and
+     `*REU LOAD/SAVE` of files straight into the REU.
+   - Plus a small BASIC library (PROCs/FNs) giving programs megabytes
+     of arrays and data in pages. BBC BASIC itself still has 30K for
+     program and variables.
+7. **Remote and debugging.**
+   - A long output log and a TRACE history (the last thousands of lines
+     executed, with chosen variables) in the REU. The debugger and AI
+     agents can then ask "how did we get here".
+   - The REST API cannot read the REU directly, so the MOS pages the log
+     through the mailbox.
+8. **Command-line history.** The last few hundred typed lines, recalled
+   with the cursor keys once the MOS has its own line editor.
+
+Not proposed: using the REU as transparent extra memory for BBC BASIC
+variables. That would need the interpreter to be patched, which is ruled
+out (section 14).
+
+Suggested order: 1 (file speed), 2 (snapshots, also for the debugger),
+6 (REU commands), then 4 and 5 together with graphics and sound, and 3
+when the RAM map for graphics is fixed.

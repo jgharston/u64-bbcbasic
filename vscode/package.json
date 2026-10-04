@@ -1,0 +1,170 @@
+{
+  "name": "u64-bbcbasic",
+  "displayName": "U64 BBC BASIC",
+  "description": "Write BBC BASIC on your PC and run it on an Ultimate 64 / C64 Ultimate running the U64 BBC BASIC cartridge.",
+  "version": "0.1.0",
+  "publisher": "xahmol",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xahmol/u64-bbcbasic"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Debuggers",
+    "Other"
+  ],
+  "main": "./out/src/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "languages": [
+      {
+        "id": "bbcbasic",
+        "aliases": [
+          "BBC BASIC",
+          "bbcbasic"
+        ],
+        "extensions": [
+          ".bas",
+          ".bbc"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "bbcbasic",
+        "scopeName": "source.bbcbasic",
+        "path": "./syntaxes/bbcbasic.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "u64bbc.run",
+        "title": "Run on U64",
+        "category": "U64 BBC BASIC",
+        "icon": "$(play)"
+      },
+      {
+        "command": "u64bbc.send",
+        "title": "Send Program (LOAD, don't run)",
+        "category": "U64 BBC BASIC"
+      },
+      {
+        "command": "u64bbc.stop",
+        "title": "Stop (ESCAPE)",
+        "category": "U64 BBC BASIC",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "u64bbc.typeLine",
+        "title": "Type a Line at the Prompt...",
+        "category": "U64 BBC BASIC"
+      },
+      {
+        "command": "u64bbc.answerInput",
+        "title": "Answer INPUT...",
+        "category": "U64 BBC BASIC"
+      },
+      {
+        "command": "u64bbc.getProgram",
+        "title": "Get Program from the Machine",
+        "category": "U64 BBC BASIC"
+      },
+      {
+        "command": "u64bbc.screen",
+        "title": "Show the Screen",
+        "category": "U64 BBC BASIC"
+      },
+      {
+        "command": "u64bbc.check",
+        "title": "Check Program",
+        "category": "U64 BBC BASIC"
+      },
+      {
+        "command": "u64bbc.selectMachine",
+        "title": "Select Machine...",
+        "category": "U64 BBC BASIC"
+      },
+      {
+        "command": "u64bbc.status",
+        "title": "Refresh Machine Status",
+        "category": "U64 BBC BASIC"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "u64bbc.run",
+          "when": "editorLangId == bbcbasic",
+          "group": "navigation"
+        },
+        {
+          "command": "u64bbc.stop",
+          "when": "editorLangId == bbcbasic",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "u64bbc.run",
+        "key": "ctrl+f5",
+        "when": "editorLangId == bbcbasic"
+      },
+      {
+        "command": "u64bbc.stop",
+        "key": "shift+f5",
+        "when": "editorLangId == bbcbasic"
+      },
+      {
+        "command": "u64bbc.typeLine",
+        "key": "ctrl+alt+enter",
+        "when": "editorLangId == bbcbasic"
+      }
+    ],
+    "configuration": {
+      "title": "U64 BBC BASIC",
+      "properties": {
+        "u64bbc.host": {
+          "type": "string",
+          "default": "",
+          "description": "IP address or host name of the Ultimate 64 / C64 Ultimate."
+        },
+        "u64bbc.password": {
+          "type": "string",
+          "default": "",
+          "description": "Network password of the Ultimate (if set)."
+        },
+        "u64bbc.timeout": {
+          "type": "number",
+          "default": 30,
+          "description": "Seconds to wait for a program before reporting it as still running."
+        },
+        "u64bbc.promptForInput": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for the answer when a program waits for INPUT."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "gen": "python3 ../tools/genextdata.py data",
+    "compile": "npm run gen && tsc -p .",
+    "test": "npm run compile && node --test out/test/tokenizer.test.js",
+    "test:device": "npm run compile && node out/test/device.js",
+    "package": "npm run compile && vsce package --allow-missing-repository -o ../build/u64-bbcbasic.vsix",
+    "test:vscode": "npm run compile && node out/test/runIntegration.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.4.0"
+  }
+}

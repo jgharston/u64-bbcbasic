@@ -46,6 +46,15 @@ flash.
 - `*HELP` covers every BASIC keyword, command and topic: `*HELP KEYWORDS`,
   `*HELP COMMANDS`, `*HELP TOPICS`.
 
+## Programming from a PC or an AI agent
+
+- **VS Code:** the extension in `vscode/` (`make vscode` builds
+  `build/u64-bbcbasic.vsix`) runs `.bas` files on the machine with
+  Ctrl+F5, shows output and puts run-time errors on the source line.
+- **Command line:** `tools/u64remote.py run prog.bas` (JSON with `--json`).
+- **AI coding agents:** the MCP server `tools/u64mcp.py` (registered in
+  `.mcp.json`); see [docs/AI_AGENTS.md](docs/AI_AGENTS.md).
+
 ## Building from source
 
 Requirements: [MADS](https://github.com/tebe6502/Mad-Assembler) 2.1.x

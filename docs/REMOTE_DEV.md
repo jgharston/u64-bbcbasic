@@ -156,7 +156,12 @@ the C64 side, so the C64 connects out.
 2. PC side: tokeniser plus "send and run" as a Python tool
    (`tools/u64remote.py`), proving the protocol from the command line;
    MCP server for AI agents. **Done.**
-3. VS Code extension: language features, run, output panel.
+3. VS Code extension: language features, run, output panel. **Done**
+   (`vscode/`, `make vscode`): highlighting, completion and hover help
+   from `*HELP`, run/send/stop/type line/INPUT/get program/screen,
+   run-time errors in the Problems panel. Tested offline (TypeScript
+   tokeniser = Python tokeniser), against the machine (protocol) and
+   inside VS Code with @vscode/test-electron (`make vscode-test`).
 4. MOS: TRACE hook with breakpoints and stepping; extension: Debug
    Adapter with variables and call stack.
 5. TCP transport.

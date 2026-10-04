@@ -5,6 +5,8 @@
 # make e2e        end-to-end tests through c64bridge (tests/e2e/README.md)
 # make vice       run the EasyFlash cartridge in VICE
 # make deploy     upload the cartridges to the Ultimates in .env
+# make vscode     build the VS Code extension (build/u64-bbcbasic.vsix)
+# make vscode-test  extension tests (offline, device, inside VS Code)
 
 -include .env
 
@@ -31,7 +33,7 @@ ULTPATH   = /Temp/
 CRTS      = $(BUILD)/$(NAME)-tmb.crt $(BUILD)/$(NAME)-ef.crt
 CFGS      = $(CRTS:.crt=.cfg)
 
-.PHONY: all clean compare-core e2e e2e-vice e2e-u64 vice deploy check-deploy checkcfg
+.PHONY: all clean compare-core e2e e2e-vice e2e-u64 vice deploy check-deploy checkcfg vscode vscode-test
 
 all: $(CRTS) $(CFGS)
 
@@ -118,6 +120,14 @@ deploy: check-deploy $(CRTS) $(CFGS)
 ifdef ULTIP2
 	curl -s -T "{$(subst $(space),$(comma),$(CRTS) $(CFGS))}" ftp://$(ULTIP2)$(ULTPATH)
 endif
+
+# --- VS Code extension (vscode/): build/u64-bbcbasic.vsix
+
+vscode:
+	cd vscode && npm install --no-fund --no-audit && npm run package
+
+vscode-test:
+	cd vscode && npm test && U64_HOST=$(ULTIP1) npm run test:device && U64_HOST=$(ULTIP1) npm run test:vscode
 
 clean:
 	rm -rf $(BUILD)

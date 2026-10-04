@@ -1,0 +1,67 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "BBC BASIC",
+  "scopeName": "source.bbcbasic",
+  "patterns": [
+    { "include": "#linenumber" },
+    { "include": "#rem" },
+    { "include": "#data" },
+    { "include": "#oscli" },
+    { "include": "#assembler" },
+    { "include": "#statement" }
+  ],
+  "repository": {
+    "linenumber": {
+      "match": "^\\s*\\d+",
+      "name": "constant.numeric.line-number.bbcbasic"
+    },
+    "rem": {
+      "match": "\\bREM.*$",
+      "name": "comment.line.rem.bbcbasic"
+    },
+    "data": {
+      "match": "\\b(DATA)(.*)$",
+      "captures": { "1": { "name": "keyword.other.bbcbasic" }, "2": { "name": "string.unquoted.data.bbcbasic" } }
+    },
+    "oscli": {
+      "match": "(?:^\\s*\\d*\\s*|:\\s*)(\\*[A-Za-z.].*)$",
+      "captures": { "1": { "name": "support.function.oscli.bbcbasic" } }
+    },
+    "assembler": {
+      "begin": "\\[",
+      "end": "\\]|$",
+      "name": "meta.assembler.bbcbasic",
+      "patterns": [
+        { "match": "\\\\.*?(?=:|$)", "name": "comment.line.assembler.bbcbasic" },
+        { "match": "\\.[A-Za-z_][A-Za-z0-9_%]*", "name": "entity.name.label.bbcbasic" },
+        { "match": "\\b(OPT)\\b", "name": "keyword.other.bbcbasic" },
+        { "match": "\\b(ADC|AND|ASL|BCC|BCS|BEQ|BIT|BMI|BNE|BPL|BRK|BVC|BVS|CLC|CLD|CLI|CLV|CMP|CPX|CPY|DEC|DEX|DEY|EOR|INC|INX|INY|JMP|JSR|LDA|LDX|LDY|LSR|NOP|ORA|PHA|PHP|PLA|PLP|ROL|ROR|RTI|RTS|SBC|SEC|SED|SEI|STA|STX|STY|TAX|TAY|TSX|TXA|TXS|TYA|EQUB|EQUW|EQUD|EQUS)\\b", "name": "keyword.mnemonic.bbcbasic" },
+        { "include": "#numbers" },
+        { "include": "#strings" }
+      ]
+    },
+    "statement": {
+      "patterns": [
+        { "include": "#strings" },
+        { "include": "#numbers" },
+        { "match": "\\b(PROC|FN)([A-Za-z_`0-9]+)", "captures": { "1": { "name": "keyword.other.bbcbasic" }, "2": { "name": "entity.name.function.bbcbasic" } } },
+        { "match": "\\b(DEF)\\b", "name": "storage.type.function.bbcbasic" },
+        { "match": "\\b(IF|THEN|ELSE|FOR|TO|STEP|NEXT|REPEAT|UNTIL|GOTO|GOSUB|RETURN|ON|ERROR|END|ENDPROC|STOP|RUN|CHAIN)\\b", "name": "keyword.control.bbcbasic" },
+        { "match": "\\b(AND|OR|EOR|NOT|DIV|MOD)\\b", "name": "keyword.operator.word.bbcbasic" },
+        { "match": "(ABS|ACS|ADVAL|ASC|ASN|ATN|BGET|BPUT|CALL|CHR\\$|CLEAR|CLOSE|CLG|CLS|COLOUR|COLOR|COS|COUNT|DATA|DEG|DELETE|DIM|DRAW|ENVELOPE|EOF|ERL|ERR|EVAL|EXP|EXT|FALSE|GCOL|GET\\$|GET|HIMEM|INKEY\\$|INKEY|INPUT|INSTR|INT|LEFT\\$|LEN|LET|LINE|LIST|LISTO|LN|LOAD|LOCAL|LOG|LOMEM|MID\\$|MODE|MOVE|NEW|OFF|OLD|OPENIN|OPENOUT|OPENUP|OSCLI|PAGE|PI|PLOT|POINT|POS|PRINT|PTR|RAD|READ|RENUMBER|REPORT|RESTORE|RIGHT\\$|RND|SAVE|SGN|SIN|SOUND|SPC|SQR|STR\\$|STRING\\$|TAB|TAN|TIME|TRACE|TRUE|USR|VAL|VDU|VPOS|WIDTH|AUTO)", "name": "support.function.builtin.bbcbasic" },
+        { "match": "[A-Za-z_`][A-Za-z0-9_`]*[$%]?", "name": "variable.other.bbcbasic" },
+        { "match": "[-+*/^=<>?!|$~]", "name": "keyword.operator.bbcbasic" }
+      ]
+    },
+    "strings": {
+      "match": "\"[^\"]*\"?",
+      "name": "string.quoted.double.bbcbasic"
+    },
+    "numbers": {
+      "patterns": [
+        { "match": "&[0-9A-Fa-f]+", "name": "constant.numeric.hex.bbcbasic" },
+        { "match": "\\b\\d+(\\.\\d*)?(E[-+]?\\d+)?\\b|\\.\\d+", "name": "constant.numeric.bbcbasic" }
+      ]
+    }
+  }
+}
