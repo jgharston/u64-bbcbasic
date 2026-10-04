@@ -102,6 +102,12 @@ class UltimateTarget(Target):
         if password:
             env["C64U_PASSWORD"] = password
         self.bridge = Bridge(env, self.name, timeout=60)
+        # RAM survives the reset: wipe the old screen and mailbox first, so
+        # the boot test cannot see the previous session's banner while the
+        # cartridge is still starting (that let early mailbox writes be
+        # overwritten by the new cold start)
+        self.bridge.write(0xC000, [0x20] * 1000)
+        self.bridge.write(0xC6E0, [0] * 8)
         self.bridge.call("c64_program", op="run_crt", path=remote)
 
     def press_stop(self):
@@ -482,6 +488,36 @@ def test_remote_stop(t):
     assert r["state"] == "prompt", r
 
 
+DEBUG_PROG = """10 A%=5:B=1.5:C$="TEXT"
+20 FOR I%=1 TO 3
+30 PRINT "I=";I%
+40 NEXT
+50 X=A%*B
+60 PRINT "[NOT A TRACE] [12 X=";X
+70 END
+"""
+
+
+def test_remote_debug(t):
+    rm = remote(t)
+    try:
+        r = rm.debug_start(DEBUG_PROG, breakpoints=[40])
+        assert r["state"] == "paused" and rm.state()["line"] == 40, r
+        v = rm.variables()
+        assert v.get("A%") == 5 and v.get("I%") == 1 and v.get("B") == 1.5 \
+            and v.get("C$") == "TEXT", v
+        r = rm.debug_resume(u64remote.DBG_STEP)       # NEXT jumps back: line
+        assert r["state"] == "paused" and r["line"] == 40 and r["output"] == "I=2\n", r
+        rm.set_breakpoints([])
+        r = rm.debug_resume(u64remote.DBG_CONTINUE)
+        # the trace lines are swallowed; a "[" that is no trace is printed
+        assert r["state"] == "prompt" and r["output"] == \
+            "I=3\n[NOT A TRACE] [12 X=7.5\n", r
+        assert rm.variables().get("X") == 7.5
+    finally:
+        rm.debug_end()
+
+
 TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_program,
          test_error, test_mos_error, test_help, test_help_paging,
          test_bad_number,
@@ -491,7 +527,8 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_fs_channels, test_fs_type, test_fs_errors,
          test_fs_rename_delete, test_turbo_cmd,
          test_remote_exec, test_remote_run_error, test_remote_input,
-         test_remote_long_output, test_remote_tokeniser, test_remote_stop]
+         test_remote_long_output, test_remote_tokeniser, test_remote_stop,
+         test_remote_debug]
 
 
 # ----------------------------------------------------------------------------

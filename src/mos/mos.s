@@ -63,6 +63,7 @@ cold:
     jsr vectors_init
     jsr keyboard_init
     jsr video_init
+    jsr workspace_init
     cli
     farcall fs_init, BANK_FS    ; find the Ultimate (up to 0.5 s)
     jsr banner
@@ -344,6 +345,25 @@ vid_glyphs_done:
     jmp putpet
 
 ; ----------------------------------------------------------------------------
+; workspace_init
+;   Summary: clear BASIC's workspace &0400-&07FF.
+;   Function: it held the KERNAL's start-up screen (spaces), which BASIC
+;            would show as resident integers of &20202020.
+;   Input:   none.  Output: &0400-&07FF = 0.  Uses: A, X.
+
+workspace_init:
+    lda #0
+    tax
+wsi_loop:
+    sta $0400,x
+    sta $0500,x
+    sta $0600,x
+    sta $0700,x
+    inx
+    bne wsi_loop
+    rts
+
+; ----------------------------------------------------------------------------
 ; banner
 ;   Summary: print the start-up banner and the CPU speed in use.
 ;   Input:   turbo_state.
@@ -420,6 +440,15 @@ mos_wrch:
     sta wr_a
     stx wr_x
     sty wr_y
+    ldx MB_DEBUG                ; remote debugger: TRACE "[n] " filter
+    beq wr_nodbg
+    ldx vduq
+    bne wr_nodbg
+    jsr dbg_filter
+    bcc wr_nodbg
+    jmp wr_done                 ; part of a trace: swallowed
+wr_nodbg:
+    lda wr_a
     ldx MB_CAPTURE              ; remote output capture
     beq wr_notee
     jsr wr_tee
@@ -479,6 +508,260 @@ wr_exec:                        ; X = VDU code 0-31
     pha
     lda vdu_table,x
     pha
+    rts
+
+; ----------------------------------------------------------------------------
+; dbg_filter
+;   Summary: remote debugger hook: recognise BASIC's TRACE output.
+;   Function: with TRACE ON, BASIC prints "[n] " through OSWRCH before
+;            each line it runs. In debug mode (MB_DEBUG bit 0) these bytes
+;            are swallowed; at the "]" the line number goes to MB_LINENO
+;            and dbg_line may pause. A "[" not followed by digits and "]"
+;            is printed after all (dbg_flush).
+;   Input:   A = byte (also in wr_a).
+;   Output:  C = 1 if the byte was consumed.
+;   Uses:    A, X, Y, dbg_*, mosNUM.
+dbg_filter:
+    ldx dbg_state
+    bne df_in
+    cmp #'['
+    bne df_space
+    lda #1
+    sta dbg_state
+    lda #0
+    sta dbg_len
+    sta dbg_num
+    sta dbg_num+1
+    sta dbg_skipsp
+    sec
+    rts
+df_space:
+    ldx dbg_skipsp              ; the space BASIC prints after "]"
+    beq df_pass
+    ldx #0
+    stx dbg_skipsp
+    cmp #' '
+    bne df_pass
+    sec
+    rts
+df_pass:
+    clc
+    rts
+df_in:
+    cmp #']'
+    beq df_close
+    cmp #'0'
+    bcc df_abort
+    cmp #'9'+1
+    bcs df_abort
+    ldx dbg_len
+    cpx #5
+    bcs df_abort
+    inc dbg_len
+    and #$0F                    ; dbg_num = dbg_num * 10 + digit
+    pha
+    lda dbg_num
+    asl
+    sta mosNUM
+    lda dbg_num+1
+    rol
+    sta mosNUM+1                ; *2
+    asl dbg_num
+    rol dbg_num+1
+    asl dbg_num
+    rol dbg_num+1
+    asl dbg_num
+    rol dbg_num+1               ; *8
+    lda dbg_num
+    clc
+    adc mosNUM
+    sta dbg_num
+    lda dbg_num+1
+    adc mosNUM+1
+    sta dbg_num+1               ; *10
+    pla
+    clc
+    adc dbg_num
+    sta dbg_num
+    bcc df_digit
+    inc dbg_num+1
+df_digit:
+    sec
+    rts
+df_close:
+    lda dbg_len
+    beq df_abort
+    lda #0
+    sta dbg_state
+    lda #1
+    sta dbg_skipsp
+    jsr dbg_line
+    sec
+    rts
+df_abort:
+    jsr dbg_flush
+    clc                         ; this byte is printed normally
+    rts
+
+; dbg_flush
+;   Summary: print a "[" (and digits) that turned out not to be a trace.
+;   Function: through wr_raw, not OSWRCH: this runs inside mos_wrch,
+;            whose saved registers a nested OSWRCH would overwrite.
+;   Uses:    A, X, Y, mosTMP.
+dbg_flush:
+    lda #0
+    sta dbg_state
+    lda #'['
+    jsr wr_raw
+    lda dbg_len
+    beq dfl_done
+    lda dbg_num                 ; at most 5 digits: print the number
+    sta mosTMP
+    lda dbg_num+1
+    sta mosTMP+1
+    jsr print_u16
+dfl_done:
+    rts
+
+; print_u16
+;   Summary: print mosTMP/mosTMP+1 in decimal, no leading zeros
+;            (through wr_raw, for dbg_flush).
+;   Uses:    A, X, Y, mosTMP, mosNUM.
+print_u16:
+    ldy #0                      ; 1 once a digit is printed
+    ldx #8                      ; powers table index (10000 .. 1)
+pu_digit:
+    lda #'0'
+    sta mosNUM
+pu_sub:
+    lda mosTMP
+    sec
+    sbc pu_pow,x
+    pha
+    lda mosTMP+1
+    sbc pu_pow+1,x
+    bcc pu_done
+    sta mosTMP+1
+    pla
+    sta mosTMP
+    inc mosNUM
+    bne pu_sub
+pu_done:
+    pla
+    lda mosNUM
+    cmp #'0'
+    bne pu_print
+    cpy #0
+    bne pu_print
+    cpx #0                      ; always print the last digit
+    bne pu_next
+pu_print:
+    jsr wr_raw
+    ldy #1
+pu_next:
+    dex
+    dex
+    bpl pu_digit
+    rts
+pu_pow:
+    dta a(1), a(10), a(100), a(1000), a(10000)
+
+; dbg_line
+;   Summary: a traced line is about to run: report it, maybe pause.
+;   Function: MB_LINENO = line. Pauses when stepping (MB_DEBUG bit 1) or
+;            at a breakpoint (MB_BREAK). Paused: MB_STATUS = 3, then waits
+;            for a REQ_DEBUG request: 1 continue, 2 step (pause at the
+;            next line), 3 stop (ESCAPE). RUN/STOP also ends the pause.
+;            Interrupts keep running; the host reads memory meanwhile.
+;   Input:   dbg_num.  Output: MB_LINENO, MB_DEBUG, MB_STATUS.
+;   Uses:    A, X.
+dbg_line:
+    lda dbg_num
+    sta MB_LINENO
+    lda dbg_num+1
+    sta MB_LINENO+1
+    lda MB_DEBUG
+    and #2
+    bne dl_pause
+    ldx #14
+dl_break:
+    lda MB_BREAK,x
+    ora MB_BREAK+1,x
+    beq dl_bnext
+    lda MB_BREAK,x
+    cmp dbg_num
+    bne dl_bnext
+    lda MB_BREAK+1,x
+    cmp dbg_num+1
+    beq dl_pause
+dl_bnext:
+    dex
+    dex
+    bpl dl_break
+    rts
+dl_pause:
+    lda #3
+    sta MB_STATUS
+dl_wait:
+    bit ESCFLG
+    bmi dl_resume
+    lda MB_HSEQ
+    cmp MB_CSEQ
+    beq dl_wait
+    lda MB_REQ
+    cmp #REQ_DEBUG
+    bne dl_wait                 ; other requests wait for the prompt
+    lda MB_LINE
+    cmp #3
+    bne dl_cont
+    lda #$80                    ; stop: ESCAPE
+    sta ESCFLG
+    bne dl_ack
+dl_cont:
+    lda MB_DEBUG                ; 1 continue, 2 step
+    and #$FD
+    ldx MB_LINE
+    cpx #2
+    bne dl_setflags
+    ora #2
+dl_setflags:
+    sta MB_DEBUG
+dl_ack:
+    lda #2
+    sta MB_STATUS
+    lda MB_HSEQ
+    sta MB_CSEQ
+    rts
+dl_resume:
+    lda #2
+    sta MB_STATUS
+    rts
+
+; wr_raw
+;   Summary: print one printable ASCII character from inside mos_wrch:
+;            to the output capture (if on) and the screen.
+;   Input:   A = character (32-126).
+;   Output:  A, X and Y preserved.
+wr_raw:
+    pha
+    txa
+    pha
+    tsx
+    lda $0102,x                 ; the character
+    ldx MB_CAPTURE
+    beq wrr_screen
+    jsr wr_tee
+    tsx
+    lda $0102,x
+wrr_screen:
+    tax
+    lda asc2pet,x
+    beq wrr_done
+    jsr putpet
+wrr_done:
+    pla
+    tax
+    pla
     rts
 
 ; wr_tee

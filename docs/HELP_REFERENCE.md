@@ -29,11 +29,11 @@ stops.
 Topics (*HELP <topic>):
 
 ASSEMBLER    COLOURS      CREDITS
-ERRORS       FILES        KEYBOARD
-LIMITS       MEMORY       MOS
-OPERATORS    OSBYTE       OSWORD
-REMOTE       SPEED        ULTIMATE
-VARIABLES    VDUCODES
+DEBUG        ERRORS       FILES
+KEYBOARD     LIMITS       MEMORY
+MOS          OPERATORS    OSBYTE
+OSWORD       REMOTE       SPEED
+ULTIMATE     VARIABLES    VDUCODES
 ```
 
 ## KEYWORDS
@@ -450,6 +450,25 @@ server tools/u64mcp.py. Nothing changes
 for the user at the keyboard. See
 docs/REMOTE_DEV.md and
 docs/AI_AGENTS.md.
+```
+
+## DEBUG
+
+```
+Programs sent from a PC can be debugged
+there: breakpoints, single steps and a
+view of the variables (VS Code: F5;
+command line: tools/u64remote.py debug;
+AI agents: bbc_debug).
+
+It uses TRACE: BASIC reports each line
+before it runs and the MOS pauses at a
+breakpoint. The line after a FOR or
+REPEAT is reported only on the first
+pass (NEXT and UNTIL jump back into the
+loop line), so for later passes put the
+breakpoint on the NEXT or UNTIL line.
+See REMOTE.
 ```
 
 ## CREDITS

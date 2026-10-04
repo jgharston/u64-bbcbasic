@@ -172,7 +172,11 @@ by_x        = by_a+1
 by_y        = by_x+1
 turbo_state = by_y+1            ; 0 none, 1 enable bit, 2 U64 registers
 inkey_t0    = turbo_state+1     ; 2: INKEY start time
-ramvars_end = inkey_t0+2
+dbg_state   = inkey_t0+2        ; TRACE parser: 0 idle, 1 after '['
+dbg_len     = dbg_state+1       ; digits seen
+dbg_num     = dbg_len+1         ; 2: line number being read
+dbg_skipsp  = dbg_num+2         ; 1: swallow the space after ']'
+ramvars_end = dbg_skipsp+1
     .if ramvars_end > $03FC
     .error "MOS RAM variables overflow the cassette buffer"
     .endif
@@ -215,9 +219,10 @@ MB_VERSION  = MBOX+4            ; protocol version (1)
 MB_HSEQ     = MBOX+5            ; host -> C64 request sequence number
 MB_CSEQ     = MBOX+6            ; C64 -> host: last request handled
 MB_REQ      = MBOX+7            ; request: 1 line, 3 capture, 4 program
-MB_STATUS   = MBOX+8            ; 0 idle, 1 at prompt, 2 running
-MB_LINENO   = MBOX+9            ; 2: current line (debug, later)
-MB_DEBUG    = MBOX+11           ; debug flags (later)
+MB_STATUS   = MBOX+8            ; 0 idle, 1 waiting for a line, 2 running,
+                                ; 3 paused (debugger)
+MB_LINENO   = MBOX+9            ; 2: line about to run (debug mode)
+MB_DEBUG    = MBOX+11           ; debug flags: bit 0 on, bit 1 step
 MB_RINGW    = MBOX+12           ; output ring: write index (C64)
 MB_RINGR    = MBOX+13           ; output ring: read index (host)
 MB_CAPTURE  = MBOX+14           ; 1: OSWRCH output also goes to the ring
@@ -229,11 +234,12 @@ MB_ERRNUM   = MBOX+18           ; number of the last error (ERR)
 MB_ERRCNT   = MBOX+19           ; counts errors (host sees new ones)
 MB_LINE     = MBOX+20           ; 74: line text / request data
 MB_LINEMAX  = 74
-MB_BREAK    = MBOX+94           ; 16: breakpoints (later)
+MB_BREAK    = MBOX+94           ; 16: 8 breakpoint line numbers, 0 = free
 MB_RING     = MBOX+110          ; 128: output ring
 MB_RINGMASK = $7F
 MB_END      = MBOX+238
 
 REQ_LINE    = 1
+REQ_DEBUG   = 2                 ; data: 1 continue, 2 step, 3 stop
 REQ_CAPTURE = 3
 REQ_PROGRAM = 4

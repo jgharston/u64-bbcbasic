@@ -16,6 +16,9 @@ Commands:
   stop                        ESCAPE
   screen                      the 40x25 text screen
   list                        the program in memory as text (LIST)
+  debug PROG.bas [--break N ...] [--entry]
+                              run under the debugger: stops at breakpoints
+  continue | step | vars      while paused: go on, one line, variables
 
 Exit codes: 0 done (also when the program now waits for INPUT: "state"
 is "input"), 1 BASIC reported an error, 2 time-out (still running), 3
@@ -43,7 +46,11 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 # Mailbox layout (src/mos/defs.s)
 MBOX = 0xC6E0
 MB_MAGIC, MB_VERSION, MB_HSEQ, MB_CSEQ, MB_REQ, MB_STATUS = 0, 4, 5, 6, 7, 8
+MB_LINENO, MB_DEBUG = 9, 11
 MB_RINGW, MB_RINGR, MB_CAPTURE, MB_LINELEN, MB_PROG = 12, 13, 14, 15, 16
+MB_BREAK = 94
+REQ_DEBUG = 2
+DBG_CONTINUE, DBG_STEP, DBG_STOP = 1, 2, 3
 MB_PROMPT, MB_ERRNUM, MB_ERRCNT, MB_LINE, MB_RING = 17, 18, 19, 20, 110
 MB_SIZE, MB_LINEMAX, RING = 238, 74, 128
 REQ_LINE, REQ_CAPTURE, REQ_PROGRAM = 1, 3, 4
@@ -123,7 +130,9 @@ class Remote:
         waiting = status == 1
         return {
             "state": ("prompt" if mb[MB_PROMPT] == 0x07 else "input")
-                     if waiting else ("running" if status == 2 else "idle"),
+                     if waiting else {2: "running", 3: "paused"}.get(status, "idle"),
+            "line": mb[MB_LINENO] | mb[MB_LINENO + 1] << 8,
+            "debug": bool(mb[MB_DEBUG] & 1),
             "error_count": mb[MB_ERRCNT],
             "last_error": mb[MB_ERRNUM],
             "capture": bool(mb[MB_CAPTURE]),
@@ -148,6 +157,20 @@ class Remote:
                                    "(not waiting for a line?) mailbox: %s"
                                    % mb.hex(" "))
             time.sleep(0.05)
+
+    def ensure_prompt(self):
+        """Get BASIC to its prompt: a paused debug session is stopped, a
+        running program gets ESCAPE, debug mode goes off."""
+        st = self.state()
+        if st["state"] == "paused":
+            self.post(REQ_DEBUG, bytes([DBG_STOP]))
+        elif st["state"] == "running":
+            self.stop()
+        self.debug_end()
+        st = self.wait_line_wanted(10)
+        if st["state"] != "prompt":
+            raise RemoteError("BASIC is waiting for INPUT, not at the prompt")
+        return st
 
     def wait_line_wanted(self, timeout):
         """Wait until BASIC waits for a line (prompt or INPUT)."""
@@ -199,6 +222,10 @@ class Remote:
             mb = self.mailbox()
             out += self.drain(mb)
             st = self.state(mb)
+            if st["state"] == "paused" and not pending:
+                state = "paused"
+                out += self.drain()
+                break
             if st["state"] in ("prompt", "input"):
                 if pending:
                     self.post(REQ_LINE, pending.pop(0).encode("latin-1"))
@@ -233,9 +260,7 @@ class Remote:
         image = bbctok.tokenise_program(text)
         if PAGE + len(image) > HIMEM - 1024:
             raise ValueError("program too big (%d bytes)" % len(image))
-        st = self.wait_line_wanted(10)
-        if st["state"] != "prompt":
-            raise RemoteError("BASIC is waiting for INPUT, not at the prompt")
+        st = self.ensure_prompt()
         errors_before = st["error_count"]
         self.capture(True)
         self.drain()
@@ -253,6 +278,88 @@ class Remote:
     def stop(self):
         self.write(ESCFLG, [0x80])
 
+    # --- debugger (TRACE hook, docs/REMOTE_DEV.md) ----------------------------
+
+    def set_breakpoints(self, lines):
+        """Up to 8 BASIC line numbers."""
+        words = (list(lines)[:8] + [0] * 8)[:8]
+        self.write(MBOX + MB_BREAK, b"".join(int(n).to_bytes(2, "little") for n in words))
+
+    def debug_start(self, text, breakpoints=(), stop_on_entry=False, timeout=30.0):
+        """Send the program, switch debug mode on, RUN with TRACE ON.
+        Returns as run: state "paused" at a breakpoint, with "line"."""
+        r = self.send_program(text, run=False, timeout=10)
+        if r["error"]:
+            return r
+        self.set_breakpoints(breakpoints)
+        self.write(MBOX + MB_DEBUG, [1 | (2 if stop_on_entry else 0)])
+        return self.run_lines(["TRACE ON:RUN"], timeout=timeout)
+
+    def debug_end(self):
+        self.write(MBOX + MB_DEBUG, [0])
+
+    def debug_resume(self, how, timeout=30.0):
+        """how: DBG_CONTINUE, DBG_STEP or DBG_STOP; returns as run."""
+        st = self.state()
+        if st["state"] != "paused":
+            raise RemoteError("not paused (state %s)" % st["state"])
+        errors_before = st["error_count"]
+        self.post(REQ_DEBUG, bytes([how]))
+        self.errors_before = errors_before
+        r = self.run_lines([], timeout=timeout, prepared=True)
+        if r["state"] == "paused":
+            r["line"] = self.state()["line"]
+        return r
+
+    def variables(self):
+        """BASIC's variables, decoded from memory: resident integers that
+        are not 0, and every dynamic variable (arrays listed by name)."""
+        ws = self.read(0x0400, 0x100)
+        out = {}
+        for i, name in enumerate("@ABCDEFGHIJKLMNOPQRSTUVWXYZ"):
+            v = int.from_bytes(ws[i * 4:i * 4 + 4], "little", signed=True)
+            if v or name == "@":
+                out[name + "%"] = v
+        zp = self.read(0x0000, 0x52)
+        lomem = zp[0x50] | zp[0x51] << 8
+        fsa = zp[0x02] | zp[0x03] << 8
+        if not (0x0800 <= lomem <= fsa <= 0x8000):
+            return out
+        heap = self.read(lomem, max(1, fsa - lomem)) if fsa > lomem else b""
+
+        def rd(addr, n):
+            if lomem <= addr and addr + n <= fsa:
+                return heap[addr - lomem:addr - lomem + n]
+            return self.read(addr, n)
+
+        for c in range(0x40, 0x80):
+            if c in (0x7B, 0x7C):           # PROC and FN lists
+                continue
+            ptr = ws[(2 * c) & 0xFF] | ws[((2 * c) & 0xFF) + 1] << 8
+            seen = 0
+            while ptr >> 8 and seen < 500:      # BASIC ends a list on a zero
+                                                # high byte (low byte is junk)
+                seen += 1
+                rec = rd(ptr, 48)
+                link = rec[0] | rec[1] << 8
+                j = 2
+                while j < len(rec) and rec[j] != 0:
+                    j += 1
+                name = chr(c) + rec[2:j].decode("latin-1")
+                value_at = ptr + j + 1
+                if name.endswith("("):
+                    out[name + ")"] = "array"
+                elif name.endswith("%"):
+                    out[name] = int.from_bytes(rd(value_at, 4), "little", signed=True)
+                elif name.endswith("$"):
+                    a, l = rd(value_at, 4)[0:2], rd(value_at, 4)[3]
+                    addr = a[0] | a[1] << 8
+                    out[name] = rd(addr, l).decode("latin-1") if l else ""
+                else:
+                    out[name] = bbc_float(rd(value_at, 5))
+                ptr = link
+        return out
+
     def screen(self):
         sys.path.insert(0, os.path.join(ROOT, "tests", "e2e"))
         import screen as scr  # noqa: E402
@@ -265,6 +372,19 @@ class Remote:
         if image[0] != 0x0D or end < 0:
             raise RemoteError("no program at PAGE")
         return bbctok.detokenise(image[:end + 2])
+
+
+def bbc_float(b):
+    """BBC BASIC 5-byte real: exponent (excess 128), then 4 mantissa bytes
+    most significant first, the sign in the top bit (implied 1)."""
+    exp = b[0]
+    if exp == 0:
+        return 0.0
+    mant = int.from_bytes(b[1:5], "big")
+    sign = -1 if mant & 0x80000000 else 1
+    mant |= 0x80000000
+    value = sign * mant / 2.0 ** 32 * 2.0 ** (exp - 128)
+    return int(value) if value == int(value) and abs(value) < 1e9 else round(value, 9)
 
 
 def clean_output(raw):
@@ -323,6 +443,13 @@ def main():
     sub.add_parser("stop")
     sub.add_parser("screen")
     sub.add_parser("list")
+    p = sub.add_parser("debug")
+    p.add_argument("file")
+    p.add_argument("--break", dest="breaks", type=int, nargs="*", default=[])
+    p.add_argument("--entry", action="store_true", help="stop at the first line")
+    sub.add_parser("continue")
+    sub.add_parser("step")
+    sub.add_parser("vars")
     args = ap.parse_args()
 
     if not args.host:
@@ -347,6 +474,16 @@ def main():
             result = {"screen": [r.rstrip() for r in remote.screen()]}
         elif args.cmd == "list":
             result = {"program": remote.program_text()}
+        elif args.cmd == "debug":
+            text = open(args.file, encoding="latin-1").read()
+            result = remote.debug_start(text, args.breaks, args.entry, timeout=args.timeout)
+            if result["state"] == "paused":
+                result["line"] = remote.state()["line"]
+        elif args.cmd in ("continue", "step"):
+            result = remote.debug_resume(DBG_CONTINUE if args.cmd == "continue" else DBG_STEP,
+                                         timeout=args.timeout)
+        elif args.cmd == "vars":
+            result = {"variables": remote.variables(), "line": remote.state()["line"]}
         if result.get("ok") is False:
             code = EXIT_TIMEOUT if result.get("state") == "timeout" else EXIT_BASIC_ERROR
     except (RemoteError, TimeoutError, ValueError) as e:
@@ -362,6 +499,12 @@ def main():
             print("\n".join(result["screen"]))
         if "program" in result:
             sys.stdout.write(result["program"])
+        if "variables" in result:
+            for k, v in result["variables"].items():
+                print("%s = %r" % (k, v))
+        if result.get("state") == "paused":
+            print("paused before line %s (continue / step / vars / stop)" % result.get("line"),
+                  file=sys.stderr)
         if args.cmd == "status":
             print(json.dumps(result))
         if result.get("error"):

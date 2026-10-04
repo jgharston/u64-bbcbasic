@@ -698,3 +698,24 @@ out (section 14).
 Suggested order: 1 (file speed), 2 (snapshots, also for the debugger),
 6 (REU commands), then 4 and 5 together with graphics and sound, and 3
 when the RAM map for graphics is fixed.
+
+## 18. Owner notes (2026-10-04, later)
+
+- **REU RAM disk as a drive**, like the Ultimate's /Temp: proposal 1 of
+  section 17, as a drive the filing system can address
+  (e.g. `*DIR :R` or `/REU`), with LOAD/SAVE/OPENIN on it at DMA speed.
+- **BBC Micro character set as an option.** The 8x8 font is in the BBC
+  MOS ROM, which is © Acorn, so it has the same status as the
+  interpreter (see NOTICE.md): no open licence. Options: ship it under
+  the same good-faith notice, behind `*FONT BBC`; or let the user load
+  a font file (`*FONT LOAD file`) so the cartridge contains none. A
+  look-alike drawn from scratch is a third option. To decide when the
+  character set code is touched; the loadable-font route works in any
+  case.
+- **System information command**: show memory (PAGE, TOP, LOMEM,
+  VARTOP, HIMEM, free), MOS version and cartridge type, CPU speed and
+  turbo state, the Ultimate's hardware and firmware, REU size, drives
+  (IEC, SoftIEC, types, power), current directory and open files, the
+  network address, and the date and time. Proposed name `*STATUS`
+  (the Master 128's command for showing settings), with `*SYS` as an
+  alias.

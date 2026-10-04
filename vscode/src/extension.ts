@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import { Remote, RunResult, RemoteError } from './remote';
 import { tokeniseProgram, TokeniseError } from './tokenizer';
 import { lookup, keywords, commands } from './help';
+import { BasicDebugSession } from './debugAdapter';
 
 const LANG = 'bbcbasic';
 let output: vscode.OutputChannel;
@@ -248,6 +249,28 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showInformationMessage(`${tokeniseProgram(doc.getText()).image.length} bytes tokenised, no problems.`);
         }
     });
+
+    // F5: debug with breakpoints (TRACE hook); a .bas file without a
+    // launch.json debugs the file in the editor
+    context.subscriptions.push(
+        vscode.debug.registerDebugAdapterDescriptorFactory('u64bbc', {
+            createDebugAdapterDescriptor: () => new vscode.DebugAdapterInlineImplementation(
+                new BasicDebugSession(remote, timeout,
+                    () => vscode.window.showInputBox({ prompt: 'The program waits for INPUT' }))),
+        }),
+        vscode.debug.registerDebugConfigurationProvider('u64bbc', {
+            resolveDebugConfiguration(_folder, cfg) {
+                if (!cfg.type && !cfg.request) {
+                    const doc = vscode.window.activeTextEditor?.document;
+                    if (!doc || doc.languageId !== LANG) { return undefined; }
+                    cfg = { type: 'u64bbc', request: 'launch', name: 'Debug on U64' };
+                }
+                cfg.program = cfg.program || vscode.window.activeTextEditor?.document.uri.fsPath;
+                if (!cfg.program) { return undefined; }
+                return cfg;
+            },
+        }),
+    );
 
     context.subscriptions.push(
         output, status, diagnostics,

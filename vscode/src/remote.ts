@@ -10,24 +10,26 @@ import { tokeniseProgram, detokenise } from './tokenizer';
 // Mailbox layout (src/mos/defs.s)
 export const MBOX = 0xc6e0;
 const MB = {
-    HSEQ: 5, CSEQ: 6, REQ: 7, STATUS: 8, RINGW: 12, RINGR: 13, CAPTURE: 14,
-    LINELEN: 15, PROMPT: 17, ERRNUM: 18, ERRCNT: 19, LINE: 20, RING: 110,
+    HSEQ: 5, CSEQ: 6, REQ: 7, STATUS: 8, LINENO: 9, DEBUG: 11, RINGW: 12, RINGR: 13,
+    CAPTURE: 14, LINELEN: 15, PROMPT: 17, ERRNUM: 18, ERRCNT: 19, LINE: 20,
+    BREAK: 94, RING: 110,
 };
 const MB_SIZE = 238, MB_LINEMAX = 74, RING = 128;
-const REQ_LINE = 1, REQ_CAPTURE = 3, REQ_PROGRAM = 4;
+const REQ_LINE = 1, REQ_DEBUG = 2, REQ_CAPTURE = 3, REQ_PROGRAM = 4;
+export const DBG_CONTINUE = 1, DBG_STEP = 2, DBG_STOP = 3;
 const PAGE = 0x0800, HIMEM = 0x8000, ESCFLG = 0x00ff, SCREEN = 0xc000;
 
-export type State = 'prompt' | 'input' | 'running' | 'idle' | 'timeout';
+export type State = 'prompt' | 'input' | 'running' | 'paused' | 'idle' | 'timeout';
 
 export interface MachineState {
-    state: State; errorCount: number; lastError: number; capture: boolean;
+    state: State; errorCount: number; lastError: number; capture: boolean; line: number;
 }
 
 export interface BasicError { number: number; message: string; line: number | null; }
 
 export interface RunResult {
     ok: boolean; state: State; output: string; error: BasicError | null;
-    elapsed: number; programBytes?: number;
+    elapsed: number; programBytes?: number; line?: number;
 }
 
 export class RemoteError extends Error {}
@@ -101,8 +103,9 @@ export class Remote {
         const waiting = mb[MB.STATUS] === 1;
         return {
             state: waiting ? (mb[MB.PROMPT] === 0x07 ? 'prompt' : 'input')
-                           : (mb[MB.STATUS] === 2 ? 'running' : 'idle'),
+                           : (mb[MB.STATUS] === 2 ? 'running' : mb[MB.STATUS] === 3 ? 'paused' : 'idle'),
             errorCount: mb[MB.ERRCNT], lastError: mb[MB.ERRNUM], capture: mb[MB.CAPTURE] !== 0,
+            line: mb[MB.LINENO] | (mb[MB.LINENO + 1] << 8),
         };
     }
 
@@ -121,6 +124,18 @@ export class Remote {
             if (Date.now() > deadline) { throw new RemoteError('the MOS did not take the request'); }
             await sleep(50);
         }
+    }
+
+    /** Get BASIC to its prompt: a paused debug session is stopped, a
+     *  running program gets ESCAPE, debug mode goes off. */
+    async ensurePrompt(): Promise<MachineState> {
+        let st = await this.state();
+        if (st.state === 'paused') { await this.post(REQ_DEBUG, [DBG_STOP]); }
+        else if (st.state === 'running') { await this.stop(); }
+        await this.debugEnd();
+        st = await this.waitLineWanted(10000);
+        if (st.state !== 'prompt') { throw new RemoteError('BASIC is waiting for INPUT, not at the prompt'); }
+        return st;
     }
 
     async waitLineWanted(timeout: number): Promise<MachineState> {
@@ -173,6 +188,12 @@ export class Remote {
             raw.push(...await this.drain(mb));
             emit();
             const st = this.stateOf(mb);
+            if (st.state === 'paused' && !pending.length) {
+                raw.push(...await this.drain());
+                emit();
+                state = 'paused';
+                break;
+            }
             if (st.state === 'prompt' || st.state === 'input') {
                 if (pending.length) {
                     await this.post(REQ_LINE, latin1(pending.shift()!));
@@ -191,6 +212,7 @@ export class Remote {
         const output = cleanOutput(raw);
         const result: RunResult = { ok: state !== 'timeout', state, output, error: null,
                                     elapsed: (Date.now() - start) / 1000 };
+        if (state === 'paused') { result.line = st.line; }
         if (st.errorCount !== errorsBefore) {
             const message = lastLine(output);
             const m = /^(.*) at line (\d+)$/.exec(message);
@@ -207,8 +229,7 @@ export class Remote {
         if (PAGE + image.length > HIMEM - 1024) {
             throw new RemoteError(`program too big (${image.length} bytes)`);
         }
-        const st = await this.waitLineWanted(10000);
-        if (st.state !== 'prompt') { throw new RemoteError('BASIC is waiting for INPUT, not at the prompt'); }
+        const st = await this.ensurePrompt();
         await this.post(REQ_CAPTURE, [1]);
         await this.drain();
         await this.write(PAGE, image);
@@ -219,6 +240,74 @@ export class Remote {
     }
 
     async stop(): Promise<void> { await this.write(ESCFLG, [0x80]); }
+
+    // --- debugger (TRACE hook, docs/REMOTE_DEV.md) -----------------------------
+
+    async setBreakpoints(lines: number[]): Promise<void> {
+        const words = [...lines.slice(0, 8), 0, 0, 0, 0, 0, 0, 0, 0].slice(0, 8);
+        await this.write(MBOX + MB.BREAK, words.flatMap(n => [n & 0xff, n >> 8]));
+    }
+
+    async debugStart(text: string, breakpoints: number[], stopOnEntry: boolean,
+                     timeout = 30000, onOutput?: (t: string) => void): Promise<RunResult> {
+        const r = await this.sendProgram(text, false, 10000);
+        if (r.error) { return r; }
+        await this.setBreakpoints(breakpoints);
+        await this.write(MBOX + MB.DEBUG, [1 | (stopOnEntry ? 2 : 0)]);
+        return this.runLines(['TRACE ON:RUN'], timeout, onOutput);
+    }
+
+    async debugResume(how: number, timeout = 30000, onOutput?: (t: string) => void): Promise<RunResult> {
+        const st = await this.state();
+        if (st.state !== 'paused') { throw new RemoteError(`not paused (${st.state})`); }
+        await this.post(REQ_DEBUG, [how]);
+        return this.runLines([], timeout, onOutput, { errorsBefore: st.errorCount });
+    }
+
+    /** Pause a running program at its next traced line. */
+    async requestPause(): Promise<void> {
+        const flags = (await this.read(MBOX + MB.DEBUG, 1))[0];
+        await this.write(MBOX + MB.DEBUG, [flags | 2]);
+    }
+
+    async debugEnd(): Promise<void> { await this.write(MBOX + MB.DEBUG, [0]); }
+
+    /** BASIC's variables, decoded from memory (as tools/u64remote.py). */
+    async variables(): Promise<Map<string, number | string>> {
+        const ws = await this.read(0x0400, 0x100);
+        const out = new Map<string, number | string>();
+        '@ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').forEach((name, i) => {
+            const v = ws.readInt32LE(i * 4);
+            if (v || name === '@') { out.set(name + '%', v); }
+        });
+        const zp = await this.read(0, 0x52);
+        const lomem = zp[0x50] | (zp[0x51] << 8), fsa = zp[0x02] | (zp[0x03] << 8);
+        if (!(lomem >= 0x0800 && lomem <= fsa && fsa <= 0x8000)) { return out; }
+        const heap = fsa > lomem ? await this.read(lomem, fsa - lomem) : Buffer.alloc(0);
+        const rd = async (addr: number, n: number) =>
+            addr >= lomem && addr + n <= fsa ? heap.subarray(addr - lomem, addr - lomem + n)
+                                             : await this.read(addr, n);
+        for (let c = 0x40; c < 0x80; c++) {
+            if (c === 0x7b || c === 0x7c) { continue; }        // PROC and FN lists
+            let ptr = ws[(2 * c) & 0xff] | (ws[((2 * c) & 0xff) + 1] << 8);
+            for (let seen = 0; (ptr >> 8) && seen < 500; seen++) {   // zero high byte ends
+                const rec = await rd(ptr, 48);
+                let j = 2;
+                while (j < rec.length && rec[j] !== 0) { j++; }
+                const name = String.fromCharCode(c) + rec.subarray(2, j).toString('latin1');
+                const at = ptr + j + 1;
+                if (name.endsWith('(')) { out.set(name + ')', 'array'); }
+                else if (name.endsWith('%')) { out.set(name, (await rd(at, 4)).readInt32LE(0)); }
+                else if (name.endsWith('$')) {
+                    const d = await rd(at, 4);
+                    const len = d[3];
+                    out.set(name, len ? (await rd(d[0] | (d[1] << 8), len)).toString('latin1') : '');
+                } else { out.set(name, bbcFloat(await rd(at, 5))); }
+                ptr = rec[0] | (rec[1] << 8);
+            }
+        }
+        return out;
+    }
 
     async screen(): Promise<string[]> {
         const data = await this.read(SCREEN, 1000);
@@ -237,6 +326,17 @@ export class Remote {
         if (image[0] !== 0x0d || end < 0) { throw new RemoteError('no program at PAGE'); }
         return detokenise(image.subarray(0, end + 2));
     }
+}
+
+/** BBC BASIC 5-byte real: exponent (excess 128), mantissa MSB first with
+ *  the sign in its top bit (implied 1). */
+export function bbcFloat(b: Uint8Array): number {
+    if (b[0] === 0) { return 0; }
+    let mant = ((b[1] << 24) >>> 0) + (b[2] << 16) + (b[3] << 8) + b[4];
+    const sign = mant & 0x80000000 ? -1 : 1;
+    mant = (mant | 0x80000000) >>> 0;
+    const v = sign * mant / 2 ** 32 * 2 ** (b[0] - 128);
+    return Number.isInteger(v) ? v : Number(v.toPrecision(10));
 }
 
 function latin1(text: string): number[] {

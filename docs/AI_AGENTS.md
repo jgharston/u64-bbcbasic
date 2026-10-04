@@ -30,6 +30,9 @@ Code extension (docs/REMOTE_DEV.md).
 | `bbc_status` | prompt / input / running, last error |
 | `bbc_screen` | the 40x25 text screen |
 | `bbc_list` | the program in memory |
+| `bbc_debug` | run under the debugger with breakpoints (BASIC line numbers); pauses with `state: "paused"`, `line` |
+| `bbc_step` / `bbc_continue` | while paused: one line / to the next breakpoint or the end |
+| `bbc_vars` | variables (resident integers, reals, integers, strings; arrays by name) and the current line |
 
 Results are JSON:
 
@@ -83,5 +86,7 @@ Read `bbc_help LIMITS` first. Short version:
 5. A program that never ends: `bbc_stop`, then `bbc_exec ["PRINT ERL"]`
    shows where it was.
 
-Breakpoints and single-stepping through the debug hook are planned
-(docs/REMOTE_DEV.md, phase 4).
+6. Breakpoints: `bbc_debug` with `breakpoints: [120]`; at the pause
+   `bbc_vars`, then `bbc_step` or `bbc_continue`. BBC BASIC traces the
+   line after a FOR or REPEAT only on the first pass: for later loop
+   passes put the breakpoint on the NEXT/UNTIL line.

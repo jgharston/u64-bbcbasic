@@ -64,6 +64,29 @@ TOOLS = [
     {"name": "bbc_list",
      "description": "The program in memory, as text.",
      "inputSchema": {"type": "object", "properties": dict(**HOST_PROP)}},
+    {"name": "bbc_debug",
+     "description": "Run a program under the debugger (BBC TRACE hook): it "
+                    "pauses before a breakpoint line (state 'paused', with "
+                    "'line'). Then use bbc_vars, bbc_step, bbc_continue, "
+                    "bbc_stop. Note: BBC BASIC does not trace the first body "
+                    "line of a loop when NEXT/UNTIL jumps back to it; put "
+                    "loop breakpoints on the NEXT/UNTIL line or later.",
+     "inputSchema": {"type": "object", "required": ["program"],
+                     "properties": dict(program={"type": "string"},
+                                        breakpoints={"type": "array", "items": {"type": "integer"}},
+                                        stop_on_entry={"type": "boolean"},
+                                        **TIMEOUT_PROP, **HOST_PROP)}},
+    {"name": "bbc_continue",
+     "description": "Paused in the debugger: run on to the next breakpoint or the end.",
+     "inputSchema": {"type": "object", "properties": dict(**TIMEOUT_PROP, **HOST_PROP)}},
+    {"name": "bbc_step",
+     "description": "Paused in the debugger: run one line, pause before the next.",
+     "inputSchema": {"type": "object", "properties": dict(**TIMEOUT_PROP, **HOST_PROP)}},
+    {"name": "bbc_vars",
+     "description": "BASIC's variables (resident integers, reals, integers, "
+                    "strings; arrays by name) and the current line. Works "
+                    "while paused or at the prompt.",
+     "inputSchema": {"type": "object", "properties": dict(**HOST_PROP)}},
     {"name": "bbc_check",
      "description": "Tokenise a program on the host without a machine: finds "
                     "missing/descending line numbers and over-long lines, and "
@@ -126,6 +149,17 @@ def call(name, args):
         return {"screen": [x.rstrip() for x in r.screen()]}
     if name == "bbc_list":
         return {"program": r.program_text()}
+    if name == "bbc_debug":
+        res = r.debug_start(args["program"], args.get("breakpoints", []),
+                            bool(args.get("stop_on_entry")), timeout=timeout)
+        if res["state"] == "paused":
+            res["line"] = r.state()["line"]
+        return res
+    if name in ("bbc_continue", "bbc_step"):
+        return r.debug_resume(u64remote.DBG_CONTINUE if name == "bbc_continue"
+                              else u64remote.DBG_STEP, timeout=timeout)
+    if name == "bbc_vars":
+        return {"variables": r.variables(), "line": r.state()["line"]}
     raise KeyError(name)
 
 

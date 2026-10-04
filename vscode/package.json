@@ -150,7 +150,59 @@
           "description": "Ask for the answer when a program waits for INPUT."
         }
       }
-    }
+    },
+    "breakpoints": [
+      {
+        "language": "bbcbasic"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "u64bbc",
+        "label": "U64 BBC BASIC",
+        "languages": [
+          "bbcbasic"
+        ],
+        "configurationAttributes": {
+          "launch": {
+            "required": [
+              "program"
+            ],
+            "properties": {
+              "program": {
+                "type": "string",
+                "description": "The .bas file to run",
+                "default": "${file}"
+              },
+              "stopOnEntry": {
+                "type": "boolean",
+                "description": "Pause before the first line",
+                "default": false
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "u64bbc",
+            "request": "launch",
+            "name": "Debug on U64",
+            "program": "${file}"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "U64 BBC BASIC: Debug on U64",
+            "body": {
+              "type": "u64bbc",
+              "request": "launch",
+              "name": "Debug on U64",
+              "program": "^\"\\${file}\""
+            }
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "gen": "python3 ../tools/genextdata.py data",

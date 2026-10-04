@@ -163,7 +163,18 @@ the C64 side, so the C64 connects out.
    tokeniser = Python tokeniser), against the machine (protocol) and
    inside VS Code with @vscode/test-electron (`make vscode-test`).
 4. MOS: TRACE hook with breakpoints and stepping; extension: Debug
-   Adapter with variables and call stack.
+   Adapter with variables and call stack. **Done** (without call stack):
+   `dbg_filter`/`dbg_line` in `src/mos/mos.s`, `debug`/`continue`/`step`/
+   `vars` in `tools/u64remote.py`, `bbc_debug`/`bbc_continue`/
+   `bbc_step`/`bbc_vars` for agents, F5 debugging in VS Code
+   (`vscode/src/debugAdapter.ts`). Tested in E2E (`remote_debug`) and
+   inside VS Code.
+
+   **Limitation (BBC BASIC's TRACE):** the line after a FOR or REPEAT
+   is traced only on the first pass, because NEXT and UNTIL jump back
+   into the middle of the loop line. Breakpoints on later loop passes go
+   on the NEXT/UNTIL line or after it. Lines reached in sequence or by
+   GOTO/GOSUB are always traced.
 5. TCP transport.
 
 ## 9. Open questions

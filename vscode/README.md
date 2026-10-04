@@ -16,6 +16,11 @@ cartridge, over the network.
   `PRINT A%`, `LIST`, `*CAT`.
 - **Get Program from the Machine**, **Show the Screen**, **Check Program**
   (offline: line numbers, line lengths).
+- **Debugging (F5)**: breakpoints in the gutter (BASIC lines), pause,
+  step, continue, stop, and a Variables view (resident integers and the
+  program's variables). It uses BBC BASIC's TRACE: the line after a FOR
+  or REPEAT is traced only on the first pass, so for later passes put
+  the breakpoint on the NEXT/UNTIL line.
 - **Syntax highlighting**, keyword **completion** and **hover help**: the
   same reference as `*HELP` on the machine.
 
