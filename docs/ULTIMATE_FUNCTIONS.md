@@ -17,13 +17,13 @@ Status: **done**, **next** (batch), or a later batch letter.
 | `0x02`-`0x05` | open/close/read/write | OPENIN/OPENOUT/OPENUP, BGET#, BPUT#, PRINT#, INPUT#, CLOSE#, LOAD, SAVE, `*LOAD`, `*SAVE`, `*TYPE` | done |
 | `0x06`-`0x08` | seek, info, stat | PTR#= , EXT#, OSFILE 5 | done |
 | `0x09`, `0x0A` | delete, rename | `*DELETE`, `*RENAME` | done |
-| `0x0B` | copy | `*COPY <from> <to>` | A |
+| `0x0B` | copy (into a directory, same name, no overwrite) | `*COPY <file> <directory>` | A |
 | `0x11`, `0x12` | change dir, get path | `*DIR`/`*CD`, `*PWD` | done |
 | `0x13`/`0x14` | directory | `*CAT` / `*.` | done |
 | `0x16` | create dir | `*MKDIR`/`*CDIR` | done |
 | `0x17` | home dir | `*DIR ~` (or `*HOME`) | A |
 | `0x21`/`0x22` | REU load/save (at address) | `*REULOAD <file> [<reu address>]`, `*REUSAVE <file> <reu address> <length>` | B |
-| `0x23`-`0x25` | mount, unmount, swap | `*MOUNT <image> [A|B]`, `*UNMOUNT [A|B]`, `*SWAP` | A |
+| `0x23`-`0x25` | mount, unmount, swap (next disk of a drive's disk set) | `*MOUNT <image> [A|B]`, `*UNMOUNT [A|B]`, `*SWAP [A|B]` | A |
 | `0x26`/`0x27` | get/set time | `*TIME`, `*SETTIME yyyy/mm/dd hh:mm:ss`; OSWORD 14 (BBC "read clock string") | `*TIME` done, rest A |
 | `0x41`/`0x42` | GEOS RAM disk load/save | `*RAMDISK LOAD/SAVE <file> <id>` | E |
 | `0xF0` | echo | used by `*UTEST` (diagnostics) | E |

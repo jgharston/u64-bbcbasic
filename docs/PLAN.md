@@ -620,6 +620,14 @@ VIC/SID access, PETSCII, C64 colours, sprites), for example `*BBC` /
 joins the decided PETSCII mode (section 14). To design in detail when
 graphics and sound are started.
 
+Scope (owner, 2026-10-07): compatibility means BBC BASIC *programs*
+(language, VDU/PLOT/SOUND behaviour), not the BBC Micro machine (memory
+map, hardware, MOS internals, machine code). This is not an emulator.
+Details and the requirements of the same day (BBC charset and palette in
+BBC mode, custom fonts and palettes, outline/solid/pattern fill for every
+shape, memory modes under program control): docs/DESIGN_GRAPHICS.md
+section 9.
+
 ## 17. Using the REU (16 MB) — proposals (2026-10-04)
 
 Working assumption from the owner: an REU is always there (the `.cfg`
@@ -732,6 +740,8 @@ when the RAM map for graphics is fixed.
 |---|---|
 | Graphics kernel + fast VDU path | REU overlay into the font area on MODE, with automatic fallback to a lower HIMEM when there is no REU (docs/DESIGN_GRAPHICS.md section 2) |
 | Upic | Canvas in the REU, `*UPIC SHOW` swaps BASIC out; the compact 48 MHz variant (picture stays visible while BASIC runs slowly) later |
-| Maths | Open: the owner leans to a fast-maths default build; pros and cons explained, decision pending |
+| Maths | Option 1: integer tables for programs (`*TABLE`), used by the MOS too; the interpreter stays bit-exact (decided after weighing a fast-maths build: 2-3x gain, precision, RAM and maintenance costs) |
 | Firmware functions | Batch A first (drives, storage, SoftIEC partitions), then graphics (docs/ULTIMATE_FUNCTIONS.md) |
+| BBC compatibility | BASIC programs only, not the machine; not an emulator (DESIGN_GRAPHICS.md section 9.1) |
+| Graphics extras | BBC charset and palette in BBC mode; custom fonts/palettes; outline, solid and pattern fill (BBC Master ECF) for every shape; memory modes settable from programs (DESIGN_GRAPHICS.md section 9) |
 | SoftIEC | Partition support (add partition, `CP`) is needed to reach anything outside `/Temp` from the SoftIEC drive (owner note) |

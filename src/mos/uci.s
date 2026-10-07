@@ -253,12 +253,16 @@ urt_done:
 ; uci_finish
 ;   Summary: end a command: discard unread reply data, read the status
 ;            into errbuf+1, acknowledge.
-;   Input:   none.
-;   Output:  errbuf+1 = status text (at most ERRMAX-2 characters,
+;   Input:   none. uci_finish_x: X = offset in errbuf+1 for the status, so
+;            that text built before it survives (*COPY).
+;   Output:  errbuf+1+offset = status text (bounded at errbuf+ERRMAX-1,
 ;            0-terminated); C = 0 if it starts with "00" (OK), C = 1 if not.
-;   Uses:    A, X.
+;   Uses:    A, X, uf_off, uf_end.
 
 uci_finish:
+    ldx #0
+uci_finish_x:
+    stx uf_off
 uf_drain:
     lda UCI_STAT
     bpl uf_nodata
@@ -271,7 +275,7 @@ uf_nodata:
     jsr uci_ack
     jmp uf_drain
 uf_status:
-    ldx #0
+    ldx uf_off
 uf_sloop:
     lda UCI_STAT
     and #$40
@@ -285,17 +289,19 @@ uf_sloop:
 uf_send:
     lda #0
     sta errbuf+1,x
+    stx uf_end
     jsr uci_ack
-    lda errbuf+1
+    ldx uf_off
+    lda errbuf+1,x
     cmp #'0'
     bne uf_bad
-    lda errbuf+2
+    lda errbuf+2,x
     cmp #'0'
     bne uf_bad
     clc
     rts
 uf_bad:
-    cpx #0                      ; no status at all counts as OK
+    cpx uf_end                  ; no status at all counts as OK
     bne uf_bad2
     clc
     rts

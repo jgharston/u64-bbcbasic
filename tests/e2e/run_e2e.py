@@ -425,6 +425,125 @@ def test_status(t):
                        for l in drives), drives
 
 
+# --- Firmware functions, batch A (docs/ULTIMATE_FUNCTIONS.md). Every
+# test puts the machine back the way it was (drives, images, partition).
+
+def rest(t, path):
+    import urllib.request
+    with urllib.request.urlopen("http://%s%s" % (t.host, path), timeout=10) as f:
+        return json.load(f)
+
+
+def drive(t, name):
+    for d in rest(t, "/v1/drives")["drives"]:
+        if name in d:
+            return d[name]
+    return {}
+
+
+def test_a_clock(t):
+    if not ult(t):
+        return
+    r = remote(t).run_lines([
+        'DIM B% 30:?B%=0:A%=14:X%=B% MOD 256:Y%=B% DIV 256:CALL &C7F1:PRINT $B%',
+        '?B%=1:CALL &C7F1:FOR I%=0 TO 6:PRINT ~B%?I%;" ";:NEXT:PRINT',
+        "*TIME"])
+    lines = r["output"].splitlines()
+    m = re.match(r"^(Sun|Mon|Tue|Wed|Thu|Fri|Sat),(\d\d) (Jan|Feb|Mar|Apr|May|Jun|Jul"
+                 r"|Aug|Sep|Oct|Nov|Dec) (\d{4})\.(\d\d):(\d\d):(\d\d)$", lines[0])
+    assert m, lines
+    bcd = lines[1].split()
+    assert len(bcd) == 7 and bcd[0] == m.group(4)[2:] and int(bcd[2], 16) == int(m.group(2)) \
+        and int(bcd[3]) in range(1, 8), lines
+    import datetime
+    dow = datetime.date(int(m.group(4)), int(bcd[1]), int(bcd[2])).isoweekday() % 7 + 1
+    assert int(bcd[3]) == dow, (lines, dow)
+    assert lines[2].startswith(m.group(4) + "/"), lines
+
+
+def test_a_copy(t):
+    # Firmware: *COPY puts the file into a directory, same name, no overwrite
+    if not ult(t):
+        return
+    run_line(t, "NEW", ">")
+    screen.type_text(t.bridge, '10 PRINT "COPIED"\r')
+    run_line(t, 'SAVE "e2ecopy"', ">")
+    run_line(t, "*MKDIR e2ecdir", ">")
+    try:
+        run_line(t, "*COPY e2ecopy e2ecdir", ">")
+        run_line(t, "NEW", ">")
+        run_line(t, 'CHAIN "e2ecdir/e2ecopy"', "COPIED")
+        run_line(t, "*COPY e2ecopy e2ecdir", "File exists")
+    finally:
+        run_line(t, "*DELETE e2ecdir/e2ecopy", ">")
+        run_line(t, "*DELETE e2ecdir", ">")
+        run_line(t, "*DELETE e2ecopy", ">")
+
+
+def test_a_mount(t):
+    if not ult(t):
+        return
+    image = os.path.join(BUILD, "e2e.d64")
+    subprocess.run(["c1541", "-format", "e2e test,01", "d64", image],
+                   check=True, capture_output=True)
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", os.environ.get("ULTIMATE_PASSWORD", ""))
+        with open(image, "rb") as f:
+            ftp.storbinary("STOR /Temp/e2e.d64", f)
+    before = drive(t, "a").get("image_file", "")
+    try:
+        run_line(t, "*MOUNT /Temp/e2e.d64 A", ">")
+        assert drive(t, "a").get("image_file", "").endswith("e2e.d64"), drive(t, "a")
+        rows = run_line(t, "*SWAP A", ">")    # next disk of a set: no set here
+        assert not any("rror" in r for r in rows), rows
+        assert drive(t, "a").get("image_file", "").endswith("e2e.d64"), drive(t, "a")
+    finally:
+        run_line(t, "*UNMOUNT A", ">")
+    assert drive(t, "a").get("image_file", "") in ("", before), drive(t, "a")
+    run_line(t, "*DELETE e2e.d64", ">")
+
+
+def test_a_drive(t):
+    if not ult(t):
+        return
+    was = drive(t, "b").get("enabled")
+    try:
+        run_line(t, "*DRIVE B ON", ">")
+        assert drive(t, "b").get("enabled") is True
+        run_line(t, "*DRIVE B OFF", ">")
+        assert drive(t, "b").get("enabled") is False
+    finally:
+        run_line(t, "*DRIVE B %s" % ("ON" if was else "OFF"), ">")
+
+
+def test_a_settime(t):
+    if not ult(t):
+        return
+    rows = run_line(t, "*TIME", "/")
+    now = [r for r in rows if re.match(r"^\d{4}/", r)][0].strip()
+    rows = run_line(t, "*SETTIME " + now, ">")
+    text = "\n".join(rows)
+    assert "rror" not in text or "prohibited" in text.lower(), text
+    t.notes.append("SETTIME: " + ("prohibited by the settings" if "prohibited" in text.lower() else "ok"))
+
+
+def test_a_partition(t):
+    if not ult(t):
+        return
+    run_line(t, "*PARTITION 250 /Temp E2E", ">")
+    run_line(t, "*PARTITIONS", '"E2E"')
+    run_line(t, "*CP 250", ">")
+    run_line(t, "*CP 0", ">")
+
+
+def test_a_dirhome(t):
+    if not ult(t):
+        return
+    run_line(t, "*DIR ~", ">")
+    run_line(t, "*PWD", "/")
+    run_line(t, "*DIR /Temp", ">")
+
+
 def test_turbo_cmd(t):
     if t.is_vice:
         run_line(t, "*TURBO", "No turbo registers")
@@ -556,6 +675,8 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_fs_uver, test_fs_time, test_fs_dir, test_fs_save_load,
          test_fs_channels, test_fs_type, test_fs_errors,
          test_fs_rename_delete, test_turbo_cmd, test_status,
+         test_a_clock, test_a_copy, test_a_mount, test_a_drive,
+         test_a_settime, test_a_partition, test_a_dirhome,
          test_remote_exec, test_remote_run_error, test_remote_input,
          test_remote_long_output, test_remote_tokeniser, test_remote_stop,
          test_remote_debug]

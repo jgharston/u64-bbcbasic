@@ -390,6 +390,8 @@ reu_banks   dta 0, 0            ; REU size in 64K banks (0: none)
 reu_tmp     dta 0               ; REU byte transfers
 reu_save0   dta 0
 reu_saveS   dta 0
+iec_dev     dta 0               ; serial-bus device for the IEC helpers
+softiec_dev dta 0               ; SoftIEC drive's device number (0: unknown)
 osfblk      dta 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  ; OSFILE block for *LOAD/*SAVE
 
 res_data_end:

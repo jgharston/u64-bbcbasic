@@ -12,6 +12,12 @@ with files on the Ultimate's USB/SD/RAM disk and a built-in help system
 [docs/PLAN.md](docs/PLAN.md) for the plan and roadmap, and
 [docs/HELP_REFERENCE.md](docs/HELP_REFERENCE.md) for the full reference.
 
+**Compatibility.** The aim is that BBC BASIC *programs* run: the
+language, and the behaviour of the VDU, graphics, sound and file
+statements. It is not a BBC Micro emulator: the memory map, the BBC
+hardware, the MOS internals and BBC machine code are not reproduced, so
+programs that poke the machine or call BBC machine code will not work.
+
 ## Cartridges
 
 | File | Type | For |

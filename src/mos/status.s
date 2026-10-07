@@ -398,6 +398,7 @@ si_next:
     dta 'Drive      #', 0
     ldx mosARGS+1
     lda si_ids,x
+    sta iec_dev
     jsr st_dec8
     lda #' '
     jsr OSWRCH
@@ -478,22 +479,31 @@ iec_present:
     rts
 
 ; iec_ident
-;   Summary: print the DOS name of the device in si_ids,mosARGS+1.
+;   Summary: print the DOS name of the device iec_dev (and note it in
+;            softiec_dev if it is the SoftIEC drive).
 ;   Function: reads the command channel; if it is not a "73," message,
 ;            sends "UI" and reads it again (a real drive needs up to about
 ;            a second after the reset: retried for ~2 s).
 ;   Uses:    A, X, Y, errbuf, mosTMP.
 iec_ident:
+    jsr ii_get73
+    jmp ii_print
+
+; ii_get73
+;   Summary: get the device's "73,<DOS name>,..." message into errbuf+1:
+;            read the command channel; if it holds another message, send
+;            "UI" (warm reset) and read again for up to ~2 s.
+;   Input:   iec_dev.  Uses: A, X, Y, errbuf, mosTMP+2.
+ii_get73:
     jsr ii_read
     lda errbuf+1
     cmp #'7'
     bne ii_reset
     lda errbuf+2
     cmp #'3'
-    beq ii_print
+    beq ii_got
 ii_reset:
-    ldx mosARGS+1
-    lda si_ids,x
+    lda iec_dev
     jsr KL_LISTEN
     lda #$6F                    ; command channel 15
     jsr KL_SECOND
@@ -509,9 +519,12 @@ ii_retry:
     jsr ii_read
     lda errbuf+1
     cmp #'7'
-    beq ii_print
+    beq ii_got
     dec mosTMP+2
     bne ii_retry
+ii_got:
+    rts
+
 ii_print:
     ldx #0                      ; the name: after the first comma
 ii_comma:
@@ -523,6 +536,8 @@ ii_comma:
     stx mosTMP+3
     jsr ii_isu64
     bcc ii_name
+    lda iec_dev                 ; remember it for *PARTITIONS and *CP
+    sta softiec_dev
     jsr st_text
     dta 'SoftIEC ', 0
 ii_name:
@@ -569,15 +584,14 @@ iu_no:
     rts
 
 ; ii_read
-;   Summary: read the command channel of the device into errbuf+1
+;   Summary: read the command channel of device iec_dev into errbuf+1
 ;            (0-terminated, at most ERRMAX-2 characters, CR dropped).
 ;   Uses:    A, X, Y.
 ii_read:
     lda #0
     sta KL_STATUS
     sta errbuf+1
-    ldx mosARGS+1
-    lda si_ids,x
+    lda iec_dev
     jsr KL_TALK
     lda #$6F
     jsr KL_TKSA

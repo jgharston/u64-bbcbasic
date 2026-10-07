@@ -53,12 +53,23 @@ an_syntax:
 ; ----------------------------------------------------------------------------
 ; cmd_dir
 ;   Summary: *DIR <path> (also *CD): change the current directory of both
-;            DOS targets, so channels and LOAD/SAVE agree.
+;            DOS targets, so channels and LOAD/SAVE agree. *DIR ~ goes to
+;            the Ultimate's home directory.
 ;   Input:   command line.  Output: raises on error.
 ;   Uses:    A, X, Y, fs*.
 
 cmd_dir:
     jsr uci_need
+    lda (mosPTR),y              ; "*DIR ~": the Ultimate's home directory
+    cmp #' '
+    bne cd_home
+    iny
+    bne cmd_dir
+cd_home:
+    cmp #'~'
+    bne cd_name
+    jmp cmd_dirhome
+cd_name:
     jsr arg_name
     lda fsPTR                   ; keep the name for the second target
     pha

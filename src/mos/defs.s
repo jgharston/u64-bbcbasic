@@ -176,7 +176,17 @@ dbg_state   = inkey_t0+2        ; TRACE parser: 0 idle, 1 after '['
 dbg_len     = dbg_state+1       ; digits seen
 dbg_num     = dbg_len+1         ; 2: line number being read
 dbg_skipsp  = dbg_num+2         ; 1: swallow the space after ']'
-ramvars_end = dbg_skipsp+1
+aw_start_y  = dbg_skipsp+1      ; arg_word: start of the word in the line
+aw_i        = aw_start_y+1      ; arg_word: index into the word
+aw_c        = aw_i+1            ; arg_word: character being compared
+cwd_dv      = aw_c+1            ; clock: divisor
+cwd_ql      = cwd_dv+1          ; clock: quotient (2)
+cwd_qh      = cwd_ql+1
+cwd_rem     = cwd_qh+1          ; clock: remainder
+cwd_n       = cwd_rem+1         ; 2: clock: dividend
+uf_off      = cwd_n+2           ; uci_finish: status position in errbuf+1
+uf_end      = uf_off+1          ; uci_finish: end of the status
+ramvars_end = uf_end+1
     .if ramvars_end > $03FC
     .error "MOS RAM variables overflow the cassette buffer"
     .endif

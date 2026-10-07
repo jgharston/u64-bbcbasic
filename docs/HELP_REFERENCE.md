@@ -28,12 +28,13 @@ stops.
 ```
 Topics (*HELP <topic>):
 
-ASSEMBLER    COLOURS      CREDITS
-DEBUG        ERRORS       FILES
-KEYBOARD     LIMITS       MEMORY
-MOS          OPERATORS    OSBYTE
-OSWORD       REMOTE       SPEED
-ULTIMATE     VARIABLES    VDUCODES
+ASSEMBLER    BBC          COLOURS
+CREDITS      DEBUG        ERRORS
+FILES        KEYBOARD     LIMITS
+MEMORY       MOS          OPERATORS
+OSBYTE       OSWORD       REMOTE
+SPEED        ULTIMATE     VARIABLES
+VDUCODES
 ```
 
 ## KEYWORDS
@@ -89,11 +90,37 @@ VDU          VPOS         WIDTH
 ```
 * commands (*HELP *<command>):
 
-*CAT         *DELETE      *DIR
+*CAT         *COPY        *CP
+*DELETE      *DIR         *DRIVE
 *FX          *HELP        *LOAD
-*MKDIR       *PWD         *RENAME
-*SAVE        *STATUS      *TIME
-*TURBO       *TYPE        *UVER
+*MKDIR       *MOUNT       *PARTITION
+*PARTITIONS  *PWD         *RENAME
+*SAVE        *SETTIME     *STATUS
+*SWAP        *TIME        *TURBO
+*TYPE        *UNMOUNT     *UVER
+```
+
+## BBC
+
+Also: `COMPATIBILITY`
+
+```
+BBC BASIC programs run: the BBC BASIC
+3.10 language and the behaviour of the
+VDU, graphics, sound and file
+statements.
+
+This is not a BBC Micro emulator. The
+BBC memory map (screen memory, MODE 7
+teletext), the BBC hardware at &FE00,
+the MOS internals and BBC machine code
+are not there. Programs that poke the
+machine, or CALL machine code written
+for the BBC, do not work.
+
+The MOS calls a program can use are
+those in *HELP OSBYTE, *HELP OSWORD and
+*HELP MEMORY.
 ```
 
 ## KEYBOARD
@@ -355,8 +382,20 @@ Other calls are ignored.
 ```
 OSWORD calls available: 0 reads a line
 (screen editor), 1 reads TIME, 2 sets
-TIME (5 bytes, centiseconds). Others
-are ignored.
+TIME (5 bytes, centiseconds), 14 reads
+the Ultimate's clock. Others are
+ignored.
+
+OSWORD 14 as on a BBC Master: put 0 in
+the first byte of a 25-byte block for
+the text "Wed,07 Oct 2026.08:42:55" and
+a CR, or 1 for 7 BCD bytes: year (2
+digits), month, day, day of week (1 =
+Sunday), hour, minute, second.
+
+  DIM B% 25:?B%=0:A%=14
+  X%=B% MOD 256:Y%=B% DIV 256
+  CALL &C7F1:PRINT $B%
 ```
 
 ## VDUCODES
@@ -509,10 +548,13 @@ Also: `DIR`, `*CD`, `CD`
 
 ```
   *DIR <path>     (also *CD)
+  *DIR ~
 
 Changes the current directory. Paths
 are Ultimate paths: /Usb0/bbc, /SD,
-/Temp, .. for the parent.
+/Temp, .. for the parent; ~ is the
+Ultimate's home directory (User
+Interface settings).
 
   *DIR /Temp
   *DIR ..
@@ -526,6 +568,125 @@ Also: `PWD`
   *PWD
 
 Prints the current directory.
+```
+
+## *MOUNT
+
+Also: `MOUNT`
+
+```
+  *MOUNT <image> [A|B|<device>]
+
+Mounts a disk image (D64, D71, D81, G64
+...) on one of the Ultimate's drives,
+drive A if none is given.
+
+  *MOUNT /USB0/games/elite.d64
+  *MOUNT disk2.d64 B
+```
+
+## *UNMOUNT
+
+Also: `UNMOUNT`
+
+```
+  *UNMOUNT [A|B|<device>]
+
+Removes the disk image from a drive
+(drive A if none is given).
+```
+
+## *SWAP
+
+Also: `SWAP`
+
+```
+  *SWAP [A|B|<device>]
+
+Moves a drive (drive A if none is
+given) on to the next disk of its disk
+set, as the Ultimate's swap function
+does for multi-disk games.
+```
+
+## *DRIVE
+
+Also: `DRIVE`
+
+```
+  *DRIVE A|B ON|OFF
+
+Switches one of the Ultimate's drives
+on or off.
+```
+
+## *COPY
+
+Also: `COPY`
+
+```
+  *COPY <file> <directory>
+
+Copies a file into another directory on
+the Ultimate's storage, under the same
+name. An existing file there is not
+overwritten (error "File exists").
+
+  *COPY game /USB0/backup
+```
+
+## *SETTIME
+
+Also: `SETTIME`
+
+```
+  *SETTIME yyyy/mm/dd hh:mm:ss
+
+Sets the Ultimate's clock. The
+Ultimate's settings can forbid this
+(error "Function prohibited").
+```
+
+## *PARTITION
+
+Also: `PARTITION`
+
+```
+  *PARTITION <n> <path> [<name>]
+  *PARTITION <n> OFF
+
+Makes partition n of the Ultimate's
+SoftIEC drive point to a directory.
+From firmware 3.15 the SoftIEC drive
+reaches files only through partitions;
+without one it serves /Temp. OFF
+removes a partition (not effective on
+firmware 3.15a).
+
+  *PARTITION 3 /USB0/c64 GAMES
+  *CP 3
+```
+
+## *PARTITIONS
+
+Also: `PARTITIONS`
+
+```
+  *PARTITIONS
+
+Lists the SoftIEC drive's partitions
+(its "$=P" directory).
+```
+
+## *CP
+
+Also: `CP`
+
+```
+  *CP <n>
+
+Selects partition n on the SoftIEC
+drive (the drive's own CP command).
 ```
 
 ## *DELETE

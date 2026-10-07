@@ -1194,8 +1194,8 @@ ink_esc:
 
 ; ----------------------------------------------------------------------------
 ; mos_word (OSWORD)
-;   Summary: OSWORD calls 0 (read line), 1 (read TIME), 2 (write TIME).
-;            Other calls return without action.
+;   Summary: OSWORD calls 0 (read line), 1 (read TIME), 2 (write TIME),
+;            14 (read the clock, bank 2). Other calls return without action.
 ;   Input:   A = call number, X/Y = address of the parameter block.
 ;   Output:  per call.
 ;   Uses:    mosPTR = parameter block.
@@ -1213,6 +1213,10 @@ mw_not1:
     bne mw_not2
     jmp word2
 mw_not2:
+    cmp #14
+    bne mw_not14
+    farcall clock_word, BANK_FS ; OSWORD 14: read the clock
+mw_not14:
     rts
 
 ; word0 (OSWORD 0)
@@ -1548,20 +1552,29 @@ cmd_table:
     dta 'CAT', 0, a(cmd_cat), BANK_FS
     dta 'DIR', 0, a(cmd_dir), BANK_FS
     dta 'CD', 0, a(cmd_dir), BANK_FS
+    dta 'COPY', 0, a(cmd_copy), BANK_FS
+    dta 'CP', 0, a(cmd_cp), BANK_FS
     dta 'DELETE', 0, a(cmd_delete), BANK_FS
+    dta 'DRIVE', 0, a(cmd_drive), BANK_FS
     dta 'FX', 0, a(cmd_fx), BANK_MOS
     dta 'HELP', 0, a(cmd_help), BANK_MOS
     dta 'LOAD', 0, a(cmd_load), BANK_FS
     dta 'MKDIR', 0, a(cmd_mkdir), BANK_FS
+    dta 'MOUNT', 0, a(cmd_mount), BANK_FS
+    dta 'PARTITION', 0, a(cmd_partition), BANK_FS
+    dta 'PARTITIONS', 0, a(cmd_partitions), BANK_FS
     dta 'CDIR', 0, a(cmd_mkdir), BANK_FS
     dta 'PWD', 0, a(cmd_pwd), BANK_FS
     dta 'RENAME', 0, a(cmd_rename), BANK_FS
     dta 'SAVE', 0, a(cmd_save), BANK_FS
+    dta 'SETTIME', 0, a(cmd_settime), BANK_FS
     dta 'STATUS', 0, a(cmd_status), BANK_FS
+    dta 'SWAP', 0, a(cmd_swap), BANK_FS
     dta 'SYS', 0, a(cmd_status), BANK_FS
     dta 'TIME', 0, a(cmd_time), BANK_FS
     dta 'TURBO', 0, a(cmd_turbo), BANK_MOS
     dta 'TYPE', 0, a(cmd_type), BANK_FS
+    dta 'UNMOUNT', 0, a(cmd_unmount), BANK_FS
     dta 'UVER', 0, a(cmd_uver), BANK_FS
     dta 0
 

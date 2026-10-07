@@ -1,6 +1,7 @@
 # Design: graphics speed, REU use and maths tables
 
-Status: proposal, 2026-10-07. Decisions open: section 8.
+Status: proposal, 2026-10-07. Decisions: PLAN.md section 19; owner
+requirements of 2026-10-07: section 9.
 
 Graphics is the main use case of this BASIC. This document measures where
 the time goes today and proposes how to make hires drawing fast, how to
@@ -93,6 +94,8 @@ overlay with the kernel.
 
 **Maths for BASIC programs.** Two options:
 
+Decided 2026-10-07: (a).
+
 - **(a) Integer tables for programs, no interpreter change.** A command
   copies a ready table into the program's memory:
   `DIM S% 4096:*TABLE SIN S%` (1024 x 32-bit, value x 65536).
@@ -173,3 +176,95 @@ See the questions asked on 2026-10-07 (recorded in PLAN.md when answered):
 graphics kernel placement, Upic approach, maths tables (a)/(b), REU
 reservation size, and which batch of firmware functions comes first
 (docs/ULTIMATE_FUNCTIONS.md).
+
+## 9. Owner requirements (2026-10-07)
+
+### 9.1 What "BBC compatible" means
+
+Compatibility is at the level of **BBC BASIC programs**, not of the BBC
+Micro as a machine. This is not an emulator (not yet, at least).
+
+| Compatible | Not compatible |
+|---|---|
+| The BBC BASIC 3.10 language, unchanged | The BBC memory map (screen at `&3000`/`&7C00`, MODE 7 teletext memory, `&FE00` SHEILA hardware) |
+| The VDU drivers' behaviour: text, windows, VDU 4/5, 17-29, `VDU 23` character definitions | `?`/`!` access to BBC hardware or OS workspace |
+| PLOT, DRAW, MOVE, GCOL, CLG, POINT, MODE semantics, palette (VDU 19) | Machine code written for the BBC (`CALL`, `USR`, `*RUN` of BBC binaries) |
+| SOUND, ENVELOPE (on SID) | The MOS beyond the calls BASIC uses: the MOS call entry points exist, with the OSBYTE/OSWORD/OSFILE/... functions listed in `*HELP OSBYTE` etc. |
+| Filing system statements (LOAD, SAVE, OPENIN, ...) on the Ultimate's storage | Disc/tape formats, DFS/ADFS command details |
+
+Programs that only use BASIC and the VDU/sound interface run; programs
+that poke the machine do not. README and `*HELP BBC` say the same.
+
+### 9.2 BBC mode: charset and palette
+
+In BBC mode (`*BBC`, PLAN.md section 16) the screen looks like a BBC Micro:
+
+- **Palette**: the BBC's colours: black, red, green, yellow, blue,
+  magenta, cyan, white, set as exact RGB through the Ultimate's palette
+  registers (control commands `$51`-`$54`), and BBC logical-to-physical
+  colour mapping per MODE (2, 4 or 16 logical colours; VDU 19). The
+  flashing colours 8-15 alternate by raster interrupt, as on the BBC.
+  Back in Commodore mode the C64 palette returns (`$54` reset).
+- **Charset**: the BBC Micro's 8x8 font. The original bitmap is part of
+  Acorn's MOS ROM, so it is not shipped; options: a redrawn look-alike
+  font under the project's licence (proposed), and `*FONT LOAD <file>`
+  for a font the user supplies (for example from their own MOS ROM dump).
+
+### 9.3 Custom charsets and palettes
+
+Both modes:
+
+- `VDU 23,c,b0..b7` redefines a character (BBC standard: all 224 printable
+  characters, not only 224-255 as on a BBC with default `*FX20`).
+- `*FONT LOAD <file>` / `*FONT SAVE <file>` / `*FONT DEFAULT` / `*FONT BBC`
+  / `*FONT C64`: whole fonts, 2K files (C64 charset format, so existing
+  C64 fonts work). Fonts are kept in the REU; switching is a DMA.
+- `VDU 19,l,p,0,0,0` maps logical colour l to physical p (BBC);
+  `VDU 19,l,16,r,g,b` sets an RGB colour (BBC Master/RISC OS extension),
+  through the Ultimate's palette.
+- `*PALETTE LOAD <file>` / `SAVE` / `RESET` / `BBC` / `C64`.
+
+### 9.4 Shapes: outline, solid and pattern fill
+
+Every shape comes in three variants, using the BBC GXR/Master plot codes
+so existing programs work:
+
+| Shape | Outline | Solid fill | Pattern fill |
+|---|---|---|---|
+| line, point | PLOT 0-7, 64-71 | - | with a pattern colour |
+| triangle | PLOT 88-95 (U64) | PLOT 80-87 | yes |
+| rectangle | PLOT 104-111 (U64) | PLOT 96-103 | yes |
+| parallelogram | PLOT 120-127 (U64) | PLOT 112-119 | yes |
+| circle | PLOT 144-151 | PLOT 152-159 | yes |
+| ellipse | PLOT 192-199 | PLOT 200-207 | yes |
+| arc, segment, sector | PLOT 160-167 / 168-175 / 176-183 | | yes |
+| flood fill | - | PLOT 128-135 / 136-143 | yes |
+
+The BBC has no outline triangle, rectangle or parallelogram codes. The
+MOS adds them on the plot codes the GXR leaves for them in its numbering
+(88-95, 104-111, 120-127), documented as U64 extensions; on a real BBC a
+program would draw them with DRAW. (To check against the GXR manual
+before implementing: 88-95 may be "triangle in background" there.)
+
+**Pattern fill** is the BBC Master's ECF (extended colour fill): `GCOL
+16..95` selects one of four patterns (`VDU 23,2..5,b0..b7` defines them,
+`VDU 23,11` restores the defaults) for any fill, and a simple pattern
+mode `VDU 23,6` for dotted lines. On the C64 bitmaps a pattern is 8x8
+pixels (hires) or 4x8 (multicolour), drawn per byte, so a pattern fill
+costs no more than a solid one.
+
+### 9.5 Memory modes under program control
+
+The memory layout choices (section 2: graphics kernel in the REU overlay
+or below HIMEM; Upic canvas in the REU; text screen kept in the REU) are
+settable from a program, not only automatic:
+
+- `*MEMORY` shows the layout; `*MEMORY GRAPHICS REU|HIMEM|AUTO` chooses
+  where the graphics kernel goes, `*MEMORY UPIC ON|OFF` reserves the Upic
+  areas, `*MEMORY REU <size>` sets how much REU the system keeps (the rest
+  is the RAM disk).
+- The same through OSBYTE (`A%=&A0..`, read and write), so a program can
+  check and set it with `USR`/`CALL` and then rely on HIMEM, as BBC
+  programs do after `MODE`.
+- `MODE` follows the BBC rule: it may move HIMEM, but only with no
+  program variables in the way ("Bad MODE" otherwise, as on the BBC).
