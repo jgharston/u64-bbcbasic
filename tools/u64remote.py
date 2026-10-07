@@ -166,7 +166,7 @@ class Remote:
             self.post(REQ_DEBUG, bytes([DBG_STOP]))
         elif st["state"] == "running":
             self.stop()
-        self.debug_end()
+        self.write(MBOX + MB_DEBUG, [0])
         st = self.wait_line_wanted(10)
         if st["state"] != "prompt":
             raise RemoteError("BASIC is waiting for INPUT, not at the prompt")
@@ -304,7 +304,11 @@ class Remote:
         return self.run_lines(["TRACE ON:RUN"], timeout=timeout)
 
     def debug_end(self):
+        """Debug mode off; at the prompt also TRACE OFF (RUN keeps TRACE,
+        so later runs would print "[n]" line numbers otherwise)."""
         self.write(MBOX + MB_DEBUG, [0])
+        if self.state()["state"] == "prompt":
+            self.run_lines(["TRACE OFF"], timeout=5)
 
     def debug_resume(self, how, timeout=30.0):
         """how: DBG_CONTINUE, DBG_STEP or DBG_STOP; returns as run."""

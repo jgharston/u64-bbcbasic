@@ -132,7 +132,7 @@ export class Remote {
         let st = await this.state();
         if (st.state === 'paused') { await this.post(REQ_DEBUG, [DBG_STOP]); }
         else if (st.state === 'running') { await this.stop(); }
-        await this.debugEnd();
+        await this.write(MBOX + MB.DEBUG, [0]);
         st = await this.waitLineWanted(10000);
         if (st.state !== 'prompt') { throw new RemoteError('BASIC is waiting for INPUT, not at the prompt'); }
         return st;
@@ -270,7 +270,11 @@ export class Remote {
         await this.write(MBOX + MB.DEBUG, [flags | 2]);
     }
 
-    async debugEnd(): Promise<void> { await this.write(MBOX + MB.DEBUG, [0]); }
+    /** Debug mode off; at the prompt also TRACE OFF (RUN keeps TRACE). */
+    async debugEnd(): Promise<void> {
+        await this.write(MBOX + MB.DEBUG, [0]);
+        if ((await this.state()).state === 'prompt') { await this.runLines(['TRACE OFF'], 5000); }
+    }
 
     /** BASIC's variables, decoded from memory (as tools/u64remote.py). */
     async variables(): Promise<Map<string, number | string>> {

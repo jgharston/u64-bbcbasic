@@ -725,3 +725,13 @@ when the RAM map for graphics is fixed.
   only entries that arrived. `uii_parse_deviceinfo` in
   ultimate-uci-oscar64 trusts the count and should get the same guard
   (library issue).
+
+## 19. Decisions (2026-10-07)
+
+| Decision | Choice |
+|---|---|
+| Graphics kernel + fast VDU path | REU overlay into the font area on MODE, with automatic fallback to a lower HIMEM when there is no REU (docs/DESIGN_GRAPHICS.md section 2) |
+| Upic | Canvas in the REU, `*UPIC SHOW` swaps BASIC out; the compact 48 MHz variant (picture stays visible while BASIC runs slowly) later |
+| Maths | Open: the owner leans to a fast-maths default build; pros and cons explained, decision pending |
+| Firmware functions | Batch A first (drives, storage, SoftIEC partitions), then graphics (docs/ULTIMATE_FUNCTIONS.md) |
+| SoftIEC | Partition support (add partition, `CP`) is needed to reach anything outside `/Temp` from the SoftIEC drive (owner note) |
