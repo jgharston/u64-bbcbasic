@@ -751,3 +751,23 @@ when the RAM map for graphics is fixed.
 | Upic Lite (owner, 2026-10-07) | Live Upic-style renderers, 320 x 256 with even 1-dot pixels (32-dot border), 1 or 2 bits per pixel through the programmable palette; proven on the U64-II (DESIGN_GRAPHICS.md section 10.8). Default for BBC MODE 0/1/4 on 64 MHz machines, 160-wide for MODE 2/5 everywhere; the VIC-II versions stay as fallback (48 MHz machines for 320-wide modes, VICE, Ultimate II+) |
 | Teletext MODE 7 | VIC-II hires bitmap, 8x8 cells (per-cell foreground/background), double height, mosaics |
 | SoftIEC | Partition support (add partition, `CP`) is needed to reach anything outside `/Temp` from the SoftIEC drive (owner note) |
+
+## 20. Structured programs and automatic indentation (owner, 2026-10-07)
+
+Example and demo programs are structured: no GOTO, DEF PROC/FN instead of
+GOSUB, indentation by block nesting. Measured on the U64: BBC BASIC 3.10
+keeps spaces typed after the line number, and `LISTO` adds its own
+indentation on top of them (FOR/NEXT and REPEAT/UNTIL only, not procedure
+bodies). Hence:
+
+- **Source files are indented** (2 spaces per level after the line number,
+  no colons), readable on GitHub and in the editor.
+- **Roadmap: VS Code formatter.** "Format Document" (optionally on save)
+  indents by nesting: FOR/NEXT, REPEAT/UNTIL, DEF PROC/ENDPROC, DEF FN.
+  The extension strips leading spaces when it sends a program to the
+  machine (a setting keeps them), so the program in memory stays compact
+  and `LISTO 7` gives the loop indentation there.
+- **Roadmap: `*LIST`.** A MOS command that lists the program in memory
+  with full indentation, procedure bodies included, without changing the
+  interpreter (token table in a spare cartridge bank; options as LISTO,
+  line ranges as LIST).

@@ -37,8 +37,10 @@ what this BASIC can and cannot do.
 - Ask open design decisions with the question tool, explained, with a
   recommendation.
 - Example/demo BASIC programs are structured: no GOTO, DEF PROC/FN
-  instead of GOSUB, indentation with 2 spaces per level after the line
-  number (BBC BASIC keeps them; no `10 :` colons, don't combine with LISTO).
+  instead of GOSUB. Source files are indented (2 spaces per level, after
+  the line number; no `10 :` colons), kept consistent by the VS Code
+  extension's formatter; the extension strips the indentation on upload,
+  and on the machine `LISTO 7` indents loops (PLAN.md section 20).
 - Commit per tested step on a branch; don't push without being asked.
 
 ## Layout
