@@ -64,7 +64,7 @@ $(BUILD)/mos-tmb.bin: $(MOS_SRCS) $(GEN)
 
 # --- Help texts: banks 3+ and the Markdown reference
 
-$(BUILD)/help.bin: src/help/help.txt tools/genhelp.py src/mos/mos.s
+$(BUILD)/help.bin: src/help/help.txt tools/genhelp.py src/mos/mos.s Makefile
 	@$(MKDIR) $(BUILD)
 	$(PYTHON) tools/genhelp.py --first 4 --commands src/mos/mos.s src/help/help.txt $@ docs/HELP_REFERENCE.md
 
