@@ -74,13 +74,13 @@ Memory map while BASIC runs:
   &0400-&07FF  BASIC workspace
   &0800-&7FFF  program (PAGE-HIMEM)
   &8000-&BFFF  BBC BASIC (RAM copy)
-  &C000-&C3FF  text screen
+  &C000-&C3FF  screen / colours
   &C400-&C7FF  resident MOS
-  &C800-&CFFF  character set
-  &D000-&DFFF  I/O
-  &E000-&FFFF  C64 KERNAL
+  &C800-&CFFF  VDU core
+  &D000-&DFFF  I/O, graphics below
+  &E000-&FFFF  KERNAL, bitmap below
 
-PAGE is &0800 and HIMEM &8000: 30K for programs. The area &70-&8F is free for your own machine code, as on a BBC Micro.
+PAGE is &0800 and HIMEM &8000: 30K for programs. Some modes need RAM below HIMEM: MODE 7 keeps its screen at &7C00, the Upic Lite modes their picture at &5800 (MODE 0, 3, 4, 5, 6) or &3000 (MODE 1, 2); HIMEM is lowered to match, as on a BBC Micro. Under the I/O area is the drawing engine, under the KERNAL the bitmap (&E000) and the text font (&F000). The area &70-&8F is free for your own machine code, as on a BBC Micro.
 
 BASIC runs from RAM because the Ultimate 64 reads cartridge ROM at 1 MHz even in turbo mode.
 
