@@ -557,7 +557,7 @@ def gfx_check(t, mode, lines, expect, timeout=60):
     else:
         for line in prog + ["MODE 7"]:     # typed: the screen is a bitmap
             screen.type_text(t.bridge, line + "\r")
-            time.sleep(1.5)
+            time.sleep(4)                   # 1 MHz: drawing takes time
         screen.wait_for(t.bridge, lambda r: any(x.startswith(">") for x in r), timeout)
         out = "\n".join(run_line(t, "PRINT R$", "R=", timeout=timeout))
     m = re.search(r"R=(\S*)", out)

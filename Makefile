@@ -66,17 +66,17 @@ $(BUILD)/mos-tmb.bin: $(MOS_SRCS) $(GEN)
 
 $(BUILD)/help.bin: src/help/help.txt tools/genhelp.py src/mos/mos.s
 	@$(MKDIR) $(BUILD)
-	$(PYTHON) tools/genhelp.py --commands src/mos/mos.s src/help/help.txt $@ docs/HELP_REFERENCE.md
+	$(PYTHON) tools/genhelp.py --first 4 --commands src/mos/mos.s src/help/help.txt $@ docs/HELP_REFERENCE.md
 
 docs/HELP_REFERENCE.md: $(BUILD)/help.bin
 
 # --- Cartridges
 
 $(BUILD)/$(NAME)-ef.crt: $(BUILD)/mos-ef.bin $(BUILD)/basic.rom $(BUILD)/help.bin tools/mkcrt.py
-	$(PYTHON) tools/mkcrt.py --type ef --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-ef.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-ef.bin:1 $(BUILD)/help.bin
+	$(PYTHON) tools/mkcrt.py --type ef --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-ef.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-ef.bin:1 $(BUILD)/mos-ef.bin:2 $(BUILD)/help.bin
 
 $(BUILD)/$(NAME)-tmb.crt: $(BUILD)/mos-tmb.bin $(BUILD)/basic.rom $(BUILD)/help.bin tools/mkcrt.py
-	$(PYTHON) tools/mkcrt.py --type tmb --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-tmb.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-tmb.bin:1 $(BUILD)/help.bin
+	$(PYTHON) tools/mkcrt.py --type tmb --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-tmb.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-tmb.bin:1 $(BUILD)/mos-tmb.bin:2 $(BUILD)/help.bin
 
 # --- Ultimate settings, loaded with the cartridge when it is started from
 # the Ultimate's file browser (firmware 3.15+: same name, same directory)
