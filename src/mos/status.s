@@ -17,9 +17,13 @@ BAS_TOP     = $12
 BAS_PAGE    = $18               ; high byte only
 BAS_LOMEM   = $50
 
+ST_MAXCOL   = 38                ; values end before column 39: no line
+                                ; ever wraps on the 40-column screen
+
 ; ----------------------------------------------------------------------------
 ; cmd_status
-;   Summary: *STATUS (also *SYS): print the system overview.
+;   Summary: *STATUS (also *SYS): print the system overview, one screen
+;            line per item (long values are cut at column 38).
 ;   Input:   none.  Output: text.  Uses: A, X, Y, mosTMP, fs*, osfblk.
 
 cmd_status:
@@ -44,7 +48,7 @@ cmd_status:
     sta fsLEN
     sta fsLEN+1
     jsr uci_send
-    jsr uci_print_reply
+    jsr st_reply
     jsr OSNEWL
 
 st_cpu:
@@ -179,7 +183,7 @@ st_ultimate:
     sta fsLEN
     sta fsLEN+1
     jsr uci_send
-    jsr uci_print_reply
+    jsr st_reply
     jsr OSNEWL
 
     jsr st_drives
@@ -195,8 +199,47 @@ st_ultimate:
     sta fsLEN
     sta fsLEN+1
     jsr uci_send
-    jsr uci_print_reply
+    jsr st_reply
     jmp OSNEWL
+
+; ----------------------------------------------------------------------------
+; st_reply
+;   Summary: print a UCI text reply as uci_print_reply does, but only up to
+;            column ST_MAXCOL; the rest is read and dropped.
+;   Uses:    A, X, Y.
+st_reply:
+srp_loop:
+    lda UCI_STAT
+    bpl srp_more
+    lda UCI_RESP
+    cmp #32
+    bcc srp_loop
+    cmp #127
+    bcs srp_loop
+    jsr st_capc
+    jmp srp_loop
+srp_more:
+    and #$30
+    cmp #$30
+    bne srp_done
+    jsr uci_ack
+    jmp srp_loop
+srp_done:
+    jmp uci_finish
+
+; st_capc
+;   Summary: print A unless the cursor is at column ST_MAXCOL or beyond.
+;   Input:   A = character.  Output: A preserved.  Uses: X, Y.
+st_capc:
+    pha
+    sec
+    jsr K_PLOT                  ; Y = column
+    pla
+    cpy #ST_MAXCOL
+    bcs stc_skip
+    jmp OSWRCH
+stc_skip:
+    rts
 
 ; ----------------------------------------------------------------------------
 ; st_drives
@@ -225,8 +268,10 @@ st_drives:
     lda #18
     sta fsLEN
     jsr uci_read_to
+    lda #0
+    sta mosARGS                 ; no entries yet
     jsr uci_finish
-    bcs sd_exit
+    bcs sd_scan
     lda fsCNT                   ; entries actually received: (bytes-1)/3.
     sec                         ; Firmware 3.15a counts the SoftIEC and
     sbc #1                      ; printer entries but does not send them
@@ -242,20 +287,23 @@ sd_avail:
     bcc sd_fewer
     ldx osfblk                  ; count
 sd_fewer:
-    txa
-    beq sd_exit
+    stx mosARGS                 ; entries listed from the reply (for the
+    txa                         ; serial-bus scan: they are skipped there)
+    beq sd_scan
     sta mosTMP+2                ; drives left
     lda #1
     sta mosCNT                  ; index into the reply (st_text uses Y)
 sd_next:
     lda mosTMP+2
-    beq sd_exit
+    beq sd_scan
     dec mosTMP+2
     ldy mosCNT
     cpy #15
     bcc sd_entry
 sd_exit:
     rts
+sd_scan:
+    jmp st_iecscan
 sd_entry:
     lda osfblk,y                ; type
     sta mosTMP+3
@@ -267,7 +315,7 @@ sd_entry:
     cmp #$50
     beq sd_printer
     cmp #3
-    bcs sd_exit                 ; unknown type: stop
+    bcs sd_scan                 ; unknown type: stop
     tax
     lda sd_types,x              ; 1541 / 1571 / 1581
     sta mosTMP
@@ -303,6 +351,254 @@ sd_after:
     adc #3
     sta mosCNT
     jmp sd_next
+
+; ----------------------------------------------------------------------------
+; st_iecscan
+;   Summary: list the serial-bus devices the drive info did not report.
+;   Function: as UBoot64 (src/core.c, iec_present and getDeviceType):
+;            probe device 4 and 8-30 with LISTEN; for each device that is
+;            present and not already listed, read its command channel and
+;            show the DOS name from the "73,<name>,..." power-on message
+;            ("U64" in it: the SoftIEC drive). If the channel holds
+;            another message, send "UI" (warm reset) once to get it, as
+;            UBoot64 does. This also covers firmware 3.15a, whose drive
+;            info leaves out the SoftIEC drive and the printer. The CPU runs
+;            at 1 MHz meanwhile (KERNAL serial timing).
+;   Input:   osfblk = drive info reply, mosARGS = entries listed.
+;   Uses:    A, X, Y, mosTMP, mosARGS+1/+2, errbuf (status text).
+
+KL_LISTEN   = $FFB1
+KL_SECOND   = $FF93
+KL_CIOUT    = $FFA8
+KL_UNLSN    = $FFAE
+KL_TALK     = $FFB4
+KL_TKSA     = $FF96
+KL_ACPTR    = $FFA5
+KL_UNTLK    = $FFAB
+KL_STATUS   = $90
+
+st_iecscan:
+    lda U64_TURBO               ; 1 MHz for the KERNAL serial routines
+    sta mosARGS+2
+    lda turbo_state
+    cmp #2
+    bne si_slow
+    lda #$80
+    sta U64_TURBO
+si_slow:
+    ldx #si_ids_end-si_ids-1
+si_next:
+    stx mosARGS+1
+    lda si_ids,x
+    jsr si_known
+    bcs si_skip
+    jsr iec_present
+    bcc si_skip
+    jsr st_text
+    dta 'Drive      #', 0
+    ldx mosARGS+1
+    lda si_ids,x
+    jsr st_dec8
+    lda #' '
+    jsr OSWRCH
+    ldx mosARGS+1
+    lda si_ids,x
+    cmp #4
+    beq si_printer
+    jsr iec_ident
+    jmp si_line
+si_printer:
+    jsr st_text
+    dta 'printer', 0
+si_line:
+    jsr OSNEWL
+si_skip:
+    ldx mosARGS+1
+    dex
+    bpl si_next
+    lda turbo_state             ; speed back
+    cmp #2
+    bne si_done
+    lda mosARGS+2
+    sta U64_TURBO
+si_done:
+    rts
+
+si_ids:
+    dta 4, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
+    dta 23, 24, 25, 26, 27, 28, 29, 30
+si_ids_end:
+
+; si_known
+;   Summary: is device A one of the drives listed from the drive info?
+;   Input:   A = device, osfblk, mosARGS = entries.
+;   Output:  C = 1 if listed.  Uses: X, mosTMP+3.
+si_known:
+    sta mosTMP+3
+    ldx mosARGS
+    beq sk_no
+    lda #2                      ; device number of entry n: osfblk+3n+2
+sk_loop:
+    tay
+    lda osfblk,y
+    cmp mosTMP+3
+    beq sk_yes
+    tya
+    clc
+    adc #3
+    dex
+    bne sk_loop
+sk_no:
+    lda mosTMP+3
+    clc
+    rts
+sk_yes:
+    lda mosTMP+3
+    sec
+    rts
+
+; iec_present
+;   Summary: is there a device on the serial bus at A? (UBoot64's
+;            iec_present: LISTEN, a secondary address, check STATUS.)
+;   Input:   A = device.  Output: C = 1 if present.  Uses: A, X, Y.
+iec_present:
+    pha
+    lda #0
+    sta KL_STATUS
+    pla
+    jsr KL_LISTEN
+    lda #$FF
+    jsr KL_SECOND
+    lda KL_STATUS
+    sta mosTMP+2
+    jsr KL_UNLSN
+    lda mosTMP+2                ; bit 7 set: no device
+    eor #$80
+    asl                         ; C = 1: present
+    rts
+
+; iec_ident
+;   Summary: print the DOS name of the device in si_ids,mosARGS+1.
+;   Function: reads the command channel; if it is not a "73," message,
+;            sends "UI" and reads it again (a real drive needs up to about
+;            a second after the reset: retried for ~2 s).
+;   Uses:    A, X, Y, errbuf, mosTMP.
+iec_ident:
+    jsr ii_read
+    lda errbuf+1
+    cmp #'7'
+    bne ii_reset
+    lda errbuf+2
+    cmp #'3'
+    beq ii_print
+ii_reset:
+    ldx mosARGS+1
+    lda si_ids,x
+    jsr KL_LISTEN
+    lda #$6F                    ; command channel 15
+    jsr KL_SECOND
+    lda #'U'
+    jsr KL_CIOUT
+    lda #'I'
+    jsr KL_CIOUT
+    jsr KL_UNLSN
+    lda #100                    ; up to ~2 s (100 frames)
+    sta mosTMP+2
+ii_retry:
+    jsr wait_frame
+    jsr ii_read
+    lda errbuf+1
+    cmp #'7'
+    beq ii_print
+    dec mosTMP+2
+    bne ii_retry
+ii_print:
+    ldx #0                      ; the name: after the first comma
+ii_comma:
+    lda errbuf+1,x
+    beq ii_whole
+    inx
+    cmp #','
+    bne ii_comma
+    stx mosTMP+3
+    jsr ii_isu64
+    bcc ii_name
+    jsr st_text
+    dta 'SoftIEC ', 0
+ii_name:
+    ldx mosTMP+3
+ii_nloop:
+    lda errbuf+1,x
+    beq ii_done
+    cmp #','
+    beq ii_done
+    stx mosTMP+3
+    jsr st_capc                 ; long DOS names are cut at the edge
+    ldx mosTMP+3
+    inx
+    bne ii_nloop
+ii_whole:                       ; no comma: print what there is
+    ldx #0
+    stx mosTMP+3
+    beq ii_nloop
+ii_done:
+    rts
+
+; ii_isu64: C = 1 if the text from errbuf+1+mosTMP+3 contains "U64"
+ii_isu64:
+    ldx mosTMP+3
+iu_loop:
+    lda errbuf+1,x
+    beq iu_no
+    cmp #'U'
+    bne iu_next
+    lda errbuf+2,x
+    cmp #'6'
+    bne iu_next
+    lda errbuf+3,x
+    cmp #'4'
+    bne iu_next
+    sec
+    rts
+iu_next:
+    inx
+    cpx #ERRMAX-4
+    bcc iu_loop
+iu_no:
+    clc
+    rts
+
+; ii_read
+;   Summary: read the command channel of the device into errbuf+1
+;            (0-terminated, at most ERRMAX-2 characters, CR dropped).
+;   Uses:    A, X, Y.
+ii_read:
+    lda #0
+    sta KL_STATUS
+    sta errbuf+1
+    ldx mosARGS+1
+    lda si_ids,x
+    jsr KL_TALK
+    lda #$6F
+    jsr KL_TKSA
+    ldy #0
+ir_loop:
+    lda KL_STATUS
+    bne ir_end                  ; time-out or end of data
+    jsr KL_ACPTR
+    cmp #13
+    beq ir_eoi
+    cpy #ERRMAX-2
+    bcs ir_eoi
+    sta errbuf+1,y
+    iny
+ir_eoi:
+    bit KL_STATUS               ; EOI after this byte?
+    bvc ir_loop
+ir_end:
+    lda #0
+    sta errbuf+1,y
+    jmp KL_UNTLK
 
 sd_types:
     dta <1541, <1571, <1581, >1541, >1571, >1581

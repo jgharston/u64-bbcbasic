@@ -16,6 +16,7 @@ Usage: run_e2e.py [--vice-only | --no-vice] [--device IP ...] [--only NAME]
 """
 import argparse
 import ftplib
+import json
 import os
 import re
 import subprocess
@@ -299,10 +300,12 @@ def test_speed(t):
 # Ultimate's RAM disk; on VICE (no command interface) only the error.
 
 def ult(t):
-    """True on an Ultimate; on VICE checks the 'no Ultimate' error instead."""
+    """True on an Ultimate (and the current directory is then /Temp, the
+    RAM disk); on VICE checks the 'no Ultimate' error instead."""
     if t.is_vice:
         run_line(t, "*CAT", "No Ultimate command interface")
         return False
+    run_line(t, "*DIR /Temp", ">")
     return True
 
 
@@ -409,6 +412,17 @@ def test_status(t):
         reu = [l for l in out.splitlines() if l.startswith("REU")]
         t.notes.append(reu[0] if reu else "REU line missing")
         assert reu and reu[0] != "REU        none", out
+        drives = [l for l in out.splitlines() if l.startswith("Drive")]
+        t.notes.extend(drives)
+        # the SoftIEC drive must show when it is on, also on firmware 3.15a
+        # (whose drive info leaves it out: the serial-bus scan finds it)
+        import urllib.request
+        with urllib.request.urlopen("http://%s/v1/drives" % t.host, timeout=10) as f:
+            info = json.load(f)
+        softiec = [list(d.values())[0] for d in info["drives"] if "IEC Drive" in d]
+        if softiec and softiec[0].get("enabled"):
+            assert any("SoftIEC" in l and "#%d" % softiec[0]["bus_id"] in l
+                       for l in drives), drives
 
 
 def test_turbo_cmd(t):

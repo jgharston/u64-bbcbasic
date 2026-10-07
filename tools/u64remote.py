@@ -218,10 +218,18 @@ class Remote:
         deadline = time.time() + timeout
         pending = list(lines)
         state = "running"
+        first_error = None              # (number, message) of the first
+        err_seen = errors_before        # error, taken when it happened
         while True:
             mb = self.mailbox()
             out += self.drain(mb)
             st = self.state(mb)
+            if st["error_count"] != err_seen and first_error is None and \
+                    st["state"] in ("prompt", "input"):
+                time.sleep(0.05)
+                out += self.drain()
+                first_error = (st["last_error"], last_line(clean_output(out)))
+            err_seen = st["error_count"]
             if st["state"] == "paused" and not pending:
                 state = "paused"
                 out += self.drain()
@@ -246,10 +254,10 @@ class Remote:
         result = {"ok": True, "state": state, "output": text,
                   "elapsed_s": round(time.time() - start, 2), "error": None}
         if st["error_count"] != errors_before:
-            message = last_line(text)
+            number, message = first_error or (st["last_error"], last_line(text))
             m = re.search(r"^(.*) at line (\d+)$", message)
             result["ok"] = False
-            result["error"] = {"number": st["last_error"],
+            result["error"] = {"number": number,
                                "message": m.group(1) if m else message,
                                "line": int(m.group(2)) if m else None}
         if state == "timeout":
