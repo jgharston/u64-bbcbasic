@@ -49,6 +49,13 @@ def local_address(host):
 
 def grab(host, port, timeout=10.0):
     """One complete frame as a list of rows of colour indexes."""
+    return grab_frames(host, port, 1, 0.0, timeout)[0]
+
+
+def grab_frames(host, port, count, interval, timeout=10.0):
+    """count complete frames, at least interval seconds apart, from one
+    stream session (starting and stopping the stream in quick succession
+    has left an Ultimate's network task hanging)."""
     source = socket.gethostbyname(host)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -58,8 +65,9 @@ def grab(host, port, timeout=10.0):
                     socket.inet_aton(GROUP) + socket.inet_aton(local_address(host)))
     sock.settimeout(2.0)
     rest(host, "PUT", "/v1/streams/video:start", {"ip": "%s:%d" % (GROUP, port)})
+    frames, next_at = [], 0.0
     try:
-        deadline = time.monotonic() + timeout
+        deadline = time.monotonic() + timeout + count * interval
         current, lines, started = None, {}, False
         while time.monotonic() < deadline:
             data, addr = sock.recvfrom(2048)
@@ -77,14 +85,17 @@ def grab(host, port, timeout=10.0):
                 lines[line + i] = payload[i * 192:(i + 1) * 192]
             if last:
                 height = line + per
-                if started and len(lines) == height:
+                if started and len(lines) == height and time.monotonic() >= next_at:
                     rows = []
                     for y in range(height):
                         row = bytearray(WIDTH)
                         row[0::2] = bytes(b & 15 for b in lines[y])
                         row[1::2] = bytes(b >> 4 for b in lines[y])
                         rows.append(bytes(row))
-                    return rows
+                    frames.append(rows)
+                    if len(frames) == count:
+                        return frames
+                    next_at = time.monotonic() + interval
                 started = True
                 current, lines = None, {}
         raise SystemExit("no complete frame received")

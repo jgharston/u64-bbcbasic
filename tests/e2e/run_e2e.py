@@ -553,13 +553,13 @@ def test_a_dirhome(t):
 
 def gfx_check(t, mode, lines, expect, timeout=60):
     """Run lines in MODE mode, then the check line printing "R=..."; back to
-    MODE 7. Returns the R= values."""
+    the C64 text screen (MODE 100; MODE 7 is teletext)."""
     r = remote(t) if ult(t) else None
     prog = ["MODE %d" % mode] + lines
     if r:
-        out = r.run_lines(prog + ["MODE 7", "PRINT R$"], timeout=timeout)["output"]
+        out = r.run_lines(prog + ["MODE 100", "PRINT R$"], timeout=timeout)["output"]
     else:
-        for line in prog + ["MODE 7"]:     # typed: the screen is a bitmap
+        for line in prog + ["MODE 100"]:   # typed: the screen is a bitmap
             screen.type_text(t.bridge, line + "\r")
             time.sleep(4)                   # 1 MHz: drawing takes time
         screen.wait_for(t.bridge, lambda r: any(x.startswith(">") for x in r), timeout)
@@ -666,6 +666,21 @@ def test_gfx_flood(t):
         "R=10,3")
 
 
+def test_gfx_arcs(t):
+    # PLOT 176-183 sector, 168-175 segment, 160-167 arc: centre, start
+    # point (radius, start angle), end direction; anticlockwise
+    gfx_check(t, 1, [
+        "VDU 28,0,31,39,28",
+        "GCOL 0,1:MOVE 300,400:MOVE 500,400:PLOT 181,300,600",
+        "A%=POINT(360,450)+4*POINT(240,450)+16*POINT(360,350)",
+        "GCOL 0,2:MOVE 900,400:MOVE 1100,400:PLOT 173,900,600",
+        "B%=POINT(1025,525)+4*POINT(960,450)",
+        "GCOL 0,3:MOVE 640,800:MOVE 840,800:PLOT 165,640,1000",
+        "C%=POINT(840,800)+4*POINT(640,800)",
+        "R$=\"R=\"+STR$A%+\",\"+STR$B%+\",\"+STR$C%"],
+        "R=1,2,3")
+
+
 def test_gfx_patterns(t):
     # ECF: GCOL 16 + action selects pattern 1 (checker of colours 1, 0);
     # VDU 23,12 redefines pattern 1 (2 x 4 logical colours); VDU 23,11
@@ -699,11 +714,50 @@ def test_gfx_mode3(t):
     if not ult(t):
         return
     out = remote(t).run_lines(["MODE 3", "PRINT TAB(70,24);\"X\";:A%=POS:B%=VPOS",
-                               "MODE 7", "PRINT A%,B%"])["output"]
+                               "MODE 100", "PRINT A%,B%"])["output"]
     if "71" not in out:
         t.notes.append("MODE 3: not Upic Lite on this machine")
         return
     assert re.search(r"71\s+24", out), out
+
+
+def test_gfx_teletext(t):
+    # MODE 7 is teletext: HIMEM &7C00, the codes in the screen memory at
+    # &7C00 (OSBYTE &87 reads them back), a colour code colours the cells
+    # after it (screen matrix at $C000: foreground high nybble)
+    gfx_check(t, 7, [
+        "PRINT TAB(0,5);CHR$129;\"RED\";CHR$157;CHR$132;\"X\"",
+        "F%=?&7CC8:B%=?&7CC9:C%=HIMEM",
+        "PRINT TAB(1,5);:A%=&87:X%=0:D%=(USR(&C7F4) AND &FF00) DIV 256",
+        "R$=\"R=\"+STR$~F%+\",\"+STR$B%+\",\"+STR$~C%+\",\"+STR$D%"],
+        "R=81,82,7C00,82")
+    if t.is_vice:
+        return
+    # the cell colours as drawn: "RED" red on black, "X" blue on red
+    remote(t).run_lines(["MODE 7",
+                         "PRINT TAB(0,10);CHR$129;\"RED\";CHR$157;CHR$132;\"X\""])
+    m = rest_read(t, 0xC000 + 400, 8)       # row 10 of the screen matrix
+    # a direct write to the screen memory shows within a frame or two
+    remote(t).run_lines(["?&7F20=145:?&7F21=255"])  # row 20: red graphics block
+    time.sleep(1.0)                         # (away from the prompt's rows)
+    m2 = rest_read(t, 0xC000 + 800, 2)
+    # flashing: a flashing cell's bitmap is empty part of the time
+    remote(t).run_lines(["PRINT TAB(0,14);CHR$136;\"FLASH\""])
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import u64shot                          # (REST reads see the KERNAL
+    frames = u64shot.grab_frames(t.host, 11002, 6, 0.2)  # ROM at $E000)
+    seen = {len(set(b"".join(f) for f in frames)) > 1}
+    remote(t).run_lines(["MODE 100"])
+    assert m[1] >> 4 == 2 and m[1] & 15 == 0 and m[6] >> 4 == 6 and m[6] & 15 == 2, m.hex()
+    assert m2[1] >> 4 == 2, m2.hex()
+    assert seen == {True}, "no flashing: all frames equal"
+
+
+def rest_read(t, address, length):
+    import urllib.request
+    with urllib.request.urlopen("http://%s/v1/machine:readmem?address=%04X&length=%d"
+                                % (t.host, address, length), timeout=10) as f:
+        return f.read()
 
 
 def test_gfx_upiclite(t):
@@ -716,7 +770,7 @@ def test_gfx_upiclite(t):
     out = r.run_lines(["MODE 4", "PRINT HIMEM", "MOVE 640,0:DRAW 640,1023"])["output"]
     if "32768" in out:
         t.notes.append("Upic Lite: not on this machine (VIC-II modes)")
-        r.run_lines(["MODE 7"])
+        r.run_lines(["MODE 100"])
         return
     assert "22528" in out, out
     sys.path.insert(0, os.path.join(ROOT, "tools"))
@@ -737,7 +791,7 @@ def test_gfx_upiclite(t):
     assert rows[top][32] & 15 == 9 and rows[top][33] & 15 == 9, rows[top][28:40]
     out = r.run_lines(["MODE 5", "PRINT HIMEM"])["output"]
     assert "22528" in out, out
-    out = r.run_lines(["MODE 7", "PRINT HIMEM"])["output"]
+    out = r.run_lines(["MODE 100", "PRINT HIMEM"])["output"]
     assert "32768" in out, out
     t.notes.append("Upic Lite: MODE 4/1/2/5 live, pixel-exact")
 
@@ -894,7 +948,9 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_a_settime, test_a_partition, test_a_dirhome,
          test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
-         test_gfx_patterns, test_gfx_flood, test_gfx_vdu5, test_gfx_mode3,
+         test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_gfx_vdu5,
+         test_gfx_mode3,
+         test_gfx_teletext,
          test_gfx_upiclite, test_classic_files,
          test_remote_exec, test_remote_run_error, test_remote_input,
          test_remote_long_output, test_remote_tokeniser, test_remote_stop,

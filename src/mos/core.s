@@ -88,13 +88,20 @@ wr_notee:
     bcc wr_ctrl
     cmp #127
     beq wr_del
-    bcs wr_done                 ; 128-255: no glyphs yet
+    bcs wr_high
     jsr out_char
 wr_done:
     lda wr_a
     ldx wr_x
     ldy wr_y
     rts
+
+wr_high:                        ; 128-255: teletext codes in MODE 7, else
+    ldx vtype                   ; nothing (no glyphs)
+    cpx #2
+    bne wr_done
+    jsr out_char
+    jmp wr_done
 
 wr_del:                         ; VDU 127: delete the character to the left
     lda #$9D
@@ -291,48 +298,16 @@ vdu_bg:
     sta $D021
     jmp wr_done
 
-vdu_23:                         ; VDU 23,1,n: cursor off (0) / on
-    lda vdubuf
-    cmp #1
-    bne v23_ecf
-    lda vdubuf+1
-    sta curson
-vdu_23done:
+vdu_23:                         ; VDU 23: bank 3 (bk_vdu23)
+    farcall bk_vdu23, BANK_GFX
     jmp wr_done
-v23_ecf:                        ; VDU 23,11: default ECF patterns
-    cmp #11
-    bne v23_def
-    ldx #31
-v23_reset:
-    lda pats_default,x
-    sta pats,x
-    dex
-    bpl v23_reset
-    bmi vdu_23done
-v23_def:                        ; VDU 23,12-15,c1..c8: pattern 1-4 as 2x4
-    sec                         ; logical colours (the Master's simple ECF)
-    sbc #12
-    cmp #4
-    bcs vdu_23done
-    asl
-    asl
-    asl
-    tax
-    ldy #0
-v23_copy:
-    lda vdubuf+1,y
-    sta pats,x
-    inx
-    iny
-    cpy #8
-    bne v23_copy
-    beq vdu_23done
 
 vdu_4:                          ; VDU 4: text at the text cursor
     lda #0
     beq v45
 vdu_5:                          ; VDU 5: text at the graphics cursor
-    lda vtype                   ; (graphics modes only)
+    lda vtype                   ; (graphics modes only: type 1, not
+    and #1                      ; MODE 7's 2)
 v45:
     sta vdu5
     jmp wr_done
@@ -522,12 +497,6 @@ pats:
     dta 2, 0, 0, 2, 2, 0, 0, 2  ; 2: checker of 2 and 0
     dta 3, 0, 0, 3, 3, 0, 0, 3  ; 3: checker of 3 and 0
     dta 1, 2, 2, 1, 1, 2, 2, 1  ; 4: checker of 1 and 2
-pats_default:
-    dta 1, 0, 0, 1, 1, 0, 0, 1
-    dta 2, 0, 0, 2, 2, 0, 0, 2
-    dta 3, 0, 0, 3, 3, 0, 0, 3
-    dta 1, 2, 2, 1, 1, 2, 2, 1
-
 ; BBC logical colours 0-15 -> C64 colours (text modes; the bitmap modes'
 ; palettes are in bank 3, gxbank.s)
 bbc2c64:
@@ -583,10 +552,10 @@ ioc_addr:
 ;            in core variables.
 ;   Output:  per entry.  Uses: A, X, Y.
 gx_call:
+    php                         ; interrupts off first: the teletext
+    sei                         ; refresh calls gx_call from the interrupt
     stx gxc_j+1
     sta gx_a                    ; A is an argument (e_pet)
-    php
-    sei
     lda $01
     sta gx_save01
     lda #$34
@@ -631,6 +600,13 @@ ul_irq:
     inc mostime+4
 uli_keys:
     jmp irq_keys
+
+; tt_irq ($0314 in MODE 7): teletext refresh (direct writes to &7C00,
+; flashing), then the normal interrupt
+tt_irq:
+    ldx #GX_POINT               ; (entry +15: t_refresh in ttx.s)
+    jsr gx_call
+    jmp irq_main
 
 ul_ok       dta 0               ; Upic Lite possible (64 MHz, palette)
 ul_active   dta 0               ; Upic Lite interrupt running
@@ -910,6 +886,11 @@ out_char:
     beq oc_done
     jmp putpet
 oc_bitmap:
+    cpx #2                      ; MODE 7: the code itself (teletext engine)
+    bne oc_glyph
+    ldx #GX_CHAR
+    jmp gx_call
+oc_glyph:
     jsr glyph_get
     lda vdu5
     bne oc_vdu5
@@ -942,8 +923,11 @@ ve_bitmap:
     ldx #GX_VDU
     jsr gx_call
     lda gx_code                 ; PLOT shapes beyond lines, points and
-    cmp #25                     ; rectangles: bank 3 (gxshape.s)
-    bne ve_none
+    cmp #25                     ; rectangles: bank 3 (gxshape.s); none
+    bne ve_none                 ; in MODE 7
+    lda vtype
+    cmp #2
+    beq ve_none
     lda vdubuf
     and #3
     beq ve_none

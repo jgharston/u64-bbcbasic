@@ -61,12 +61,13 @@ bsp_go:
     pha
     rts
 bs_groups:
-    dta 10, 14, 18, 19, 24, 25, 27, 28, 30, 16, 17
+    dta 10, 14, 18, 19, 24, 25, 27, 28, 30, 16, 17, 20, 21, 22
 bs_groups_end:
 bs_jumps:
     dta a(bs_tri-1), a(bs_par-1), a(bs_circle-1), a(bs_circfill-1)
     dta a(bs_ellipse-1), a(bs_ellfill-1), a(bs_rectout-1), a(bs_triout-1)
-    dta a(bs_parout-1), a(bs_flood-1), a(bs_flood-1)
+    dta a(bs_parout-1), a(bs_flood-1), a(bs_flood-1), a(sh_arc-1)
+    dta a(sh_arc-1), a(sh_arc-1)
 bs_flood:
     jmp sh_flood
 bs_tri:
@@ -1799,3 +1800,462 @@ sfo_hi:
     lda #0
     sta ey+1
     rts
+
+; ----------------------------------------------------------------------------
+; sh_arc
+;   Summary: PLOT 160-167 arc, 168-175 segment, 176-183 sector (the BBC
+;            GXR/Master's definition): centre = the point two plots back
+;            (gq), the previous point (gp) gives the radius and the start
+;            angle, the new point (gc) the end angle; anticlockwise.
+;   Function: in OS units (the same scale on both axes): start and end
+;            angles from a 256-step sine table (the step whose direction
+;            fits best), arc points P(i) = centre + r (cos, sin) at each
+;            step, converted to device pixels. Arc: lines between them;
+;            sector: triangles from the centre; segment: triangles from
+;            the start point (the area between chord and arc).
+;   Uses:    A, X, Y, shape variables, m48 slots.
+sh_arc:
+    lda vdubuf                  ; 0 arc, 1 segment, 2 sector
+    lsr
+    lsr
+    lsr
+    sec
+    sbc #20
+    sta sh_fill
+    lda gpx                     ; S = gp - gq (OS units); r = |S|
+    sec
+    sbc gqx
+    sta sha_sx
+    sta sh_nm
+    lda gpx+1
+    sbc gqx+1
+    sta sha_sx+1
+    sta sh_nm+1
+    lda gpy
+    sec
+    sbc gqy
+    sta sha_sy
+    sta sh_nm+2
+    lda gpy+1
+    sbc gqy+1
+    sta sha_sy+1
+    sta sh_nm+3
+    jsr sh_hypot                ; sh_r = radius
+    lda sha_sx                  ; start angle: best step for S
+    ldx sha_sx+1
+    ldy sha_sy
+    lda sha_sy+1
+    sta sha_vy+1
+    sty sha_vy
+    lda sha_sx
+    sta sha_vx
+    stx sha_vx+1
+    jsr sha_angle
+    sta sha_a0
+    lda gcx                     ; end angle: best step for gc - gq
+    sec
+    sbc gqx
+    sta sha_vx
+    lda gcx+1
+    sbc gqx+1
+    sta sha_vx+1
+    lda gcy
+    sec
+    sbc gqy
+    sta sha_vy
+    lda gcy+1
+    sbc gqy+1
+    sta sha_vy+1
+    jsr sha_angle
+    sta sha_a1
+    lda gqx                     ; the start point exactly: gp (device)
+    ldy gqx+1
+    jsr shp_x
+    lda gqy
+    ldy gqy+1
+    jsr shp_y
+    ldx #4                      ; slot 2 = centre (device)
+    jsr shp_conv
+    lda gpx
+    ldy gpx+1
+    jsr shp_x
+    lda gpy
+    ldy gpy+1
+    jsr shp_y
+    ldx #0                      ; slot 0 = previous arc point = start
+    jsr shp_conv
+    lda sh_x                    ; slot 3 (fan origin for segments) = start
+    sta sh_x+6
+    lda sh_x+1
+    sta sh_x+7
+    lda sh_y
+    sta sh_y+6
+    lda sh_y+1
+    sta sh_y+7
+    lda sha_a0
+    sta sha_i
+sha_step:
+    inc sha_i                   ; next step (anticlockwise)
+    lda sha_i
+    jsr sha_point               ; slot 1 = P(i) (device)
+    jsr sha_draw                ; line / triangle from slot 0 to slot 1
+    lda sh_x+2                  ; slot 0 = slot 1
+    sta sh_x
+    lda sh_x+3
+    sta sh_x+1
+    lda sh_y+2
+    sta sh_y
+    lda sh_y+3
+    sta sh_y+1
+    .if SHRAM
+    jsr sh_yield
+    .endif
+    lda sha_i
+    cmp sha_a1
+    bne sha_step
+    rts
+
+; sha_draw: arc: line slot 0 -> 1 (without its last point); sector:
+; triangle centre (slot 2), slot 0, slot 1; segment: start (slot 3),
+; slot 0, slot 1
+sha_draw:
+    lda sh_fill
+    bne shd_fill
+    lda sh_x
+    sta eline_x0
+    lda sh_x+1
+    sta eline_x0+1
+    lda sh_y
+    sta eline_y0
+    lda sh_y+1
+    sta eline_y0+1
+    lda sh_x+2
+    sta eline_x1
+    lda sh_x+3
+    sta eline_x1+1
+    lda sh_y+2
+    sta eline_y1
+    lda sh_y+3
+    sta eline_y1+1
+    lda #4
+    sta eflags
+    ldx #GX_LINE
+    jmp gx_call
+shd_fill:                       ; the triangle in slots 0, 1, 2 (trifill
+    ldx #7                      ; sorts them: work on a copy)
+shd_save:
+    lda sh_x,x
+    sta sha_save,x
+    lda sh_y,x
+    sta sha_save+8,x
+    dex
+    bpl shd_save
+    lda sh_fill
+    cmp #2
+    beq shd_tri                 ; sector: slot 2 is the centre already
+    lda sh_x+6                  ; segment: slot 2 = start
+    sta sh_x+4
+    lda sh_x+7
+    sta sh_x+5
+    lda sh_y+6
+    sta sh_y+4
+    lda sh_y+7
+    sta sh_y+5
+shd_tri:
+    jsr sh_trifill
+    ldx #7
+shd_rest:
+    lda sha_save,x
+    sta sh_x,x
+    lda sha_save+8,x
+    sta sh_y,x
+    dex
+    bpl shd_rest
+    rts
+
+; sha_point: slot 1 = device position of centre + r (cos A, sin A), A =
+; step (256 per turn)
+sha_point:
+    pha
+    clc
+    adc #64                     ; cos = sin(a + 64)
+    jsr sha_rsin                ; r * cos -> sh_dv
+    lda sh_dv
+    clc
+    adc gqx
+    sta pk_x
+    lda sh_dv+1
+    adc gqx+1
+    sta pk_x+1
+    pla
+    jsr sha_rsin                ; r * sin
+    lda sh_dv
+    clc
+    adc gqy
+    sta pk_y
+    lda sh_dv+1
+    adc gqy+1
+    sta pk_y+1
+    ldx #2
+    jmp shp_conv
+
+; sha_rsin: sh_dv = r * sin(step A) / 32768 (signed 16 bits)
+sha_rsin:
+    asl
+    tax
+    lda sha_sin,x
+    sta m_a
+    lda sha_sin+1,x
+    sta m_a+1
+    sta sha_sg                  ; sign of sin
+    bpl shr_pos
+    lda #0
+    sec
+    sbc m_a
+    sta m_a
+    lda #0
+    sbc m_a+1
+    sta m_a+1
+shr_pos:
+    lda sh_r
+    sta m_b
+    lda sh_r+1
+    sta m_b+1
+    jsr sha_mul                 ; m_sq = |sin| * r (32 bits)
+    lda m_sq+1                  ; / 32768: bits 15-30
+    asl
+    lda m_sq+2
+    rol
+    sta sh_dv
+    lda m_sq+3
+    rol
+    sta sh_dv+1
+    lda sha_sg
+    bpl shr_done
+    lda #0
+    sec
+    sbc sh_dv
+    sta sh_dv
+    lda #0
+    sbc sh_dv+1
+    sta sh_dv+1
+shr_done:
+    rts
+
+; sha_mul: m_sq (32 bits) = m_a * m_b (unsigned 16 bits each)
+sha_mul:
+    lda #0
+    sta m_sq
+    sta m_sq+1
+    sta m_sq+2
+    sta m_sq+3
+    ldx #16
+smu_loop:
+    asl m_sq
+    rol m_sq+1
+    rol m_sq+2
+    rol m_sq+3
+    asl m_b
+    rol m_b+1
+    bcc smu_next
+    lda m_sq
+    clc
+    adc m_a
+    sta m_sq
+    lda m_sq+1
+    adc m_a+1
+    sta m_sq+1
+    bcc smu_next
+    inc m_sq+2
+    bne smu_next
+    inc m_sq+3
+smu_next:
+    dex
+    bne smu_loop
+    rts
+
+; sha_angle: A = the step (0-255) whose direction (cos, sin) fits the
+; vector sha_vx, sha_vy best: the largest dot product, scaled down to
+; 8 bits per component first (only the direction matters)
+sha_angle:
+    jsr sha_scale               ; sha_vx/vy -> signed 8-bit sha_bx/by
+    lda #0
+    sta sha_best
+    lda #$80                    ; best dot so far: very small
+    sta sha_bd+1
+    lda #0
+    sta sha_bd
+    sta sha_i
+sag_loop:
+    lda sha_i                   ; dot = bx * cos + by * sin (16 bits,
+    clc                         ; using the high byte of the table)
+    adc #64
+    asl
+    tax
+    lda sha_sin+1,x
+    ldy sha_bx
+    jsr sha_smul8
+    sta sha_dot
+    stx sha_dot+1
+    lda sha_i
+    asl
+    tax
+    lda sha_sin+1,x
+    ldy sha_by
+    jsr sha_smul8
+    clc
+    adc sha_dot
+    sta sha_dot
+    txa
+    adc sha_dot+1
+    sta sha_dot+1
+    lda sha_dot                 ; better (signed)?
+    cmp sha_bd
+    lda sha_dot+1
+    sbc sha_bd+1
+    bvc sag_v
+    eor #$80
+sag_v:
+    bmi sag_next
+    lda sha_dot
+    sta sha_bd
+    lda sha_dot+1
+    sta sha_bd+1
+    lda sha_i
+    sta sha_best
+sag_next:
+    inc sha_i
+    bne sag_loop
+    lda sha_best
+    rts
+
+; sha_scale: shift sha_vx/vy right (arithmetically) until both are in
+; -64 .. 63; their low bytes are then sha_bx/by
+sha_scale:
+    ldx #0
+    jsr sas_ok
+    bcc sas_shift
+    ldx #2
+    jsr sas_ok
+    bcc sas_shift
+    lda sha_vx
+    sta sha_bx
+    lda sha_vy
+    sta sha_by
+    rts
+sas_shift:
+    lda sha_vx+1
+    cmp #$80
+    ror sha_vx+1
+    ror sha_vx
+    lda sha_vy+1
+    cmp #$80
+    ror sha_vy+1
+    ror sha_vy
+    jmp sha_scale
+; sas_ok: C = 1 if the word at sha_vx + X is in -64 .. 63
+sas_ok:
+    lda sha_vx+1,x
+    beq sok_pos
+    cmp #$FF
+    bne sok_no
+    lda sha_vx,x
+    cmp #$C0
+    rts                         ; C = 1 if >= $C0
+sok_pos:
+    lda sha_vx,x
+    cmp #$40                    ; C = 0 if < $40: ok -> invert
+    bcs sok_no
+    sec
+    rts
+sok_no:
+    clc
+    rts
+
+; sha_smul8: A (signed) * Y (signed) -> A/X (low/high, signed 16 bits)
+sha_smul8:
+    sta sha_ma
+    sty sha_mb
+    lda #0
+    sta sha_mr
+    sta sha_mr+1
+    lda sha_ma                  ; sign of the result, and magnitudes
+    eor sha_mb
+    sta sha_ms
+    lda sha_ma
+    bpl ssm_a
+    eor #$FF
+    clc
+    adc #1
+    sta sha_ma
+ssm_a:
+    lda sha_mb
+    bpl ssm_b
+    eor #$FF
+    clc
+    adc #1
+    sta sha_mb
+ssm_b:
+    ldy #8
+ssm_loop:
+    asl sha_mr
+    rol sha_mr+1
+    asl sha_mb
+    bcc ssm_next
+    lda sha_mr
+    clc
+    adc sha_ma
+    sta sha_mr
+    bcc ssm_next
+    inc sha_mr+1
+ssm_next:
+    dey
+    bne ssm_loop
+    lda sha_ms
+    bpl ssm_done
+    lda #0
+    sec
+    sbc sha_mr
+    sta sha_mr
+    lda #0
+    sbc sha_mr+1
+    sta sha_mr+1
+ssm_done:
+    lda sha_mr
+    ldx sha_mr+1
+    rts
+
+; 256-step sine, signed 16 bits (32767 * sin(2 pi i / 256))
+sha_sin:
+    dta a($0000), a($0324), a($0648), a($096A), a($0C8C), a($0FAB), a($12C8), a($15E2)
+    dta a($18F9), a($1C0B), a($1F1A), a($2223), a($2528), a($2826), a($2B1F), a($2E11)
+    dta a($30FB), a($33DF), a($36BA), a($398C), a($3C56), a($3F17), a($41CE), a($447A)
+    dta a($471C), a($49B4), a($4C3F), a($4EBF), a($5133), a($539B), a($55F5), a($5842)
+    dta a($5A82), a($5CB3), a($5ED7), a($60EB), a($62F1), a($64E8), a($66CF), a($68A6)
+    dta a($6A6D), a($6C23), a($6DC9), a($6F5E), a($70E2), a($7254), a($73B5), a($7504)
+    dta a($7641), a($776B), a($7884), a($7989), a($7A7C), a($7B5C), a($7C29), a($7CE3)
+    dta a($7D89), a($7E1D), a($7E9C), a($7F09), a($7F61), a($7FA6), a($7FD8), a($7FF5)
+    dta a($7FFF), a($7FF5), a($7FD8), a($7FA6), a($7F61), a($7F09), a($7E9C), a($7E1D)
+    dta a($7D89), a($7CE3), a($7C29), a($7B5C), a($7A7C), a($7989), a($7884), a($776B)
+    dta a($7641), a($7504), a($73B5), a($7254), a($70E2), a($6F5E), a($6DC9), a($6C23)
+    dta a($6A6D), a($68A6), a($66CF), a($64E8), a($62F1), a($60EB), a($5ED7), a($5CB3)
+    dta a($5A82), a($5842), a($55F5), a($539B), a($5133), a($4EBF), a($4C3F), a($49B4)
+    dta a($471C), a($447A), a($41CE), a($3F17), a($3C56), a($398C), a($36BA), a($33DF)
+    dta a($30FB), a($2E11), a($2B1F), a($2826), a($2528), a($2223), a($1F1A), a($1C0B)
+    dta a($18F9), a($15E2), a($12C8), a($0FAB), a($0C8C), a($096A), a($0648), a($0324)
+    dta a($0000), a($FCDC), a($F9B8), a($F696), a($F374), a($F055), a($ED38), a($EA1E)
+    dta a($E707), a($E3F5), a($E0E6), a($DDDD), a($DAD8), a($D7DA), a($D4E1), a($D1EF)
+    dta a($CF05), a($CC21), a($C946), a($C674), a($C3AA), a($C0E9), a($BE32), a($BB86)
+    dta a($B8E4), a($B64C), a($B3C1), a($B141), a($AECD), a($AC65), a($AA0B), a($A7BE)
+    dta a($A57E), a($A34D), a($A129), a($9F15), a($9D0F), a($9B18), a($9931), a($975A)
+    dta a($9593), a($93DD), a($9237), a($90A2), a($8F1E), a($8DAC), a($8C4B), a($8AFC)
+    dta a($89BF), a($8895), a($877C), a($8677), a($8584), a($84A4), a($83D7), a($831D)
+    dta a($8277), a($81E3), a($8164), a($80F7), a($809F), a($805A), a($8028), a($800B)
+    dta a($8001), a($800B), a($8028), a($805A), a($809F), a($80F7), a($8164), a($81E3)
+    dta a($8277), a($831D), a($83D7), a($84A4), a($8584), a($8677), a($877C), a($8895)
+    dta a($89BF), a($8AFC), a($8C4B), a($8DAC), a($8F1E), a($90A2), a($9237), a($93DD)
+    dta a($9593), a($975A), a($9931), a($9B18), a($9D0F), a($9F15), a($A129), a($A34D)
+    dta a($A57E), a($A7BE), a($AA0B), a($AC65), a($AECD), a($B141), a($B3C1), a($B64C)
+    dta a($B8E4), a($BB86), a($BE32), a($C0E9), a($C3AA), a($C674), a($C946), a($CC21)
+    dta a($CF05), a($D1EF), a($D4E1), a($D7DA), a($DAD8), a($DDDD), a($E0E6), a($E3F5)
+    dta a($E707), a($EA1E), a($ED38), a($F055), a($F374), a($F696), a($F9B8), a($FCDC)

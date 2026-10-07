@@ -478,10 +478,11 @@ REMOTE) may have lines up to 251
 characters. Graphics: points, lines,
 triangles, rectangles, parallelograms,
 circles, ellipses, pattern fills, flood
-fill (no arcs yet); no sound yet. LOAD
-and SAVE work between &0800 and &7FFF.
-Two files open at a time. *KEY, *EXEC
-and *SPOOL are not there yet.
+fill, arcs, segments, sectors; no sound
+yet. LOAD and SAVE work between &0800
+and &7FFF. Two files open at a time.
+*KEY, *EXEC and *SPOOL are not there
+yet.
 ```
 
 ## REMOTE
@@ -1482,10 +1483,23 @@ Selects a screen mode and clears it.
   4    320x256  2   40x32 Upic Lite
   5    160x256  4   20x32 Upic Lite
   6    text         40x25 Upic Lite
-  7    text         40x25
+  7    teletext     40x25 VIC-II
   100  C64 text     40x25
   103  320x200  16  40x25 hires
   104  160x200  16  20x25 multicol.
+
+MODE 7 is teletext, as on the BBC:
+screen memory at &7C00 (HIMEM &7C00),
+colour codes 129-135 (text) and 145-151
+(mosaic graphics), 141 double height,
+154 separated graphics, 157 new
+background, 156 black background, 158
+hold graphics, 136 flashing. Writing to
+&7C00 directly (?&7C00=...) shows
+within a few frames. The machine starts
+in the C64 text screen with its
+full-screen editor; MODE 100 returns to
+it.
 
 MODE 0 shows 320 pixels wide. MODE 3
 and 6 use rows of 10 lines (250 lines),
@@ -1655,6 +1669,9 @@ relative to the graphics cursor.
   k 136-143 flood fill to foreground
   k 144-151 circle
   k 152-159 filled circle
+  k 160-167 arc
+  k 168-175 segment
+  k 176-183 sector
   k 192-199 ellipse
   k 200-207 filled ellipse
   k 216-223 rectangle (U64)
@@ -1676,8 +1693,11 @@ triangle, rectangle or parallelogram.
 Flood fill 128-135 fills the
 background-coloured area around x,y;
 136-143 fills up to the foreground
-colour. Arcs, segments and sectors
-follow.
+colour. Arcs, segments and sectors: the
+centre is the point two plots back, the
+previous point gives the radius and the
+start, x,y the end direction; drawn
+anticlockwise.
 ```
 
 ## POINT

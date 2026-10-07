@@ -20,7 +20,7 @@ mode_tab:
     dta 1, 0, 40, 32,  2, 2, 0, 8, 6, pal_bbc2-pal_sets   ; 4
     dta 1, 1, 20, 32,  4, 3, 0, 8, 6, pal_bbc4-pal_sets   ; 5
     dta 0, 0, 40, 25, 16, 0, 0, 8, 8, pal_bbc16-pal_sets  ; 6
-    dta 0, 0, 40, 25, 16, 0, 0, 8, 8, pal_bbc16-pal_sets  ; 7
+    dta 2, 0, 40, 25, 16, 0, 0, 8, 8, pal_bbc16-pal_sets  ; 7 teletext
     dta 0, 0, 40, 25, 16, 0, 1, 8, 8, pal_c64-pal_sets    ; 100 text
     dta 1, 0, 40, 25, 16, 2, 1, 8, 8, pal_c64-pal_sets    ; 103 hires
     dta 1, 1, 20, 25, 16, 3, 1, 8, 8, pal_c64-pal_sets    ; 104 multicolour
@@ -123,6 +123,23 @@ vm_ppb:
     bne vm_noleave
     jsr ul_leave
 vm_noleave:
+    lda eng_kind                ; leaving teletext: the VIC-II engine back
+    cmp #2
+    bne vm_nottx
+    lda vtype
+    cmp #2
+    beq vm_nottx
+    sei                         ; the normal interrupt again
+    lda #<irq_main
+    sta $0314
+    lda #>irq_main
+    sta $0315
+    cli
+    farcall engine_init, BANK_MOS
+    lda pal_ok                  ; and the default palette
+    beq vm_nottx
+    farcall ul_palreset, BANK_FS
+vm_nottx:
     lda vtype
     bne vm_bitmap
     ; text mode: VIC text, font back, KERNAL cursor on, clear
@@ -154,10 +171,15 @@ vm_bitmap:
     jsr K_SETCURSOR
 vm_noblink:
     cli
+    lda vtype                   ; MODE 7: teletext
+    cmp #2
+    bne vm_ntt
+    jmp tt_enter
+vm_ntt:
     lda vmode_ul
     beq vm_vic
     farcall ul_enter, BANK_UL
-    rts
+    jmp uls_copy                ; and the shapes' RAM copy (this bank)
 vm_vic:
     lda #$0B                    ; display off while clearing
     sta $D011
@@ -470,6 +492,13 @@ ul_leave:
 
 ; bk_himem (OSBYTE &85): HIMEM page for mode X in Y
 bk_himem:
+    txa                         ; MODE 7: teletext screen at &7C00
+    and #$7F
+    cmp #7
+    bne bh_n7
+    ldy #$7C
+    rts
+bh_n7:
     ldy #$80
     lda ul_ok
     beq bh_done
@@ -495,6 +524,224 @@ bh_58:
     ldy #$58
 bh_done:
     rts
+
+
+; bk_vdu23 (VDU 23, from the core's vdu_23)
+;   Summary: VDU 23,1,n cursor off/on; 23,11 default ECF patterns;
+;            23,12-15 define ECF pattern 1-4 (2 x 4 logical colours).
+bk_vdu23:
+    lda vdubuf
+    cmp #1
+    bne v23_ecf
+    lda vdubuf+1
+    sta curson
+vdu_23done:
+    rts
+v23_ecf:                        ; VDU 23,11: default ECF patterns
+    cmp #11
+    bne v23_def
+    ldx #31
+v23_reset:
+    lda pats_default,x
+    sta pats,x
+    dex
+    bpl v23_reset
+    bmi vdu_23done
+v23_def:                        ; VDU 23,12-15,c1..c8: pattern 1-4 as 2x4
+    sec                         ; logical colours (the Master's simple ECF)
+    sbc #12
+    cmp #4
+    bcs vdu_23done
+    asl
+    asl
+    asl
+    tax
+    ldy #0
+v23_copy:
+    lda vdubuf+1,y
+    sta pats,x
+    inx
+    iny
+    cpy #8
+    bne v23_copy
+    beq vdu_23done
+
+pats_default:
+    dta 1, 0, 0, 1, 1, 0, 0, 1
+    dta 2, 0, 0, 2, 2, 0, 0, 2
+    dta 3, 0, 0, 3, 3, 0, 0, 3
+    dta 1, 2, 2, 1, 1, 2, 2, 1
+
+; ----------------------------------------------------------------------------
+; tt_enter
+;   Summary: MODE 7: the teletext engine and its font into RAM (if not
+;            there yet), screen cleared, VIC-II hires bitmap on, HIMEM
+;            &7C00 (the screen memory, as on the BBC).
+;   Uses:    A, X, Y, gzp; mosPTR (saved).
+tt_enter:
+    lda #$0B                    ; display off meanwhile
+    sta $D011
+    lda #$7C
+    sta vmode_himem
+    lda eng_kind
+    cmp #2
+    beq tte_ready
+    lda mosPTR
+    pha
+    lda mosPTR+1
+    pha
+    lda #<ttx_load              ; engine image -> ENGINE
+    sta mosPTR
+    lda #>ttx_load
+    sta mosPTR+1
+    lda #0
+    sta gzp
+    lda #>ENGINE
+    sta gzp+1
+    ldx #>[ttx_len+255]
+    jsr tt_copy
+    lda #$20                    ; font: ASCII 32-127 from glyph_get
+    sta tte_c
+tte_font:
+    lda tte_c
+    jsr glyph_get
+    lda tte_c                   ; destination: ttxfont + (c - 32) * 8
+    sec
+    sbc #$20
+    sta gzp
+    lda #0
+    asl gzp
+    rol
+    asl gzp
+    rol
+    asl gzp
+    rol
+    sta gzp+1
+    lda gzp
+    clc
+    adc #<gxtt.ttxfont
+    sta gzp
+    lda gzp+1
+    adc #>gxtt.ttxfont
+    sta gzp+1
+    php
+    sei
+    lda #$33                    ; RAM under the character ROM
+    sta $01
+    ldy #7
+tte_g:
+    lda glyph,y
+    sta (gzp),y
+    dey
+    bpl tte_g
+    lda #CPU_ROMS
+    sta $01
+    plp
+    inc tte_c
+    bpl tte_font
+    pla
+    sta mosPTR+1
+    pla
+    sta mosPTR
+    lda #2
+    sta eng_kind
+tte_ready:
+    lda pal_ok                  ; the BBC's pure colours for the 8 C64
+    beq tte_nopal               ; colours teletext uses
+    ldx #15
+tte_pal:
+    lda c64tobbc,x
+    sta pal,x
+    dex
+    bpl tte_pal
+    farcall ul_setpal, BANK_FS  ; (vmode_cmask = 15 in MODE 7)
+tte_nopal:
+    ldx #GX_MODE
+    jsr gx_call
+    lda #0
+    sta $D020
+    sta $D021
+    lda #$C8
+    sta $D016
+    lda #$08                    ; matrix $C000, bitmap $E000
+    sta $D018
+    lda #$3B
+    sta $D011
+    sei                         ; refresh from the interrupt
+    lda #<tt_irq
+    sta $0314
+    lda #>tt_irq
+    sta $0315
+    cli
+    rts
+tte_c = sh_n                    ; (core byte; not vm_t: glyph_get uses it)
+; C64 colour -> BBC colour: palette entry i shows BBC colour c64tobbc[i]
+c64tobbc:
+    dta 0, 7, 1, 6, 5, 2, 4, 3, 0, 7, 1, 6, 5, 2, 4, 3
+
+; tt_copy: X pages from (mosPTR) to (gzp) with $01 = $33 (cartridge
+; visible, writes reach the RAM under I/O), interrupts off
+tt_copy:
+    php
+    sei
+    lda #$33
+    sta $01
+    ldy #0
+ttc_loop:
+    lda (mosPTR),y
+    sta (gzp),y
+    iny
+    bne ttc_loop
+    inc mosPTR+1
+    inc gzp+1
+    dex
+    bne ttc_loop
+    lda #CPU_ROMS
+    sta $01
+    plp
+    rts
+
+; uls_copy: the shapes' RAM copy to UL_SHAPES (Upic Lite modes)
+uls_copy:
+    lda mosPTR
+    pha
+    lda mosPTR+1
+    pha
+    lda #<uls_load
+    sta mosPTR
+    lda #>uls_load
+    sta mosPTR+1
+    lda #0
+    sta gzp
+    lda #>UL_SHAPES
+    sta gzp+1
+    ldx #>[uls_len+255]
+    jsr tt_copy
+    pla
+    sta mosPTR+1
+    pla
+    sta mosPTR
+    rts
+
+; RAM copy of the shapes for Upic Lite (copied by uls_copy after ul_enter)
+UL_SHAPES = $EC00
+uls_load:
+    org UL_SHAPES, uls_load
+    icl 'gxs_ram.s'
+uls_len = * - UL_SHAPES
+    .if UL_SHAPES + uls_len > $FFFA
+    .error "Upic Lite shapes run into the vectors"
+    .endif
+    org uls_load + uls_len
+
+; Teletext engine image (ttx.s), copied to ENGINE by tt_enter
+ttx_load:
+    org ENGINE, ttx_load
+    .local gxtt
+    icl 'ttx.s'
+    .endl
+ttx_len = * - ENGINE
+    org ttx_load + ttx_len
 
 
     icl 'gxs_bank.s'

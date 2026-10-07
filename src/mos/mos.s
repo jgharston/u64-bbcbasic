@@ -181,6 +181,11 @@ coi_loop:
 ul_detect:
     lda #0
     sta ul_ok
+    sta pal_ok
+    farcall ul_palreset, BANK_FS ; palette commands (firmware 3.15+)?
+    bcs uld_nopal
+    inc pal_ok
+uld_nopal:
     lda turbo_state
     cmp #2
     bne uld_done
@@ -216,9 +221,7 @@ uld_again:
 uld_decided:
     cmp #2
     bne uld_done
-    farcall ul_palreset, BANK_FS
-    bcs uld_done
-    lda #1
+    lda pal_ok
     sta ul_ok
 uld_done:
     rts
@@ -296,6 +299,8 @@ eni_loop:
     lda #CPU_ROMS
     sta $01
     cli
+    lda #0                      ; the VIC-II engine is in
+    sta eng_kind
     lda #<nmi_rti               ; RAM vectors for ROM-less moments
     sta $FFFA
     sta $FFFE
@@ -1029,8 +1034,33 @@ bp_text:
 by_char:                        ; &87: X = character at cursor, Y = mode
     lda vtype
     beq bc_text
+    cmp #2
+    beq bc_ttx
     ldx #0                      ; bitmap modes: not read back (yet)
     ldy vmode
+    jmp by_ret
+bc_ttx:                         ; MODE 7: the code in the screen memory
+    lda #<TTXBUF                ; at the cursor: &7C00 + y * 40 + x
+    sta mosTMP
+    lda #>TTXBUF
+    sta mosTMP+1
+    ldx tcy
+    beq bct_x
+bct_row:
+    lda mosTMP
+    clc
+    adc #40
+    sta mosTMP
+    bcc bct_n
+    inc mosTMP+1
+bct_n:
+    dex
+    bne bct_row
+bct_x:
+    ldy tcx
+    lda (mosTMP),y
+    tax
+    ldy #7
     jmp by_ret
 bc_text:
     ldy $D3                     ; KERNAL cursor column on the line

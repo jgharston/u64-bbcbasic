@@ -48,6 +48,7 @@ FONT        = $F000             ; 2K character set (lower/upper + ASCII), under 
 CORE        = $C800             ; VDU core in RAM, 2K (core.s)
 ENGINE      = $D000             ; drawing engine, 4K under I/O (gfx.s)
 BITMAP      = $E000             ; VIC-II bitmap in the bitmap modes
+TTXBUF      = $7C00             ; MODE 7 screen memory (teletext codes)
 gzp         = $FB               ; engine pointer (C64 user zero page)
 GX_MODE     = 0                 ; engine entries (gfx.s jump table)
 GX_VDU      = 3
@@ -72,6 +73,26 @@ MR_T        = 42
 MR_T2       = 48
 MR_A        = 54
 MR_B        = 60
+; arc variables (gxshape.s sh_arc): in m48's slots 0-53, which only the
+; ellipse uses (sh_hypot needs MR_A, MR_B)
+sha_sx      = m48+0
+sha_sy      = m48+2
+sha_vx      = m48+4             ; (sha_vy must follow: sas_ok, X = 2)
+sha_vy      = m48+6
+sha_a0      = m48+8
+sha_a1      = m48+9
+sha_i       = m48+10
+sha_sg      = m48+11
+sha_best    = m48+12
+sha_bd      = m48+13
+sha_dot     = m48+15
+sha_bx      = m48+17
+sha_by      = m48+18
+sha_ma      = m48+19
+sha_mb      = m48+20
+sha_mr      = m48+21
+sha_ms      = m48+23
+sha_save    = m48+24            ; 16 bytes: slots during a triangle
 REU_FONT_BANK = 0               ; REU system area (DESIGN_GRAPHICS.md 6)
 REU_FONT    = $0000             ; 2K: font in ASCII order (bitmap modes)
 REU_VICFONT = $0800             ; 2K: the text-mode font, for MODE changes
@@ -218,7 +239,9 @@ cwd_rem     = cwd_qh+1          ; clock: remainder
 cwd_n       = cwd_rem+1         ; 2: clock: dividend
 uf_off      = cwd_n+2           ; uci_finish: status position in errbuf+1
 uf_end      = uf_off+1          ; uci_finish: end of the status
-ramvars_end = uf_end+1
+eng_kind    = uf_end+1          ; engine at $D000: 0 VIC-II, 1 Upic Lite, 2 teletext
+pal_ok      = eng_kind+1        ; 1: the Ultimate takes palette commands
+ramvars_end = pal_ok+1
     .if ramvars_end > $03FC
     .error "MOS RAM variables overflow the cassette buffer"
     .endif

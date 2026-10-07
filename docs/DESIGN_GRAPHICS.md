@@ -491,6 +491,28 @@ dot wide, so the 320 pixels are centred with a 32-dot border on each side
   cycles per pixel there: possible, needs calibrating on a U64 Elite);
   flashing colours 8-15.
 
+### 10.10 Teletext MODE 7 (2026-10-07)
+
+- Decision: teletext after an explicit MODE 7; start-up keeps the C64
+  text screen and its full-screen editor (MODE 100 returns to it).
+- Screen memory at &7C00 (40 x 25 codes, HIMEM &7C00 as on the BBC);
+  a third engine image (`ttx.s`, bank 3, 2.2K with the font) draws a row
+  into the VIC-II hires bitmap after every change: a teletext cell is an
+  8 x 8 cell with one foreground and one background colour, the VIC-II's
+  own rule. OSBYTE &87 reads the code at the cursor.
+- SAA5050 rules: set-at / set-after control codes, mosaics (2 x 3,
+  contiguous and separated, letters stay letters in graphics mode),
+  hold graphics, new/black background, double height (a bottom-half row
+  shows the lower halves of its own characters and never starts a pair).
+- With palette commands (firmware 3.15+) the 8 C64 colours teletext uses
+  show the BBC's pure RGB; leaving MODE 7 resets the palette.
+- Direct writes to &7C00 and flashing: the 60 Hz interrupt (`tt_irq`)
+  compares 5 rows per interrupt with a shadow copy and redraws changed
+  rows; every 30 interrupts the flash phase changes. The teletext engine
+  never lets interrupts in during a call, so the interrupt can use it.
+- Not yet: conceal, the SAA5050's smoothed glyphs and its character set
+  differences (# / pound / _).
+
 ### 10.6 Order of work
 
 1. RAM kernel at `$C800-$DFFF`, font moved to `$F000`, RAM vectors; the
