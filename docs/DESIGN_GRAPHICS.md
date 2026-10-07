@@ -238,7 +238,22 @@ Both modes:
 - `VDU 19,l,p,0,0,0` maps logical colour l to physical p (BBC);
   `VDU 19,l,16,r,g,b` sets an RGB colour (BBC Master/RISC OS extension),
   through the Ultimate's palette.
-- `*PALETTE LOAD <file>` / `SAVE` / `RESET` / `BBC` / `C64`.
+- `*PALETTE LOAD <file> [VPL]` / `SAVE <file>` / `RESET` / `BBC` / `C64`.
+  Implemented (`src/mos/ulpal.s`, bank 2) with the firmware's palette
+  commands (3.15a+, 1541ultimate #791: `$51` get, `$52` set, `$53` one
+  colour, `$54` default). Two RGB tables in the REU (`$1800-$18BF`):
+  the 16 C64 colours (read from the Ultimate at start-up, so a palette
+  chosen in its menu stays; shown on every VIC-II screen, also after
+  leaving Upic Lite and teletext, which used to reset it to the
+  firmware's colours), and the logical colours of Upic Lite and teletext
+  (the palette decodes their picture). Files: 48 bytes RGB in C64 colour
+  order, or VICE `.vpl` text with the `VPL` word (owner decision: both).
+  `*PALETTE BBC` gives the C64 colours the BBC colours map to the BBC's
+  pure RGB; `C64` the firmware's colours; `RESET` the start-up palette.
+  `VDU 19,l,16,r,g,b`: in Upic Lite that logical colour only; on VIC-II
+  screens the C64 colour logical colour l shows (all logical colours
+  showing it change); ignored in MODE 7. `VDU 19,l,24,...` (border) is
+  not supported. Without an REU only `*PALETTE C64`.
 
 ### 9.4 Shapes: outline, solid and pattern fill
 

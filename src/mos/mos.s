@@ -176,14 +176,14 @@ coi_loop:
 ;            fewer than 19 raster lines at 64 MHz, fewer than 26 at 48.
 ;            Measured until two results in a row agree (at most 50):
 ;            right after the cartridge starts the Ultimate may not run
-;            at full speed yet (measured: 92 lines). Then a palette reset
-;            ($54) must be accepted.
+;            at full speed yet (measured: 92 lines). The palette commands
+;            must be there (pal_boot reads the current palette).
 ;   Uses:    A, X, Y, errbuf, mosTMP+2/+3.
 ul_detect:
     lda #0
     sta ul_ok
     sta pal_ok
-    farcall ul_palreset, BANK_FS ; palette commands (firmware 3.15+)?
+    farcall pal_boot, BANK_FS   ; palette commands (firmware 3.15a+)?
     bcs uld_nopal
     inc pal_ok
 uld_nopal:
@@ -1645,6 +1645,7 @@ cmd_table:
     dta 'LOAD', 0, a(cmd_load), BANK_FS
     dta 'MKDIR', 0, a(cmd_mkdir), BANK_FS
     dta 'MOUNT', 0, a(cmd_mount), BANK_FS
+    dta 'PALETTE', 0, a(cmd_palette), BANK_FS
     dta 'PARTITION', 0, a(cmd_partition), BANK_FS
     dta 'PARTITIONS', 0, a(cmd_partitions), BANK_FS
     dta 'CDIR', 0, a(cmd_mkdir), BANK_FS

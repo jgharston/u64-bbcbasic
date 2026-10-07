@@ -94,11 +94,11 @@ VDU          VPOS         WIDTH
 *DELETE      *DIR         *DRIVE
 *FONT        *FX          *HELP
 *LOAD        *MKDIR       *MOUNT
-*PARTITION   *PARTITIONS  *PWD
-*RENAME      *SAVE        *SETTIME
-*STATUS      *SWAP        *TIME
-*TURBO       *TYPE        *UNMOUNT
-*UVER
+*PALETTE     *PARTITION   *PARTITIONS
+*PWD         *RENAME      *SAVE
+*SETTIME     *STATUS      *SWAP
+*TIME        *TURBO       *TYPE
+*UNMOUNT     *UVER
 ```
 
 ## BBC
@@ -416,6 +416,7 @@ VDU codes work as on a BBC Micro:
   17,n  COLOUR n
   18,a,n  GCOL a,n
   19,l,p,0,0,0  colour l shows colour p
+  19,l,16,r,g,b  colour l as RGB
   20    default colours and palette
   22,n  MODE n
   23,1,n  cursor off (0) / on (1)
@@ -854,6 +855,38 @@ teletext glyphs from the font when it
 starts. VDU 23 changes single
 characters. The BBC characters are
 Acorn's (see CREDITS).
+```
+
+## *PALETTE
+
+Also: `PALETTE`
+
+```
+  *PALETTE LOAD <file> [VPL]
+  *PALETTE SAVE <file>
+  *PALETTE BBC    BBC's pure colours
+  *PALETTE C64    Ultimate's defaults
+  *PALETTE RESET  palette at start-up
+
+The RGB colours of the 16 C64 colours,
+as the Ultimate shows them. Files are
+48 bytes (red, green, blue per colour,
+in C64 colour order); with VPL a VICE
+palette file. BBC gives the 8 C64
+colours the BBC colours use the BBC's
+pure red, green, ... The start-up
+palette is the one chosen in the
+Ultimate's menu.
+
+VDU 19,l,16,r,g,b sets logical colour l
+to an RGB colour (0-255 each): in Upic
+Lite modes that colour only, elsewhere
+the C64 colour l shows.
+
+Needs firmware 3.15a or later; all but
+C64 need an REU. Upic Lite and MODE 7
+use the palette for their own picture
+and keep it until the next MODE change.
 ```
 
 ## *STATUS

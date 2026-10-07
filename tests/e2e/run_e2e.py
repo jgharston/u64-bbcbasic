@@ -729,6 +729,36 @@ def test_font(t):
         run_line(t, line, ">")
 
 
+def test_palette(t):
+    # *PALETTE: saved files show the 16 C64 colours as RGB; BBC makes C64
+    # colour 2 (BBC red) pure red; VDU 19,l,16,r,g,b; a VICE .vpl file;
+    # RESET back to the start-up palette. Byte n of a file read with BGET.
+    if not ult(t):
+        return
+    rd = ('F%=OPENIN"PT":PTR#F%={0}:A%=BGET#F%:B%=BGET#F%:CLOSE#F%:'
+          'PRINT"R=";A%;",";B%')
+    run_line(t, "*PALETTE BBC", ">")
+    run_line(t, "*PALETTE SAVE PT", ">")
+    run_line(t, rd.format(6), "R=255,0")
+    run_line(t, "VDU 19,1,16,10,20,30", ">")   # text: BBC 1 is C64 colour 2
+    run_line(t, "*PALETTE SAVE PT", ">")
+    run_line(t, rd.format(6), "R=10,20")
+    run_line(t, 'F%=OPENOUT"PT.VPL":A$="# test"+CHR$10', ">")
+    run_line(t, 'FOR I%=1 TO LEN A$:BPUT#F%,ASC MID$(A$,I%,1):NEXT', ">")
+    run_line(t, 'A$="11 22 33 0"+CHR$10', ">")  # (a typed FOR: one line)
+    run_line(t, "FOR J%=1 TO 16:FOR I%=1 TO 11:BPUT#F%,ASC MID$(A$,I%,1)"
+                ":NEXT:NEXT:CLOSE#F%", ">")
+    run_line(t, "*PALETTE LOAD PT.VPL VPL", ">")
+    run_line(t, "*PALETTE SAVE PT", ">")
+    run_line(t, rd.format(45), "R=17,34")
+    run_line(t, "*PALETTE LOAD PT.VPL", "Bad palette file")
+    run_line(t, "*PALETTE RESET", ">")
+    run_line(t, "*PALETTE SAVE PT", ">")
+    run_line(t, rd.format(6), "R=")
+    for line in ("*DELETE PT", "*DELETE PT.VPL"):
+        run_line(t, line, ">")
+
+
 def test_gfx_patterns(t):
     # ECF: GCOL 16 + action selects pattern 1 (checker of colours 1, 0);
     # VDU 23,12 redefines pattern 1 (2 x 4 logical colours); VDU 23,11
@@ -999,6 +1029,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
+         test_palette,
          test_gfx_vdu5,
          test_gfx_mode3,
          test_gfx_teletext,

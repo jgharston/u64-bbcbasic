@@ -136,9 +136,9 @@ vm_noleave:
     sta $0315
     cli
     farcall engine_init, BANK_MOS
-    lda pal_ok                  ; and the default palette
+    lda pal_ok                  ; and the C64 palette
     beq vm_nottx
-    farcall ul_palreset, BANK_FS
+    farcall pal_apply, BANK_FS
 vm_nottx:
     lda vtype
     bne vm_bitmap
@@ -250,6 +250,22 @@ iop_done:
 ;            with 2 or 4 colours show the change at once (cells and
 ;            colour RAM); 16-colour modes use it for new drawing.
 bk_pal:
+    lda vdubuf+1                ; VDU 19,l,16,r,g,b: an RGB colour
+    cmp #16
+    bcc vp_phys
+    bne bkp_rts                 ; (24, the border, etc.: not supported)
+    lda vtype
+    cmp #2
+    beq bkp_rts                 ; teletext's colours are fixed
+    lda vmode_ul
+    beq vp_vicrgb
+    farcall ul_setrgb, BANK_FS
+    rts
+vp_vicrgb:
+    farcall pal_vdu19rgb, BANK_FS
+bkp_rts:
+    rts
+vp_phys:
     lda vtype
     beq vp_done
     lda vmode_ul
@@ -260,7 +276,8 @@ bk_pal:
     lda vdubuf+1
     and #15
     sta pal,x
-    farcall ul_setpal, BANK_FS
+    txa
+    farcall ul_setlog, BANK_FS
     rts
 vp_vic:
     lda vdubuf+1
@@ -486,7 +503,7 @@ ul_leave:
     lda #$81
     sta $DC0D
     cli
-    farcall ul_palreset, BANK_FS
+    farcall pal_apply, BANK_FS
     farcall engine_init, BANK_MOS
     rts
 
