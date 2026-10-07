@@ -96,10 +96,9 @@ wr_done:
     ldy wr_y
     rts
 
-wr_high:                        ; 128-255: teletext codes in MODE 7, else
-    ldx vtype                   ; nothing (no glyphs)
-    cpx #2
-    bne wr_done
+wr_high:                        ; 128-255: teletext codes in MODE 7, user
+    ldx vtype                   ; characters (VDU 23) in graphics modes;
+    beq wr_done                 ; nothing on the text screen
     jsr out_char
     jmp wr_done
 
@@ -703,6 +702,11 @@ glyph_get:
     sta REU_CMD
     rts
 gg_rom:                         ; character ROM ($D800 set), by screen code
+    lda #>$D800
+    ldy #$33
+gg_read:
+    sta ggr_base+1
+    sty ggr_cfg+1
     lda asc2pet,x
     jsr pet2scr
     sta vm_t
@@ -713,7 +717,8 @@ gg_rom:                         ; character ROM ($D800 set), by screen code
     rol
     asl vm_t
     rol
-    adc #>$D800                 ; the lower/upper case set
+ggr_base:
+    adc #>$D800                 ; the lower/upper case set (or FONT)
     sta ggr_rd+2
     lda vm_t
     sta ggr_rd+1
@@ -721,6 +726,7 @@ gg_rom:                         ; character ROM ($D800 set), by screen code
     sei
     lda $01
     pha
+ggr_cfg:
     lda #$33
     sta $01
     ldy #7
@@ -733,6 +739,14 @@ ggr_rd:
     sta $01
     plp
     rts
+
+; glyph_font: as glyph_get, from the text font at FONT (RAM under the
+; KERNAL; only valid on the text screen): user-defined characters
+glyph_font:
+    tax
+    lda #>FONT
+    ldy #$35
+    bne gg_read
 
 ; pet2scr: PETSCII A -> screen code (lower/upper case set)
 pet2scr:

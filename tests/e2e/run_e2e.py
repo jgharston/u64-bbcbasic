@@ -681,6 +681,26 @@ def test_gfx_arcs(t):
         "R=1,2,3")
 
 
+def test_vdu23_chars(t):
+    # VDU 23,c,8 rows defines a character; OSWORD 10 reads it back. On the
+    # text screen always; with an REU (the Ultimates) also in graphics
+    # modes, and kept over MODE changes.
+    rd = ("?B%=35:A%=10:X%=B% MOD 256:Y%=B% DIV 256:CALL &C7F1:"
+          "PRINT \"R=\";B%?1;B%?8")
+    run_line(t, "DIM B% 9:VDU 23,35,1,2,3,4,5,6,7,8", ">")
+    run_line(t, rd, "R=18")
+    if t.is_vice:
+        return
+    gfx_check(t, 4, [
+        "VDU 28,0,31,39,28",
+        "VDU 23,200,255,255,255,255,255,255,255,255",
+        "VDU 26:PRINT TAB(0,0);CHR$200;:VDU 28,0,31,39,28",
+        "A%=POINT(0,1023)+2*POINT(0,1000)+4*POINT(40,1000)",
+        "R$=\"R=\"+STR$A%"],
+        "R=3")
+    run_line(t, rd, "R=18")                 # after MODE 4 and MODE 100
+
+
 def test_gfx_patterns(t):
     # ECF: GCOL 16 + action selects pattern 1 (checker of colours 1, 0);
     # VDU 23,12 redefines pattern 1 (2 x 4 logical colours); VDU 23,11
@@ -745,7 +765,9 @@ def test_gfx_teletext(t):
     remote(t).run_lines(["PRINT TAB(0,14);CHR$136;\"FLASH\""])
     sys.path.insert(0, os.path.join(ROOT, "tools"))
     import u64shot                          # (REST reads see the KERNAL
-    frames = u64shot.grab_frames(t.host, 11002, 6, 0.2)  # ROM at $E000)
+    frames = u64shot.grab_frames(t.host, 11002, 9, 0.1)  # ROM at $E000;
+    # the stream stops by itself after about a second: 9 frames 0.1 s
+    # apart see both flash phases, 0.5 s each)
     seen = {len(set(b"".join(f) for f in frames)) > 1}
     remote(t).run_lines(["MODE 100"])
     assert m[1] >> 4 == 2 and m[1] & 15 == 0 and m[6] >> 4 == 6 and m[6] & 15 == 2, m.hex()
@@ -948,7 +970,8 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_a_settime, test_a_partition, test_a_dirhome,
          test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
-         test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_gfx_vdu5,
+         test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars,
+         test_gfx_vdu5,
          test_gfx_mode3,
          test_gfx_teletext,
          test_gfx_upiclite, test_classic_files,

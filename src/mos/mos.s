@@ -1152,7 +1152,8 @@ ink_esc:
 ; ----------------------------------------------------------------------------
 ; mos_word (OSWORD)
 ;   Summary: OSWORD calls 0 (read line), 1 (read TIME), 2 (write TIME),
-;            9 (read a pixel), 14 (read the clock, bank 2). Other calls
+;            9 (read a pixel), 10 (read a character definition), 14
+;            (read the clock, bank 2). Other calls
 ;            return without action.
 ;   Input:   A = call number, X/Y = address of the parameter block.
 ;   Output:  per call.
@@ -1175,6 +1176,10 @@ mw_not2:
     bne mw_not9
     jmp word9
 mw_not9:
+    cmp #10
+    bne mw_not10
+    jmp word10
+mw_not10:
     cmp #14
     bne mw_not14
     farcall clock_word, BANK_FS ; OSWORD 14: read the clock
@@ -1444,7 +1449,8 @@ word9:
     lda #$FF
     sta gx_res
     lda vtype
-    beq w9_done
+    cmp #1                      ; bitmap modes only (not teletext: the
+    bne w9_done                 ; teletext engine has no POINT)
     ldy #3
 w9_copy:
     lda (mosPTR),y
@@ -1457,6 +1463,38 @@ w9_done:
     lda gx_res
     ldy #4
     sta (mosPTR),y
+    rts
+
+; word10 (OSWORD 10)
+;   Summary: read a character definition, as on the BBC.
+;   Function: the glyph the graphics modes use (REU font) with an REU;
+;            without one, codes 0-127 from the text font on the text
+;            screen (user-defined characters included), else from the
+;            character ROM.
+;   Input:   block +0 = character.  Output: block +1..+8 = rows, top first.
+;   Uses:    A, X, Y, glyph.
+word10:
+    ldy #0
+    lda (mosPTR),y
+    ldx reu_banks
+    bne w10_get
+    ldx reu_banks+1
+    bne w10_get
+    ldx vtype
+    bne w10_get
+    cmp #$80
+    bcs w10_get
+    jsr glyph_font
+    jmp w10_copy
+w10_get:
+    jsr glyph_get
+w10_copy:
+    ldy #8
+w10_loop:
+    lda glyph-1,y
+    sta (mosPTR),y
+    dey
+    bne w10_loop
     rts
 
 ; word1 (OSWORD 1)

@@ -382,9 +382,11 @@ Other calls are ignored.
 ```
 OSWORD calls available: 0 reads a line
 (screen editor), 1 reads TIME, 2 sets
-TIME (5 bytes, centiseconds), 14 reads
-the Ultimate's clock. Others are
-ignored.
+TIME (5 bytes, centiseconds), 9 reads a
+pixel (POINT), 10 reads a character
+definition (block +0 = character; +1 to
++8 = rows), 14 reads the Ultimate's
+clock. Others are ignored.
 
 OSWORD 14 as on a BBC Master: put 0 in
 the first byte of a 25-byte block for
@@ -418,6 +420,7 @@ VDU codes work as on a BBC Micro:
   23,1,n  cursor off (0) / on (1)
   23,11  default ECF patterns
   23,12-15  define ECF pattern 1-4
+  23,c,8 rows  define character c
   24,l;b;r;t;  graphics window
   25,k,x;y;  PLOT k,x,y
   26    default windows
@@ -431,6 +434,15 @@ Windows, the graphics codes and the
 palette act in the graphics modes (MODE
 0, 1, 2, 4, 5, 103, 104); in text modes
 12, 17 and 22 act.
+
+VDU 23,c,r1,...,r8 (c = 32-255) defines
+a character: 8 rows, top first, bit 7
+left. The text screen shows codes
+32-127; graphics modes show all of them
+with an REU (the Ultimates; kept over
+MODE changes). MODE 7 keeps its
+teletext glyphs. OSWORD 10 reads a
+definition.
 ```
 
 ## COLOURS

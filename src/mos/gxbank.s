@@ -531,6 +531,10 @@ bh_done:
 ;            23,12-15 define ECF pattern 1-4 (2 x 4 logical colours).
 bk_vdu23:
     lda vdubuf
+    cmp #32                     ; 32-255: define a character
+    bcc v23_ctl
+    jmp v23_char
+v23_ctl:
     cmp #1
     bne v23_ecf
     lda vdubuf+1
@@ -573,6 +577,96 @@ pats_default:
     dta 1, 2, 2, 1, 1, 2, 2, 1
 
 ; ----------------------------------------------------------------------------
+; v23_char
+;   Summary: VDU 23,c,b0,...,b7: character c gets the 8 rows b0-b7 (top
+;            first, bit 7 left), as on the BBC.
+;   Function: with an REU: into REU_FONT + c * 8 (the glyphs of the
+;            graphics modes, ASCII order) and, for c < 128, into the REU
+;            copy of the text font (REU_VICFONT, by screen code), which
+;            MODE changes restore. For c < 128 on the text screen also
+;            into the font at FONT (that RAM is bitmap in graphics modes).
+;            Without an REU only the text screen shows it, until the next
+;            MODE change. MODE 7 keeps its teletext glyphs.
+;   Uses:    A, X, Y, vm_t.
+v23_char:
+    lda reu_banks
+    ora reu_banks+1
+    beq v23c_text
+    lda vdubuf                  ; REU_FONT + c * 8
+    jsr v23c_x8
+    sta REU_ADDR+1
+    lda vm_t
+    sta REU_ADDR
+    jsr v23c_reu
+    lda vdubuf
+    bmi v23c_done
+    jsr v23c_scr                ; REU_VICFONT + screen code * 8
+    beq v23c_done
+    jsr v23c_x8
+    clc
+    adc #>REU_VICFONT
+    sta REU_ADDR+1
+    lda vm_t
+    sta REU_ADDR
+    jsr v23c_reu
+v23c_text:
+    lda vtype                   ; text screen only
+    bne v23c_done
+    lda vdubuf
+    bmi v23c_done
+    jsr v23c_scr
+    beq v23c_done
+    jsr v23c_x8
+    clc
+    adc #>FONT
+    sta gzp+1
+    lda vm_t
+    sta gzp
+    ldy #7                      ; (writes under the KERNAL reach the RAM)
+v23c_copy:
+    lda vdubuf+1,y
+    sta (gzp),y
+    dey
+    bpl v23c_copy
+v23c_done:
+    rts
+; v23c_scr: A = screen code of character vdubuf (Z = 1: none)
+v23c_scr:
+    ldx vdubuf
+    lda asc2pet,x
+    beq v23cs_rts
+    jsr pet2scr
+    ldx #1                      ; Z = 0 (screen code 0 is '@': valid)
+v23cs_rts:
+    rts
+; v23c_x8: A * 8 -> vm_t (low), A (high)
+v23c_x8:
+    sta vm_t
+    lda #0
+    asl vm_t
+    rol
+    asl vm_t
+    rol
+    asl vm_t
+    rol
+    rts
+; v23c_reu: the 8 bytes at vdubuf+1 to the REU (REU_ADDR set)
+v23c_reu:
+    lda #REU_FONT_BANK
+    sta REU_BANK
+    lda #<[vdubuf+1]
+    sta REU_C64
+    lda #>[vdubuf+1]
+    sta REU_C64+1
+    lda #8
+    sta REU_LEN
+    lda #0
+    sta REU_LEN+1
+    sta REU_CTRL
+    lda #REU_TO_REU
+    sta REU_CMD
+    rts
+
 ; tt_enter
 ;   Summary: MODE 7: the teletext engine and its font into RAM (if not
 ;            there yet), screen cleared, VIC-II hires bitmap on, HIMEM

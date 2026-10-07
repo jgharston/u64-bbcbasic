@@ -216,6 +216,13 @@ Both modes:
 
 - `VDU 23,c,b0..b7` redefines a character (BBC standard: all 224 printable
   characters, not only 224-255 as on a BBC with default `*FX20`).
+  Implemented: with an REU the definition goes into the REU font (graphics
+  modes, codes 32-255) and, for 32-127, into the REU copy of the text font
+  (restored on MODE changes) and, on the text screen, the live font at
+  `$F000` (that RAM is bitmap in graphics modes, so it is only written on
+  the text screen). Without an REU: the text screen only, until the next
+  MODE change. MODE 7 keeps its teletext glyphs. OSWORD 10 reads a
+  definition back.
 - `*FONT LOAD <file>` / `*FONT SAVE <file>` / `*FONT DEFAULT` / `*FONT BBC`
   / `*FONT C64`: whole fonts, 2K files (C64 charset format, so existing
   C64 fonts work). Fonts are kept in the REU; switching is a DMA.
