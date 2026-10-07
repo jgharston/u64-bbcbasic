@@ -285,11 +285,39 @@ vdu_bg:
 vdu_23:                         ; VDU 23,1,n: cursor off (0) / on
     lda vdubuf
     cmp #1
-    bne vdu_23done
+    bne v23_ecf
     lda vdubuf+1
     sta curson
 vdu_23done:
     jmp wr_done
+v23_ecf:                        ; VDU 23,11: default ECF patterns
+    cmp #11
+    bne v23_def
+    ldx #31
+v23_reset:
+    lda pats_default,x
+    sta pats,x
+    dex
+    bpl v23_reset
+    bmi vdu_23done
+v23_def:                        ; VDU 23,12-15,c1..c8: pattern 1-4 as 2x4
+    sec                         ; logical colours (the Master's simple ECF)
+    sbc #12
+    cmp #4
+    bcs vdu_23done
+    asl
+    asl
+    asl
+    tax
+    ldy #0
+v23_copy:
+    lda vdubuf+1,y
+    sta pats,x
+    inx
+    iny
+    cpy #8
+    bne v23_copy
+    beq vdu_23done
 
 vdu_tab:                        ; VDU 31,x,y: TAB(x,y), ignored off screen
     lda vtype
@@ -387,6 +415,98 @@ vm_t        dta 0               ; scratch (never the MOS zero page: the
                                 ; VDU path runs inside MOS commands)
 pal         :16 dta 0           ; logical colour -> C64 colour
 glyph       :8 dta 0            ; glyph of the character being drawn
+
+; Engine variables (gx_vars): used by both engine variants and by bank 3's
+; shape code. The order from ex to ery1 matters (er_order, e_clipscreen
+; address them relative to ex).
+
+gx_vars:
+
+ex          dta a(0)            ; device x (signed 16)
+ey          dta a(0)            ; device y (signed 16)
+emask       dta 0               ; pixel mask in the byte
+evrep       dta 0               ; colour value repeated over the byte
+eact        dta 0               ; GCOL action 0-4
+ecol        dta 0               ; logical colour of the current operation
+eline_x0    dta a(0)
+eline_y0    dta a(0)
+eline_x1    dta a(0)
+eline_y1    dta a(0)
+edx         dta a(0)
+edy         dta a(0)
+esx         dta 0               ; x step +1/-1 ($01/$FF)
+esy         dta 0
+eerr        dta a(0)
+eflags      dta 0               ; line: bit 0 dotted, 1 omit first, 2 omit last
+edot        dta 0
+efirst      dta 0
+ecount      dta a(0)
+et24        dta 0, 0, 0
+eyield      dta 0
+erx0        dta a(0)            ; rectangle in device pixels
+erx1        dta a(0)
+ery0        dta a(0)
+ery1        dta a(0)
+etmp        dta 0, 0
+enoclip     dta 0               ; 1: e_rect ignores the graphics window
+egrow       dta 0               ; glyph row being drawn
+erows       :6 dta 0            ; rows drawn in 6-line cells (e_rows6)
+er6a        dta 0
+er6b        dta 0
+egbits      dta 0               ; its bits
+ecrow       dta 0               ; text row (clear/cls)
+esqt        dta 0, 0            ; e_squeeze
+ewb_first   dta a(0)            ; window: offset of its first byte in a row
+ewb_count   dta 0               ; window: width in bytes
+
+gqx         dta a(0)            ; the point before gpx/gpy (triangles)
+gqy         dta a(0)
+
+; Shape variables (bank 3, gxshape.s): corner slots 0-3, edges, 48-bit
+; arithmetic slots (m48, MR_* offsets)
+sh_x        :8 dta 0            ; 4 slots x 2 bytes (device pixels)
+sh_y        :8 dta 0
+sh_ex       :16 dta 0           ; edge A, edge B: x (16.16), slope (16.16)
+sh_i        dta 0
+sh_j        dta 0
+sh_n        dta 0
+sh_e        dta 0
+sh_sg       dta 0
+sh_fill     dta 0
+sh_cx       dta a(0)
+sh_cy       dta a(0)            ; (also the triangle's current row)
+sh_rx       dta a(0)
+sh_ry       dta a(0)
+sh_r        dta a(0)
+sh_ex2      dta a(0)            ; ellipse x, y
+sh_ey2      dta a(0)
+sh_dv       dta a(0)
+sh_nm       :4 dta 0
+sh_rm       dta a(0)
+m48         :66 dta 0
+m_n         dta 0
+m_n2        dta 0
+m_dst       dta 0
+m_src       dta 0
+m_t24       :3 dta 0
+m_sq        :4 dta 0
+m_a         dta a(0)
+m_b         dta a(0)
+m_bit       dta a(0)
+
+; ECF patterns (GCOL 16..79 + action): 4 patterns of 2 x 4 logical colours,
+; row by row (VDU 23,12-15 define, VDU 23,11 resets)
+epat        dta 0               ; pattern in use for the current plot
+pats:
+    dta 1, 0, 0, 1, 1, 0, 0, 1  ; 1: checker of colours 1 and 0
+    dta 2, 0, 0, 2, 2, 0, 0, 2  ; 2: checker of 2 and 0
+    dta 3, 0, 0, 3, 3, 0, 0, 3  ; 3: checker of 3 and 0
+    dta 1, 2, 2, 1, 1, 2, 2, 1  ; 4: checker of 1 and 2
+pats_default:
+    dta 1, 0, 0, 1, 1, 0, 0, 1
+    dta 2, 0, 0, 2, 2, 0, 0, 2
+    dta 3, 0, 0, 3, 3, 0, 0, 3
+    dta 1, 2, 2, 1, 1, 2, 2, 1
 
 ; BBC logical colours 0-15 -> C64 colours (text modes; the bitmap modes'
 ; palettes are in bank 3, gxbank.s)
@@ -499,9 +619,11 @@ ul_active   dta 0               ; Upic Lite interrupt running
 nmi_rti:
     rti
 
-; gx_yield: from the engine: let pending interrupts run, then go on
+; gx_yield: from the engine: let pending interrupts run, then go on.
+; Interrupts need the KERNAL and I/O in: $36, whatever the caller had
+; (the shapes' RAM copy runs with $35).
 gx_yield:
-    lda gx_save01
+    lda #CPU_RAMBAS
     sta $01
     cli
     nop
@@ -510,6 +632,19 @@ gx_yield:
     lda #$34
     sta $01
     rts
+
+; sh_yield: from the shapes' RAM copy ($01 = $35), the same
+sh_yield:
+    lda #CPU_RAMBAS
+    sta $01
+    cli
+    nop
+    nop
+    sei
+    lda #$35
+    sta $01
+    rts
+sh_save01   dta 0
 
 ; ----------------------------------------------------------------------------
 ; glyph_get
@@ -755,6 +890,33 @@ ve_n12:
 ve_bitmap:
     ldx #GX_VDU
     jsr gx_call
+    lda gx_code                 ; PLOT shapes beyond lines, points and
+    cmp #25                     ; rectangles: bank 3 (gxshape.s)
+    bne ve_none
+    lda vdubuf
+    and #3
+    beq ve_none
+    lda vdubuf
+    cmp #72                     ; groups 9 and up, except 12 (rectangle)
+    bcc ve_none
+    and #$F8
+    cmp #96
+    beq ve_none
+    lda vmode_ul
+    bne ve_ramshape
+    farcall bk_shape, BANK_GFX
+    jmp wr_done
+ve_ramshape:                    ; Upic Lite: the RAM copy at $F300, with
+    php                         ; the KERNAL out and interrupts off
+    sei
+    lda $01
+    sta sh_save01
+    lda #$35
+    sta $01
+    jsr UL_SHAPES
+    lda sh_save01
+    sta $01
+    plp
 ve_none:
     jmp wr_done
 

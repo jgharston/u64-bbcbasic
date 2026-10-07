@@ -620,6 +620,51 @@ def test_gfx_text(t):
         "R=531020008")
 
 
+def test_gfx_shapes(t):
+    # Triangle, parallelogram, circle and ellipse fills, outlines (U64
+    # codes 216-247), and EOR fills twice = nothing (each pixel once).
+    # Lines stay under the remote mailbox's 74 bytes; a text window at the
+    # bottom keeps the echoed lines out of the drawing.
+    gfx_check(t, 1, [
+        "VDU 28,0,31,39,28",
+        "GCOL 0,1:MOVE 100,100:MOVE 500,100:PLOT 85,300,500",
+        "A%=POINT(300,200)",
+        "GCOL 0,2:MOVE 900,500:PLOT 153,100,0",
+        "B%=POINT(900,500)+4*POINT(1020,500)",
+        "GCOL 0,3:MOVE 600,800:PLOT 149,1000,800",
+        "C%=POINT(1000,800)+4*POINT(600,800)",
+        "GCOL 0,1:MOVE 100,700:MOVE 300,700:PLOT 117,400,900",
+        "D%=POINT(250,800)",
+        "GCOL 0,2:MOVE 100,600:PLOT 221,400,680",
+        "E%=POINT(100,600)+4*POINT(250,640)",
+        "GCOL 3,3:MOVE 900,250:PLOT 153,150,0",
+        "MOVE 900,250:PLOT 153,150,0",
+        "F%=POINT(900,250)",
+        "GCOL 3,3:MOVE 1150,900:MOVE 1250,900:PLOT 205,1150,950",
+        "MOVE 1150,900:MOVE 1250,900:PLOT 205,1150,950",
+        "G%=POINT(1150,900)+POINT(1230,900)",
+        "R$=\"R=\"+STR$A%+STR$B%+STR$C%+STR$D%",
+        "R$=R$+STR$E%+STR$F%+STR$G%"],
+        "R=1231200")
+
+
+def test_gfx_patterns(t):
+    # ECF: GCOL 16 + action selects pattern 1 (checker of colours 1, 0);
+    # VDU 23,12 redefines pattern 1 (2 x 4 logical colours); VDU 23,11
+    # restores the defaults. One pixel = 4 OS units in MODE 1 (Upic
+    # Lite) and 8 (VIC-II multicolour): sample pixel pairs by colour.
+    gfx_check(t, 1, [
+        "VDU 28,0,31,39,28",
+        "GCOL 16,0:MOVE 0,400:PLOT 101,400,800",
+        "X%=0:FOR I%=0 TO 15:X%=X%+POINT(200+I%*4,600):NEXT",
+        "VDU 23,12,3,3,3,3,3,3,3,3:GCOL 16,0:MOVE 600,400:PLOT 101,900,800",
+        "Y%=POINT(700,600)+POINT(704,600)",
+        "VDU 23,11,0;0;0;0;:GCOL 0,2:MOVE 1000,400:PLOT 101,1200,800",
+        "Z%=POINT(1100,600)",
+        "R$=\"R=\"+STR$(X%>0 AND X%<16)+STR$Y%+STR$Z%"],
+        "R=-162")
+
+
 def test_gfx_upiclite(t):
     # Upic Lite on 64 MHz Ultimates (docs/DESIGN_GRAPHICS.md 10.8): HIMEM
     # as on the BBC, and the picture pixel-exact in the VIC stream: a
@@ -783,7 +828,9 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_a_clock, test_a_copy, test_a_mount, test_a_drive,
          test_a_settime, test_a_partition, test_a_dirhome,
          test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
-         test_gfx_origin_relative, test_gfx_text, test_gfx_upiclite,
+         test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
+         test_gfx_patterns,
+         test_gfx_upiclite,
          test_remote_exec, test_remote_run_error, test_remote_input,
          test_remote_long_output, test_remote_tokeniser, test_remote_stop,
          test_remote_debug]

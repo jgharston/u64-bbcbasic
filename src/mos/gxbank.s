@@ -420,6 +420,12 @@ ue_r2:
     ldx #3
     jsr ul_copy
 ue_go:
+    lda #<uls_load              ; shapes (RAM copy)
+    ldx #>uls_load
+    ldy #>UL_SHAPES
+    jsr ul_set
+    ldx #>[uls_len+255]
+    jsr ul_copy
     cli
     lda #$0B                    ; display off: the whole screen is border
     sta $D011
@@ -604,6 +610,19 @@ ule_load:
     org ENGINE, ule_load
     icl 'gfx_ul.s'
     org ule_load + $1000
+
+    icl 'gxs_bank.s'
+
+; RAM copy of the shapes for Upic Lite (copied by ul_enter)
+UL_SHAPES = $F300
+uls_load:
+    org UL_SHAPES, uls_load
+    icl 'gxs_ram.s'
+uls_len = * - UL_SHAPES
+    .if UL_SHAPES + uls_len > $FFFA
+    .error "Upic Lite shapes run into the vectors"
+    .endif
+    org uls_load + uls_len
 
 bank3_end:
     .if bank3_end > $C000

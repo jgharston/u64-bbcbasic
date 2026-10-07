@@ -30,46 +30,14 @@
     jmp e_cursor                ; +12 toggle the text cursor
     jmp e_point                 ; +15 POINT: pk_x/pk_y -> gx_res
     jmp e_matrix                ; +18 cell colours from pal[]
+    jmp e_todev                 ; +21 pk_x/pk_y (OS units) -> ex/ey
+    jmp e_line                  ; +24 line eline_x0/y0 -> x1/y1, eflags
+    jmp e_rect                  ; +27 filled rectangle erx0/ery0 - erx1/ery1
+    jmp e_pset                  ; +30 pixel ex/ey (in the window)
 
 ; ----------------------------------------------------------------------------
-; Engine variables (RAM, zero at cold start: the engine is copied)
-
-ex          dta a(0)            ; device x (signed 16)
-ey          dta a(0)            ; device y (signed 16)
-emask       dta 0               ; pixel mask in the byte
-evrep       dta 0               ; colour value repeated over the byte
-eact        dta 0               ; GCOL action 0-4
-ecol        dta 0               ; logical colour of the current operation
-eline_x0    dta a(0)
-eline_y0    dta a(0)
-eline_x1    dta a(0)
-eline_y1    dta a(0)
-edx         dta a(0)
-edy         dta a(0)
-esx         dta 0               ; x step +1/-1 ($01/$FF)
-esy         dta 0
-eerr        dta a(0)
-eflags      dta 0               ; line: bit 0 dotted, 1 omit first, 2 omit last
-edot        dta 0
-efirst      dta 0
-ecount      dta a(0)
-et24        dta 0, 0, 0
-eyield      dta 0
-erx0        dta a(0)            ; rectangle in device pixels
-erx1        dta a(0)
-ery0        dta a(0)
-ery1        dta a(0)
-etmp        dta 0, 0
-enoclip     dta 0               ; 1: e_rect ignores the graphics window
-egrow       dta 0               ; glyph row being drawn
-erows       :6 dta 0            ; rows drawn in 6-line cells (e_rows6)
-er6a        dta 0
-er6b        dta 0
-egbits      dta 0               ; its bits
-ecrow       dta 0               ; text row (clear/cls)
-esqt        dta 0, 0            ; e_squeeze
-ewb_first   dta a(0)            ; window: offset of its first byte in a row
-ewb_count   dta 0               ; window: width in bytes
+; Engine variables: in the core (core.s, gx_vars), shared by both engine
+; variants and bank 3's shape code.
 
 ; ----------------------------------------------------------------------------
 ; Tables (the small ones are in the core, gx_tables in core.s)
@@ -229,15 +197,13 @@ ev_n16:
     bmi ev_gbg
     and vmode_cmask
     sta gfg
-    lda vdubuf
-    and #7
+    lda vdubuf                  ; action + 16 * pattern (ECF)
     sta gact_fg
     rts
 ev_gbg:
     and vmode_cmask
     sta gbg
     lda vdubuf
-    and #7
     sta gact_bg
     rts
 ev_n18:
@@ -584,6 +550,14 @@ e_plot:
     adc gcy+1
     sta pk_y+1
 ep_abs:
+    lda gpx                     ; the point before (triangles)
+    sta gqx
+    lda gpx+1
+    sta gqx+1
+    lda gpy
+    sta gqy
+    lda gpy+1
+    sta gqy+1
     lda gcx                     ; previous point
     sta gpx
     lda gcx+1
@@ -632,19 +606,29 @@ e_setcol:
     lda gfg
     sta ecol
     lda gact_fg
-    sta eact
-    rts
+    jmp e_actsplit
 esc_bg:
     lda gbg
     sta ecol
     lda gact_bg
-    sta eact
-    rts
+    jmp e_actsplit
 esc_inv:
-    lda #4
-    sta eact
     lda #0
     sta ecol
+    lda #4
+
+; e_actsplit: GCOL action byte A -> eact (A AND 15), epat (A DIV 16: ECF
+; pattern 1-4, 0 = none)
+e_actsplit:
+    pha
+    and #15
+    sta eact
+    pla
+    lsr
+    lsr
+    lsr
+    lsr
+    sta epat
     rts
 
 ; ep_line: group 0-7, from the previous point to the new one
@@ -939,7 +923,7 @@ e_clg:
     lda gbg
     sta ecol
     lda gact_bg
-    sta eact
+    jsr e_actsplit
     lda gwl
     sta erx0
     lda gwl+1
@@ -1103,6 +1087,8 @@ es_head:                        ; single pixels up to a byte boundary
     jsr es_next
     jmp es_head
 es_body:                        ; whole bytes while x + ppb - 1 <= x1
+    lda epat                    ; (not with a pattern: per pixel)
+    bne es_tail
     lda ex
     clc
     adc vmode_ppbm
@@ -1236,6 +1222,26 @@ ep_value:
     lda eact                    ; invert needs no colour value
     cmp #4
     bcs ep_apply
+    lda epat                    ; ECF pattern: the colour of this pixel
+    beq epv_col
+    sec                         ; pats[(epat - 1) * 8 + (y AND 3) * 2 +
+    sbc #1                      ; (x AND 1)]
+    asl
+    asl
+    asl
+    sta etmp
+    lda ey
+    and #3
+    asl
+    ora etmp
+    sta etmp
+    lda ex
+    and #1
+    ora etmp
+    tax
+    lda pats,x
+    sta ecol
+epv_col:
     .if GXUL = 0
     lda vmode_ncol
     cmp #16
@@ -1731,7 +1737,8 @@ e_glyphcell:
 egc_go:
     .endif
     lda #0
-    sta eact                    ; text is drawn with "store"
+    sta eact                    ; text is drawn with "store", no pattern
+    sta epat
     sta egrow
     lda ex
     sta erx0
@@ -2184,6 +2191,7 @@ ecr_x:                          ; columns of the window, then fill
     sta ecol
     lda #0
     sta eact
+    sta epat
     lda twl
     ldx vmode_cw
     jsr e_mul8

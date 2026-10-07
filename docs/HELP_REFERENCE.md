@@ -414,6 +414,8 @@ VDU codes work as on a BBC Micro:
   20    default colours and palette
   22,n  MODE n
   23,1,n  cursor off (0) / on (1)
+  23,11  default ECF patterns
+  23,12-15  define ECF pattern 1-4
   24,l;b;r;t;  graphics window
   25,k,x;y;  PLOT k,x,y
   26    default windows
@@ -472,11 +474,12 @@ Typed lines: 78 characters (C64 screen
 editor); programs sent from a PC (see
 REMOTE) may have lines up to 251
 characters. Graphics: points, lines,
-rectangles (no triangles, circles or
-fills yet); no sound yet. LOAD and SAVE
-work between &0800 and &7FFF. Two files
-open at a time. *KEY, *EXEC and *SPOOL
-are not there yet.
+triangles, rectangles, parallelograms,
+circles, ellipses, pattern fills (no
+arcs or flood fill yet); no sound yet.
+LOAD and SAVE work between &0800 and
+&7FFF. Two files open at a time. *KEY,
+*EXEC and *SPOOL are not there yet.
 ```
 
 ## REMOTE
@@ -1240,7 +1243,17 @@ drawn: action 0 store, 1 OR, 2 AND, 3
 EOR, 4 invert. Colour 128+n sets the
 background (CLG).
 
+Pattern fill (ECF, as on the BBC
+Master): action + 16 * n uses pattern n
+(1-4) instead of the colour, for
+everything drawn. VDU
+23,12+n-1,c1,...,c8 defines pattern n
+as 2x4 pixels of logical colours (row
+by row); VDU 23,11,0;0;0;0; restores
+the default patterns.
+
   GCOL 0,1:DRAW 1279,1023
+  GCOL 16,0:PLOT 157,640,512
 ```
 
 ## GET
@@ -1626,11 +1639,30 @@ relative to the graphics cursor.
   k 16-31   dotted line
   k 32-63   line, no start point
   k 64-71   point
+  k 80-87   filled triangle
   k 96-103  filled rectangle
+  k 112-119 filled parallelogram
+  k 144-151 circle
+  k 152-159 filled circle
+  k 192-199 ellipse
+  k 200-207 filled ellipse
+  k 216-223 rectangle (U64)
+  k 224-231 triangle (U64)
+  k 240-247 parallelogram (U64)
 
-A rectangle's corners are the previous
-point and x,y. Triangles, circles,
-ellipses and fills follow.
+Triangles use the last three points; a
+rectangle's corners are the previous
+point and x,y; a parallelogram's fourth
+corner is worked out as on the BBC.
+Circles: the centre is the previous
+point, x,y a point on the circle (PLOT
+153,r,0 after MOVE cx,cy). Ellipses:
+centre, then a point at the end of the
+horizontal axis, then x,y gives the
+height. The (U64) outline codes are
+extensions; the BBC has no outline
+triangle, rectangle or parallelogram.
+Arcs, sectors and flood fill follow.
 ```
 
 ## POINT
