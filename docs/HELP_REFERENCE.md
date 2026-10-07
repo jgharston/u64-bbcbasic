@@ -477,11 +477,11 @@ editor); programs sent from a PC (see
 REMOTE) may have lines up to 251
 characters. Graphics: points, lines,
 triangles, rectangles, parallelograms,
-circles, ellipses, pattern fills (no
-arcs or flood fill yet); no sound yet.
-LOAD and SAVE work between &0800 and
-&7FFF. Two files open at a time. *KEY,
-*EXEC and *SPOOL are not there yet.
+circles, ellipses, pattern fills, flood
+fill (no arcs yet); no sound yet. LOAD
+and SAVE work between &0800 and &7FFF.
+Two files open at a time. *KEY, *EXEC
+and *SPOOL are not there yet.
 ```
 
 ## REMOTE
@@ -1477,10 +1477,10 @@ Selects a screen mode and clears it.
   MODE size     col text  U64
   0    640x256  2   80x32 Upic Lite
   1    320x256  4   40x32 Upic Lite
-  2    160x256  16  20x32 VIC-II
+  2    160x256  16  20x32 Upic Lite
   3    text         80x25 Upic Lite
   4    320x256  2   40x32 Upic Lite
-  5    160x256  4   20x32 VIC-II
+  5    160x256  4   20x32 Upic Lite
   6    text         40x25 Upic Lite
   7    text         40x25
   100  C64 text     40x25
@@ -1495,15 +1495,18 @@ colours per 8x8 cell, MODE 104: 4 per
 4x8 cell, as the VIC-II does.
 
 Upic Lite: a live picture of 320x256
-with square pixels, as on the BBC, on
-64 MHz machines (Ultimate 64 Elite II,
-C64 Ultimate) with firmware 3.15+. The
-screen memory lies below HIMEM as on
-the BBC (MODE 0 and 4: &5800, MODE 1:
-&3000), and BASIC runs at about 1/6 of
-its speed while the picture is shown.
-Elsewhere these modes use the VIC-II
-(200 lines, 32 rows of 6-line text).
+(MODE 2 and 5: 160x256 with
+double-width pixels, 16 or 4 colours
+anywhere) with square pixels, as on the
+BBC, on 64 MHz machines (Ultimate 64
+Elite II, C64 Ultimate) with firmware
+3.15+. The screen memory lies below
+HIMEM as on the BBC (MODE 0, 3, 4, 5,
+6: &5800; MODE 1 and 2: &3000), and
+BASIC runs at about 1/6 of its speed
+while the picture is shown. Elsewhere
+these modes use the VIC-II (200 lines,
+32 rows of 6-line text).
 ```
 
 ## MOVE
@@ -1648,6 +1651,8 @@ relative to the graphics cursor.
   k 80-87   filled triangle
   k 96-103  filled rectangle
   k 112-119 filled parallelogram
+  k 128-135 flood fill (background)
+  k 136-143 flood fill to foreground
   k 144-151 circle
   k 152-159 filled circle
   k 192-199 ellipse
@@ -1668,7 +1673,11 @@ horizontal axis, then x,y gives the
 height. The (U64) outline codes are
 extensions; the BBC has no outline
 triangle, rectangle or parallelogram.
-Arcs, sectors and flood fill follow.
+Flood fill 128-135 fills the
+background-coloured area around x,y;
+136-143 fills up to the foreground
+colour. Arcs, segments and sectors
+follow.
 ```
 
 ## POINT

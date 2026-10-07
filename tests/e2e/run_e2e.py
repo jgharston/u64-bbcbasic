@@ -652,6 +652,20 @@ def test_gfx_shapes(t):
         "R=1231200")
 
 
+def test_gfx_flood(t):
+    # PLOT 128-135: fill the background-coloured area around the point;
+    # PLOT 136-143: fill up to the foreground colour
+    gfx_check(t, 1, [
+        "VDU 28,0,31,39,28",
+        "GCOL 0,1:MOVE 640,600:PLOT 149,840,600",
+        "GCOL 0,2:PLOT 133,640,600",
+        "A%=POINT(640,600)+4*POINT(700,600)+16*POINT(900,600)",
+        "GCOL 0,3:MOVE 100,300:PLOT 221,400,500",
+        "PLOT 141,200,400:B%=POINT(250,400)+4*POINT(500,400)",
+        "R$=\"R=\"+STR$A%+\",\"+STR$B%"],
+        "R=10,3")
+
+
 def test_gfx_patterns(t):
     # ECF: GCOL 16 + action selects pattern 1 (checker of colours 1, 0);
     # VDU 23,12 redefines pattern 1 (2 x 4 logical colours); VDU 23,11
@@ -716,9 +730,16 @@ def test_gfx_upiclite(t):
     assert "12288" in out, out
     rows = u64shot.grab(t.host, 11002)
     assert rows[top][32] & 3 == 2, rows[top][28:40]
+    out = r.run_lines(["MODE 2", "PRINT HIMEM", "GCOL 0,9:PLOT 69,0,1020",
+                       "PRINT POINT(0,1020)"])["output"]
+    assert "12288" in out and re.search(r"\b9\b", out), out
+    rows = u64shot.grab(t.host, 11002)     # 160 wide: pixel 0 = dots 32, 33
+    assert rows[top][32] & 15 == 9 and rows[top][33] & 15 == 9, rows[top][28:40]
+    out = r.run_lines(["MODE 5", "PRINT HIMEM"])["output"]
+    assert "22528" in out, out
     out = r.run_lines(["MODE 7", "PRINT HIMEM"])["output"]
     assert "32768" in out, out
-    t.notes.append("Upic Lite: MODE 4/1 live, pixel-exact")
+    t.notes.append("Upic Lite: MODE 4/1/2/5 live, pixel-exact")
 
 
 def test_classic_files(t):
@@ -873,7 +894,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_a_settime, test_a_partition, test_a_dirhome,
          test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
-         test_gfx_patterns, test_gfx_vdu5, test_gfx_mode3,
+         test_gfx_patterns, test_gfx_flood, test_gfx_vdu5, test_gfx_mode3,
          test_gfx_upiclite, test_classic_files,
          test_remote_exec, test_remote_run_error, test_remote_input,
          test_remote_long_output, test_remote_tokeniser, test_remote_stop,

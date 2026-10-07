@@ -448,8 +448,8 @@ dot wide, so the 320 pixels are centred with a 32-dot border on each side
   160-wide modes (2 dots per pixel) work there.
 - **Memory**: column-major buffer below HIMEM where the BBC has its
   screen: MODE 4/0 10K (HIMEM &5800), MODE 1 20K (&3000), MODE 5 10K,
-  MODE 2 20K. Renderer (~2.5K) and shift tables (768 bytes) at
-  `$E000-$FFFF`, which these modes leave free. The engine for these modes
+  MODE 2 20K. Frame loop `$E000`, renderer `$E100` (up to `$E8FF`), shift tables
+  `$E900`, shapes' RAM copy `$EC00-$FFF9`, all in, which these modes leave free. The engine for these modes
   is a separate 4K image copied to `$D000` on MODE.
 - **CPU left for BASIC**: a rendered line takes ~3400 of 4032 cycles;
   with the 56 lines outside the picture about 18% of the CPU, ~11 MHz.
@@ -480,8 +480,15 @@ dot wide, so the 320 pixels are centred with a 32-dot border on each side
   4-colour text and fills; 5000 empty FOR loops take 20 cs while the
   picture shows (3 cs in MODE 7): BASIC keeps ~15% of the CPU, still
   ~2.5x a BBC Micro.
+- **MODE 2 and 5** (added 2026-10-07): 160 x 256 with 2-dot pixels, 4
+  bits per pixel (low nybble straight to `$D020`, high one through the
+  `>>4` table) or 2; 15.75 cycles per pixel, no patching; HIMEM &3000 /
+  &5800. Bank 4 holds the Upic Lite images (four renderers, tables,
+  engine, shapes), the help moved to bank 5.
+- **MODE 3 and 6**: 25 rows of 10 lines (250), as the BBC.
 - **To do**: a designed 4x8 font for MODE 0's 80 columns (now pairs of
-  pixels ORed together: bold); MODE 2/5 live at 160 wide (also 48 MHz);
+  pixels ORed together: bold); MODE 2/5 on 48 MHz machines (11.75
+  cycles per pixel there: possible, needs calibrating on a U64 Elite);
   flashing colours 8-15.
 
 ### 10.6 Order of work

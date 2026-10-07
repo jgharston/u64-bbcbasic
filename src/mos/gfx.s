@@ -34,6 +34,7 @@
     jmp e_line                  ; +24 line eline_x0/y0 -> x1/y1, eflags
     jmp e_rect                  ; +27 filled rectangle erx0/ery0 - erx1/ery1
     jmp e_pset                  ; +30 pixel ex/ey (in the window)
+    jmp e_pointdev              ; +33 colour at device ex/ey -> gx_res
 
 ; ----------------------------------------------------------------------------
 ; Engine variables: in the core (core.s, gx_vars), shared by both engine
@@ -1207,12 +1208,24 @@ e_pixel:
     sta emask
     jmp ep_addr
 epx_mc:
+    .if GXUL
+    lda ex                      ; Upic Lite: 2 bits (mc 1) or 4 (mc 2)
+    ldx vmode_mc
+    cpx #2
+    bne epx_2
+    and #1
+    tax
+    lda ul4mask,x
+    sta emask
+    jmp ep_addr
+epx_2:
+    and #3
+    tax
+    lda ul2mask,x
+    .else
     lda ex
     and #3
     tax
-    .if GXUL
-    lda ul2mask,x
-    .else
     lda mcmask,x
     .endif
     sta emask
@@ -1258,6 +1271,20 @@ epv_direct:
     lda #$FF
     bne epv_set
 epv_mc:
+    .if GXUL
+    ldx vmode_mc                ; 4 bits: colour x $11
+    cpx #2
+    bne epv_2
+    and #15
+    sta etmp
+    asl
+    asl
+    asl
+    asl
+    ora etmp
+    jmp epv_set
+epv_2:
+    .endif
     and #3
     tax
     lda mcrep,x
@@ -1391,6 +1418,7 @@ ecl_v2:
 ;            gx_res, or $FF outside the graphics window.
 e_point:
     jsr e_todev
+e_pointdev:
     lda #$FF
     sta gx_res
     jsr e_inwin
@@ -1607,6 +1635,21 @@ ept_byte:
     lda (gzp),y
     sta etmp
     lda vmode_mc
+    cmp #2
+    bne eub_n4
+    lda ex                      ; 4 bits: the low or the high nybble
+    lsr
+    lda etmp
+    bcc eub_lo
+    lsr
+    lsr
+    lsr
+    lsr
+eub_lo:
+    and #15
+    rts
+eub_n4:
+    lda vmode_mc
     bne eub_2
     lda ex                      ; 1 bit: shift by x AND 7
     and #7
@@ -1637,14 +1680,11 @@ eub_2d:
 
 ; ep_addr_only (Upic Lite): gzp = vmode_bufhi + byte column pages, + ey
 ep_addr_only:
-    lda ex+1                    ; byte column = x >> 3 (1 bit) or >> 2
-    lsr
+    lda ex+1                    ; byte column = x >> 3 (1 bit), >> 2 (2
+    lsr                         ; bits) or >> 1 (4 bits)
     lda ex
     ror
-    lsr
-    ldx vmode_mc
-    bne eua_2
-    lsr
+    jsr eu_colshift
 eua_2:
     clc
     adc vmode_bufhi
@@ -1653,10 +1693,24 @@ eua_2:
     sta gzp
     rts
 
+; eu_colshift: A = x >> 1 -> byte column for the depth (vmode_mc)
+eu_colshift:
+    ldx vmode_mc
+    cpx #2
+    beq euc_done
+    lsr
+    cpx #1
+    beq euc_done
+    lsr
+euc_done:
+    rts
+
 ul1mask:
     dta $01, $02, $04, $08, $10, $20, $40, $80
 ul2mask:
     dta $03, $0C, $30, $C0
+ul4mask:
+    dta $0F, $F0
 
     .endif
 
@@ -2173,12 +2227,7 @@ eus_tocol:
     stx etmp
     lsr etmp
     ror
-    lsr
-    ldx vmode_mc
-    bne eut_2
-    lsr
-eut_2:
-    rts
+    jmp eu_colshift
 
 eus_y0  dta 0
 eus_y1  dta 0

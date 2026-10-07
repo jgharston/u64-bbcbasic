@@ -10,6 +10,7 @@ original author and source and lists every change (zlib licence, see
 |---|---|---|---|
 | `sine.bas` | John A. Coll, 1981 | MODE 1, dotted lines (PLOT 21), VDU 5 text along a curve, VDU 19 | BBCSDL first line removed; ends with a key instead of a WAIT loop |
 | `hanoi.bas` | Richard T. Russell, 1982 | MODE 3 (80 x 25), recursion, colour codes in strings | BBCSDL first line, OFF, *REFRESH and WAIT removed |
+| `fern.bas` | QBASIC original from PC Magazine; BB4W version by David Williams | MODE 2, 80,000 points of an iterated function system | BBCSDL first line removed; MODE 8 is MODE 2; CASE is four IF lines; GCOL 2 is GCOL 0,2; OFF is VDU 23,1 |
 
 `files/`: the file-handling examples of BBC BASIC (Z80) by Richard T.
 Russell (serial, random-access and indexed files, merging, sorting),

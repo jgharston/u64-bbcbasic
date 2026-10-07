@@ -40,29 +40,35 @@ bks_go:
 bs_v5move:
     jmp sh_vdu5move
 bs_plot:
-    lda vdubuf
+    lda vdubuf                  ; group = k DIV 8, looked up in bs_groups
     lsr
     lsr
     lsr
-    cmp #10
-    beq bs_tri
-    cmp #14
-    beq bs_par
-    cmp #18
-    beq bs_circle
-    cmp #19
-    beq bs_circfill
-    cmp #24
-    beq bs_ellipse
-    cmp #25
-    beq bs_ellfill
-    cmp #27
-    beq bs_rectout
-    cmp #28
-    beq bs_triout
-    cmp #30
-    beq bs_parout
-    rts                         ; arcs, flood fill, block copy: not yet
+    ldx #bs_groups_end-bs_groups-1
+bsp_find:
+    cmp bs_groups,x
+    beq bsp_go
+    dex
+    bpl bsp_find
+    rts                         ; arcs, segments, sectors, block copy: not yet
+bsp_go:
+    txa
+    asl
+    tax
+    lda bs_jumps+1,x
+    pha
+    lda bs_jumps,x
+    pha
+    rts
+bs_groups:
+    dta 10, 14, 18, 19, 24, 25, 27, 28, 30, 16, 17
+bs_groups_end:
+bs_jumps:
+    dta a(bs_tri-1), a(bs_par-1), a(bs_circle-1), a(bs_circfill-1)
+    dta a(bs_ellipse-1), a(bs_ellfill-1), a(bs_rectout-1), a(bs_triout-1)
+    dta a(bs_parout-1), a(bs_flood-1), a(bs_flood-1)
+bs_flood:
+    jmp sh_flood
 bs_tri:
     jsr sh_points
     jmp sh_trifill
@@ -1540,4 +1546,256 @@ shq_loop:
     asl
     asl
     asl
+    rts
+
+; ----------------------------------------------------------------------------
+; sh_flood
+;   Summary: flood fill (PLOT 128-135: the area of background colour
+;            around the point; PLOT 136-143: up to the foreground colour).
+;   Function: span fill: a seed's row is filled from where the area ends
+;            on the left to where it ends on the right (GX_RECT), and the
+;            first pixel of every run of area in the rows above and below
+;            becomes a seed. The seed stack lies in BASIC's free memory
+;            between VARTOP (&02) and BASIC's stack (&04): unused during a
+;            PLOT statement. A fill colour that is itself area (would
+;            never end) does nothing; patterns are not used here.
+;   Input:   gc (the point), ecol (fill colour), gfg/gbg, vdubuf.
+;   Uses:    A, X, Y, shape variables.
+sh_flood:
+    lda #0                      ; plain colour
+    sta epat
+    lda vdubuf                  ; area colour test: 128-135 = bg, else fg
+    and #8
+    sta sh_fill                 ; 0: area = colour gbg; 8: area = not gfg
+    lda ecol                    ; a fill colour inside the area: nothing
+    jsr sf_isarea
+    bcc sf_ok
+    rts
+sf_ok:
+    lda $02                     ; stack bottom = VARTOP, limit = BASIC's
+    sta sh_rx                   ; stack - 3
+    lda $03
+    sta sh_rx+1
+    lda $04
+    sec
+    sbc #3
+    sta sh_ry
+    lda $05
+    sbc #0
+    sta sh_ry+1
+    lda sh_rx                   ; sp = bottom
+    sta sh_r
+    lda sh_rx+1
+    sta sh_r+1
+    lda gcx                     ; the seed: device position of gc
+    ldy gcx+1
+    jsr shp_x
+    lda gcy
+    ldy gcy+1
+    jsr shp_y
+    ldx #GX_TODEV
+    jsr gx_call
+    jsr sf_pushxy               ; push ex/ey
+sf_loop:
+    lda sh_r                    ; stack empty?
+    cmp sh_rx
+    bne sf_pop
+    lda sh_r+1
+    cmp sh_rx+1
+    bne sf_pop
+    rts
+sf_pop:
+    jsr sf_popxy
+    jsr sf_test                 ; still area (and in the window)?
+    bcc sf_loop
+    lda ex                      ; scan left
+    sta sh_cx
+    lda ex+1
+    sta sh_cx+1
+sf_left:
+    lda ex
+    bne sfl_dec
+    lda ex+1
+    beq sf_lend                 ; x = 0
+sfl_dec:
+    lda ex
+    bne sfl_lo
+    dec ex+1
+sfl_lo:
+    dec ex
+    jsr sf_test
+    bcs sfl_go
+    inc ex                      ; one too far: back
+    bne sf_lend
+    inc ex+1
+    bne sf_lend
+sfl_go:
+    lda ex
+    sta sh_cx
+    lda ex+1
+    sta sh_cx+1
+    jmp sf_left
+sf_lend:
+    lda sh_cx                   ; xl = sh_cx; scan right from the seed
+    sta ex
+    lda sh_cx+1
+    sta ex+1
+sf_right:
+    lda ex
+    sta sh_cy                   ; xr so far
+    lda ex+1
+    sta sh_cy+1
+    inc ex
+    bne sfr_t
+    inc ex+1
+sfr_t:
+    jsr sf_test
+    bcs sf_right
+    lda sh_cx                   ; fill xl .. xr on this row
+    sta erx0
+    lda sh_cx+1
+    sta erx0+1
+    lda sh_cy
+    sta erx1
+    lda sh_cy+1
+    sta erx1+1
+    lda ey
+    sta ery0
+    sta ery1
+    sta sh_e                    ; (the row)
+    lda ey+1
+    sta ery0+1
+    sta ery1+1
+    ldx #GX_RECT
+    jsr gx_call
+    .if SHRAM
+    jsr sh_yield
+    .endif
+    lda sh_e                    ; seeds in the row above and below
+    sec
+    sbc #1
+    bcc sf_below
+    jsr sf_seeds
+sf_below:
+    lda sh_e
+    clc
+    adc #1
+    beq sf_next                 ; (row 255)
+    jsr sf_seeds
+sf_next:
+    jmp sf_loop
+
+; sf_seeds: row A, columns sh_cx .. sh_cy: push the first pixel of every
+; run of area
+sf_seeds:
+    sta ey
+    lda #0
+    sta ey+1
+    sta sh_i                    ; 1 while inside a run
+    lda sh_cx
+    sta ex
+    lda sh_cx+1
+    sta ex+1
+sfs_loop:
+    jsr sf_test
+    bcc sfs_out
+    lda sh_i
+    bne sfs_next
+    inc sh_i
+    jsr sf_pushxy
+    jmp sfs_next
+sfs_out:
+    lda #0
+    sta sh_i
+sfs_next:
+    lda ex                      ; up to xr
+    cmp sh_cy
+    lda ex+1
+    sbc sh_cy+1
+    bcs sfs_done
+    inc ex
+    bne sfs_loop
+    inc ex+1
+    bne sfs_loop
+sfs_done:
+    rts
+
+; sf_test: C = 1 if ex/ey is inside the graphics window and area
+sf_test:
+    ldx #GX_POINTDEV
+    jsr gx_call
+    lda gx_res
+    cmp #$FF                    ; outside the window
+    bne sf_isarea
+    clc
+    rts
+; sf_isarea: C = 1 if colour A is area: = gbg (PLOT 128) or <> gfg (136)
+sf_isarea:
+    ldx sh_fill
+    bne sfa_fg
+    cmp gbg
+    beq sfa_yes
+    clc
+    rts
+sfa_fg:
+    cmp gfg
+    bne sfa_yes
+    clc
+    rts
+sfa_yes:
+    sec
+    rts
+
+; sf_pushxy / sf_popxy: ex (2 bytes) and ey (1) on the seed stack at
+; (sh_r); a full stack drops the seed (the area may stay partly unfilled)
+sf_pushxy:
+    lda sh_r
+    cmp sh_ry
+    lda sh_r+1
+    sbc sh_ry+1
+    bcs sfp_full
+    lda sh_r
+    sta gzp
+    lda sh_r+1
+    sta gzp+1
+    ldy #0
+    lda ex
+    sta (gzp),y
+    iny
+    lda ex+1
+    sta (gzp),y
+    iny
+    lda ey
+    sta (gzp),y
+    lda sh_r
+    clc
+    adc #3
+    sta sh_r
+    bcc sfp_full
+    inc sh_r+1
+sfp_full:
+    rts
+sf_popxy:
+    lda sh_r
+    sec
+    sbc #3
+    sta sh_r
+    bcs sfo_hi
+    dec sh_r+1
+sfo_hi:
+    lda sh_r
+    sta gzp
+    lda sh_r+1
+    sta gzp+1
+    ldy #0
+    lda (gzp),y
+    sta ex
+    iny
+    lda (gzp),y
+    sta ex+1
+    iny
+    lda (gzp),y
+    sta ey
+    lda #0
+    sta ey+1
     rts

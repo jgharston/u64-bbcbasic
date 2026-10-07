@@ -22,3 +22,6 @@
 
     org $8000, $8000            ; bank 3 (graphics), stored at $8000
     icl 'gxbank.s'
+
+    org $8000, $C000            ; bank 4 (Upic Lite images)
+    icl 'ulbank.s'

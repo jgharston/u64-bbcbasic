@@ -29,7 +29,8 @@ BANK_MOS    = 0                 ; boot + MOS core + help reader
 BANK_BASIC  = 1                 ; BBC BASIC 3.10 language ROM (copy source)
 BANK_FS     = 2                 ; UCI driver, filing system, Ultimate commands
 BANK_GFX    = 3                 ; graphics: modes, palettes, Upic Lite (gxbank.s)
-BANK_HELP   = 4                 ; first help bank: index + texts (tools/genhelp.py)
+BANK_UL     = 4                 ; Upic Lite RAM images (ulbank.s)
+BANK_HELP   = 5                 ; first help bank: index + texts (tools/genhelp.py)
 BANK_RAM    = $FF               ; cartridge off: BASIC runs from its RAM
                                 ; copy at $8000-$BFFF. The Ultimate 64 runs
                                 ; cartridge ROM fetches at 1 MHz, RAM at
@@ -59,6 +60,7 @@ GX_TODEV    = 21
 GX_LINE     = 24
 GX_RECT     = 27
 GX_PSET     = 30
+GX_POINTDEV = 33
 MR_RX2      = 0                 ; 48-bit slots in m48 (core), gxshape.s
 MR_RY2      = 6
 MR_TRX2     = 12

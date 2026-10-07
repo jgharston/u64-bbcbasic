@@ -398,6 +398,8 @@ vmode_ymax  dta 199             ; last pixel row (199, Upic Lite 255)
 vmode_ul    dta 0               ; 1: Upic Lite (live Upic-style display)
 vmode_bufhi dta $58             ; Upic Lite: buffer page (column 0)
 vmode_himem dta $80             ; HIMEM page of the current mode
+vmode_rend  dta 0               ; Upic Lite renderer: 1 320x1, 2 320x2,
+                                ; 3 160x2, 4 160x4 (width x bits/pixel)
 tcx         dta 0               ; bitmap modes: text cursor
 tcy         dta 0
 twl         dta 0               ; text window (characters)

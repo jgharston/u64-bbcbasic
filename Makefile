@@ -25,7 +25,8 @@ BASICSRC  = $(BASICLIB)/basic.s $(BASICLIB)/vars.s
 BASICDIR  = $(BUILD)/basic
 
 MOS_SRCS  = $(wildcard src/mos/*.s)
-GEN       = $(BUILD)/gen/tables.s $(BUILD)/gen/ul_r1.s $(BUILD)/gen/ul_r2.s
+GEN       = $(BUILD)/gen/tables.s $(BUILD)/gen/ul_r1.s $(BUILD)/gen/ul_r2.s \
+            $(BUILD)/gen/ul_r3.s $(BUILD)/gen/ul_r4.s
 
 ULTIP1   ?= <set_ULTIP1_in_.env>
 ULTPATH   = /Temp/
@@ -57,10 +58,16 @@ $(GEN): tools/gentables.py
 # the U64-II: pixel 0 on dot 32, docs/DESIGN_GRAPHICS.md section 10.8)
 $(BUILD)/gen/ul_r1.s: tools/upiclite_gen.py
 	@$(MKDIR) $(dir $@)
-	$(PYTHON) $< --bpp 1 --cols '$$5800' --tables '$$F000' --delay 172 --label ul1_line -o $@
+	$(PYTHON) $< --bpp 1 --cols '$$5800' --tables '$$E900' --delay 172 --label ul1_line -o $@
 $(BUILD)/gen/ul_r2.s: tools/upiclite_gen.py
 	@$(MKDIR) $(dir $@)
-	$(PYTHON) $< --bpp 2 --cols '$$3000' --tables '$$F000' --delay 140 --label ul2_line -o $@
+	$(PYTHON) $< --bpp 2 --cols '$$3000' --tables '$$E900' --delay 140 --label ul2_line -o $@
+$(BUILD)/gen/ul_r3.s: tools/upiclite_gen.py
+	@$(MKDIR) $(dir $@)
+	$(PYTHON) $< --bpp 2 --width 160 --dots 2 --cols '$$5800' --tables '$$E900' --delay 172 --label ul3_line -o $@
+$(BUILD)/gen/ul_r4.s: tools/upiclite_gen.py
+	@$(MKDIR) $(dir $@)
+	$(PYTHON) $< --bpp 4 --width 160 --dots 2 --cols '$$3000' --tables '$$E900' --delay 172 --label ul4_line -o $@
 
 # banks 0 and 2 in one assembly (src/mos/cart.s): 32K, bank 0 then bank 2
 $(BUILD)/mos-ef.bin: $(MOS_SRCS) $(GEN)
@@ -75,17 +82,17 @@ $(BUILD)/mos-tmb.bin: $(MOS_SRCS) $(GEN)
 
 $(BUILD)/help.bin: src/help/help.txt tools/genhelp.py src/mos/mos.s Makefile
 	@$(MKDIR) $(BUILD)
-	$(PYTHON) tools/genhelp.py --first 4 --commands src/mos/mos.s src/help/help.txt $@ docs/HELP_REFERENCE.md
+	$(PYTHON) tools/genhelp.py --first 5 --commands src/mos/mos.s src/help/help.txt $@ docs/HELP_REFERENCE.md
 
 docs/HELP_REFERENCE.md: $(BUILD)/help.bin
 
 # --- Cartridges
 
 $(BUILD)/$(NAME)-ef.crt: $(BUILD)/mos-ef.bin $(BUILD)/basic.rom $(BUILD)/help.bin tools/mkcrt.py
-	$(PYTHON) tools/mkcrt.py --type ef --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-ef.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-ef.bin:1 $(BUILD)/mos-ef.bin:2 $(BUILD)/help.bin
+	$(PYTHON) tools/mkcrt.py --type ef --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-ef.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-ef.bin:1 $(BUILD)/mos-ef.bin:2 $(BUILD)/mos-ef.bin:3 $(BUILD)/help.bin
 
 $(BUILD)/$(NAME)-tmb.crt: $(BUILD)/mos-tmb.bin $(BUILD)/basic.rom $(BUILD)/help.bin tools/mkcrt.py
-	$(PYTHON) tools/mkcrt.py --type tmb --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-tmb.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-tmb.bin:1 $(BUILD)/mos-tmb.bin:2 $(BUILD)/help.bin
+	$(PYTHON) tools/mkcrt.py --type tmb --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-tmb.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-tmb.bin:1 $(BUILD)/mos-tmb.bin:2 $(BUILD)/mos-tmb.bin:3 $(BUILD)/help.bin
 
 # --- Ultimate settings, loaded with the cartridge when it is started from
 # the Ultimate's file browser (firmware 3.15+: same name, same directory)
