@@ -455,6 +455,35 @@ dot wide, so the 320 pixels are centred with a 32-dot border on each side
   with the 56 lines outside the picture about 18% of the CPU, ~11 MHz.
 - **Text**: 32 rows of full 8x8 characters, as on the BBC.
 
+### 10.9 Upic Lite in the MOS (integrated 2026-10-07)
+
+- **Choice**: MODE 0, 1 and 4 use Upic Lite when `ul_ok`: the speed probe
+  (Christian Gleissner's raster-timed loop, run from RAM) finds 64 MHz
+  and the Ultimate accepts a palette reset. The probe is repeated until
+  two results agree: right after the cartridge starts the Ultimate ran
+  at reduced speed (92 lines instead of 16).
+- **Layout**: Upic Lite engine (`gfx.s` with GXUL = 1) at `$D000`, frame
+  loop at `$E000`, renderer at `$E100`, shift tables at `$F000`, all from
+  bank 3; buffer at &5800 (MODE 0/4) or &3000 (MODE 1); OSBYTE &84/&85
+  give these as HIMEM, so BASIC's MODE checks and moves HIMEM as on a
+  BBC ("Bad MODE" if the program is in the way).
+- **Interrupt**: raster interrupt at line $10 (`ul_irq` in the core):
+  one frame from line $18, TIME + 2, then the normal keyboard part
+  (`irq_keys`); the CIA timer interrupt is off meanwhile. A frame whose
+  interrupt comes too late (an engine call with interrupts off, a long
+  DMA) is skipped rather than drawn wrongly.
+- **Palette**: entry i = BBC colour pal[i AND 1] or pal[i AND 3], sent as
+  RGB with control command $52; VDU 19/20 resend it; leaving Upic Lite
+  resets the Ultimate's palette ($54).
+- **Measured** (U64-II): HIMEM &5800/&3000, a vertical line one dot wide
+  over all 256 lines (E2E test `gfx_upiclite`, from the VIC stream),
+  4-colour text and fills; 5000 empty FOR loops take 20 cs while the
+  picture shows (3 cs in MODE 7): BASIC keeps ~15% of the CPU, still
+  ~2.5x a BBC Micro.
+- **To do**: a designed 4x8 font for MODE 0's 80 columns (now pairs of
+  pixels ORed together: bold); MODE 2/5 live at 160 wide (also 48 MHz);
+  flashing colours 8-15.
+
 ### 10.6 Order of work
 
 1. RAM kernel at `$C800-$DFFF`, font moved to `$F000`, RAM vectors; the

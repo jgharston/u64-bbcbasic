@@ -16,6 +16,12 @@
 ;
 ; ----------------------------------------------------------------------------
 
+; Assembled twice (GXUL, set by the wrapper): GXUL = 0 for the VIC-II
+; bitmap modes (gfx_vic.s, bank 0), GXUL = 1 for Upic Lite (gfx_ul.s,
+; bank 3): a column-major buffer below HIMEM (byte column c at
+; vmode_bufhi + c pages, row y = offset y), leftmost pixel in the lowest
+; bit(s), 256 lines (docs/DESIGN_GRAPHICS.md section 10.8).
+
 ; Entry points (jump table, offsets used by core.s: GX_*)
     jmp e_mode                  ; +0  set up the current mode, clear
     jmp e_vdu                   ; +3  graphics VDU code X (vdubuf)
@@ -81,6 +87,22 @@ crowhi:
 ;   Input:   vmode_* (core), pal[] already set by the core.
 ;   Output:  bitmap clear; state reset.  Uses: A, X, Y, gzp.
 e_mode:
+    .if GXUL
+    lda vmode_bufhi             ; Upic Lite: buffer up to $7FFF, 0
+    sta gzp+1
+    lda #0
+    sta gzp
+    tay
+eu_clr:
+    sta (gzp),y
+    iny
+    bne eu_clr
+    inc gzp+1
+    ldx gzp+1
+    cpx #$80
+    bne eu_clr
+    jmp e_defaults
+    .else
     lda #<BITMAP                ; bitmap: 8000 bytes of 0
     sta gzp
     lda #>BITMAP
@@ -103,6 +125,7 @@ em_last:
     bne em_last
     jsr e_defaults
     jmp e_matrix
+    .endif
 
 ; e_defaults: windows full screen, cursors home, origin 0, colours
 e_defaults:
@@ -140,7 +163,7 @@ e_gwfull:                       ; graphics window: the whole screen
     sta gwr
     lda vmode_xmax+1
     sta gwr+1
-    lda #199
+    lda vmode_ymax
     sta gwb
     rts
 
@@ -153,6 +176,9 @@ e_gwfull:                       ; graphics window: the whole screen
 ;            16-colour modes start with the same cells; drawing changes
 ;            them per cell.
 e_matrix:
+    .if GXUL
+    rts
+    .else
     lda vmode_mc
     bne emx_mc
     lda pal+1
@@ -179,6 +205,7 @@ emx_loop:
     inx
     bne emx_loop
     rts
+    .endif
 
 ; ----------------------------------------------------------------------------
 ; e_vdu
@@ -357,7 +384,7 @@ e_gwin:
 egw_bad:
     rts
 
-; e_clipscreen: clamp ex, ey, erx0, ery1 to the screen (0..xmax, 0..199)
+; e_clipscreen: clamp ex, ey, erx0, ery1 to the screen (0..xmax, 0..ymax)
 e_clipscreen:
     ldx #ex-ex
     jsr ecs_x
@@ -370,11 +397,11 @@ ecs_y:
     lda ex+1,x
     bmi ecs_zero
     bne ecs_ymax
-    lda ex,x
-    cmp #200
-    bcc ecs_ok
+    lda vmode_ymax
+    cmp ex,x
+    bcs ecs_ok
 ecs_ymax:
-    lda #199
+    lda vmode_ymax
     sta ex,x
     lda #0
     sta ex+1,x
@@ -502,7 +529,7 @@ etd_ypos:
     sbc et24+2
     sta ey+1
     rts
-etd_c64:
+etd_c64:                        ; Y >> 2 (C64 modes, Upic Lite)
     ldx #2
 etd_c64s:
     lda et24+1
@@ -511,7 +538,7 @@ etd_c64s:
     ror et24
     dex
     bne etd_c64s
-    lda #199
+    lda vmode_ymax
     sec
     sbc et24
     sta ey
@@ -1186,14 +1213,22 @@ e_pixel:
     lda ex
     and #7
     tax
+    .if GXUL
+    lda ul1mask,x
+    .else
     lda hmask,x
+    .endif
     sta emask
     jmp ep_addr
 epx_mc:
     lda ex
     and #3
     tax
+    .if GXUL
+    lda ul2mask,x
+    .else
     lda mcmask,x
+    .endif
     sta emask
 ep_addr:
     jsr ep_addr_only
@@ -1201,11 +1236,13 @@ ep_value:
     lda eact                    ; invert needs no colour value
     cmp #4
     bcs ep_apply
+    .if GXUL = 0
     lda vmode_ncol
     cmp #16
     bne epv_direct
     jsr e_cell                  ; 16 colours: slot for ecol in this cell
     jmp ep_apply
+    .endif
 epv_direct:
     lda ecol
     ldx vmode_mc
@@ -1264,6 +1301,7 @@ eap_eor:
     sta (gzp),y
     rts
 
+    .if GXUL = 0
 ; ----------------------------------------------------------------------------
 ; e_cell
 ;   Summary: 16-colour modes: find (or make) a slot for colour ecol in the
@@ -1339,6 +1377,8 @@ ecl_v2:
     sta evrep
     rts
 
+    .endif
+
 ; ----------------------------------------------------------------------------
 ; e_point
 ;   Summary: POINT(x,y): logical colour at pk_x/pk_y (OS units) in
@@ -1354,6 +1394,7 @@ e_point:
 ept_out:
     rts
 
+    .if GXUL = 0
 ; ept_byte: A = logical colour of the pixel ex/ey (2/4-colour modes: the
 ; bits; 16-colour modes: the cell colour, mapped back through pal[])
 ept_byte:
@@ -1552,6 +1593,67 @@ eci_wr:
     sta SCREEN
     rts
 
+    .else
+; ept_byte (Upic Lite): A = logical colour of the pixel ex/ey
+ept_byte:
+    jsr ep_addr_only
+    ldy #0
+    lda (gzp),y
+    sta etmp
+    lda vmode_mc
+    bne eub_2
+    lda ex                      ; 1 bit: shift by x AND 7
+    and #7
+    tax
+    lda etmp
+eub_1:
+    dex
+    bmi eub_1d
+    lsr
+    jmp eub_1
+eub_1d:
+    and #1
+    rts
+eub_2:
+    lda ex                      ; 2 bits: shift by 2 * (x AND 3)
+    and #3
+    tax
+    lda etmp
+eub_2l:
+    dex
+    bmi eub_2d
+    lsr
+    lsr
+    jmp eub_2l
+eub_2d:
+    and #3
+    rts
+
+; ep_addr_only (Upic Lite): gzp = vmode_bufhi + byte column pages, + ey
+ep_addr_only:
+    lda ex+1                    ; byte column = x >> 3 (1 bit) or >> 2
+    lsr
+    lda ex
+    ror
+    lsr
+    ldx vmode_mc
+    bne eua_2
+    lsr
+eua_2:
+    clc
+    adc vmode_bufhi
+    sta gzp+1
+    lda ey
+    sta gzp
+    rts
+
+ul1mask:
+    dta $01, $02, $04, $08, $10, $20, $40, $80
+ul2mask:
+    dta $03, $0C, $30, $C0
+
+    .endif
+
 ; ----------------------------------------------------------------------------
 ; Text in bitmap modes
 
@@ -1621,11 +1723,13 @@ e_char:
 
 ; e_glyphcell: the glyph at ex/ey (cell origin)
 e_glyphcell:
+    .if GXUL = 0
     lda vmode_ch
     cmp #8
     beq egc_go
     jsr e_rows6
 egc_go:
+    .endif
     lda #0
     sta eact                    ; text is drawn with "store"
     sta egrow
@@ -1675,6 +1779,7 @@ egc_x:
     bne egc_row
     rts
 
+    .if GXUL = 0
 ; e_rows6
 ;   Summary: the 6 glyph rows to draw in a 6-line cell, per glyph.
 ;   Function: drops row 7 if it is blank (capitals, most signs), else row
@@ -1729,6 +1834,8 @@ er6_skip:
     bne er6_list
     rts
 
+    .endif
+
 ; e_squeeze: A = 8 glyph bits -> 4 bits in the top nybble, each the OR
 ; of a pair (for 4-pixel wide cells)
 e_squeeze:
@@ -1775,6 +1882,7 @@ edn_scroll:
     jmp e_scroll
 
 ; ----------------------------------------------------------------------------
+    .if GXUL = 0
 ; e_scroll
 ;   Summary: scroll the text window up one text row and clear the bottom
 ;            row in the text background.
@@ -1957,12 +2065,98 @@ egp_next:
 egp_none:
     rts
 
+    .else
+; e_scroll (Upic Lite)
+;   Summary: scroll the text window up one text row (8 lines) and clear
+;            the bottom row: per byte column of the window, the bytes of
+;            its lines move up 8 (column-major buffer).
+e_scroll:
+    jsr eus_cols
+    lda twt                     ; first line, and the last row's first
+    asl
+    asl
+    asl
+    sta eus_y0
+    lda twb
+    asl
+    asl
+    asl
+    sta eus_y1
+    ldx eus_c0
+eus_col:
+    txa
+    clc
+    adc vmode_bufhi
+    sta eus_src+2
+    sta eus_dst+2
+    ldy eus_y0
+eus_y:
+    cpy eus_y1
+    bcs eus_next
+eus_src:
+    lda $FF08,y                 ; line y + 8 (y + 8 < 256: same column)
+eus_dst:
+    sta $FF00,y
+    iny
+    bne eus_y
+eus_next:
+    stx eus_x
+    jsr gx_yield
+    ldx eus_x
+    cpx eus_c1
+    inx
+    bcc eus_col
+    lda twb
+    jmp e_clearrow
+
+; eus_cols: byte columns of the text window: eus_c0 .. eus_c1
+eus_cols:
+    lda twl
+    ldx vmode_cw
+    jsr e_mul8
+    jsr eus_tocol
+    sta eus_c0
+    lda twr
+    clc
+    adc #1
+    ldx vmode_cw
+    jsr e_mul8
+    sec                         ; last pixel = end - 1
+    sbc #1
+    bcs eus_nb
+    dex
+eus_nb:
+    jsr eus_tocol
+    sta eus_c1
+    rts
+; eus_tocol: pixel A (low) / X (high) -> byte column in A
+eus_tocol:
+    stx etmp
+    lsr etmp
+    ror
+    lsr
+    ldx vmode_mc
+    bne eut_2
+    lsr
+eut_2:
+    rts
+
+eus_y0  dta 0
+eus_y1  dta 0
+eus_c0  dta 0
+eus_c1  dta 0
+eus_x   dta 0
+
+    .endif
+
 ; e_clearrow: text row A, window columns, in the text background (and its
 ; gap line, if any)
 e_clearrow:
+    .if GXUL = 0
     pha
     jsr e_gapclear
     pla
+    .endif
     sta ecrow
     ldy ecrow
     lda vmode_ch

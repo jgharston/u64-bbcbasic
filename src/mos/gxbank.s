@@ -33,6 +33,10 @@ pal_bbc16:                      ; BBC colours 0-15 on the C64
     dta 0, 2, 5, 7, 6, 4, 3, 1, 8, 9, 10, 11, 12, 13, 14, 15
 pal_c64:
     dta 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+pal_ulb2:                       ; Upic Lite: BBC colour numbers (RGB via
+    dta 0, 7                    ; the Ultimate's palette)
+pal_ulb4:
+    dta 0, 1, 3, 7
 
 ; ----------------------------------------------------------------------------
 ; bk_mode (VDU 22, from the core's vdu_mode)
@@ -107,7 +111,18 @@ vm_xmax:
     lda #3
 vm_ppb:
     sta vmode_ppbm
+    lda #199
+    sta vmode_ymax
+    lda #$80
+    sta vmode_himem
+    jsr ul_choose               ; MODE 0/1/4: Upic Lite when possible
     jsr pal_default
+    lda ul_active               ; leaving Upic Lite?
+    beq vm_noleave
+    lda vmode_ul
+    bne vm_noleave
+    jsr ul_leave
+vm_noleave:
     lda vtype
     bne vm_bitmap
     ; text mode: VIC text, font back, KERNAL cursor on, clear
@@ -139,6 +154,10 @@ vm_bitmap:
     jsr K_SETCURSOR
 vm_noblink:
     cli
+    lda vmode_ul
+    beq vm_vic
+    jmp ul_enter
+vm_vic:
     lda #$0B                    ; display off while clearing
     sta $D011
     ldx #GX_MODE
@@ -210,6 +229,17 @@ iop_done:
 bk_pal:
     lda vtype
     beq vp_done
+    lda vmode_ul
+    beq vp_vic
+    lda vdubuf                  ; Upic Lite: pal[] holds BBC colours
+    and vmode_cmask
+    tax
+    lda vdubuf+1
+    and #15
+    sta pal,x
+    farcall ul_setpal, BANK_FS
+    rts
+vp_vic:
     lda vdubuf+1
     and #15
     ldx vmode_bbc
@@ -224,6 +254,11 @@ vp_c64:
     pla
     sta pal,x
 vp_show:
+    lda vmode_ul
+    beq vp_vicshow
+    farcall ul_setpal, BANK_FS
+    rts
+vp_vicshow:
     lda vmode_ncol
     cmp #16
     beq vp_done
@@ -252,6 +287,323 @@ vdc_fg:
     stx gfg
     jmp vp_show
 
+
+; ----------------------------------------------------------------------------
+; Upic Lite (docs/DESIGN_GRAPHICS.md section 10.8): live 320 x 256 pictures
+; with 1-dot pixels, 1 or 2 bits per pixel, drawn by a raster interrupt.
+; The buffer lies below HIMEM, where the BBC has its screen (MODE 0/4:
+; &5800, MODE 1: &3000). The renderer (tools/upiclite_gen.py) and its
+; frame loop run at $E000, the shift tables at $F000, the Upic Lite engine
+; at $D000.
+
+; ul_choose
+;   Summary: MODE 0, 1 or 4 on a machine that can show Upic Lite (ul_ok:
+;            64 MHz and palette commands): override the VIC-II mode with
+;            the Upic Lite one.
+;   Input:   vmode and the mode table's fields.  Output: vmode_ul and the
+;            vmode_* fields.  Uses: A, X, Y.
+ul_choose:
+    lda #0
+    sta vmode_ul
+    lda ul_ok
+    bne uc_ok
+    rts
+uc_ok:
+    ldx vmode
+    lda #0                      ; bits per pixel - 1
+    ldy #4                      ; cell width (MODE 0: 80 columns)
+    cpx #0
+    beq uc_go
+    ldy #8
+    cpx #4
+    beq uc_go
+    cpx #1
+    beq uc_m1
+    rts
+uc_m1:
+    lda #1                      ; MODE 1: 2 bits per pixel
+uc_go:
+    sta vmode_mc
+    sty vmode_cw
+    lda #80
+    cpy #4
+    beq uc_cols
+    lda #40
+uc_cols:
+    sta vmode_cols
+    lda #1
+    sta vmode_ul
+    sta vmode_bbc
+    sta vmode_ysc               ; y >> 2
+    lda #32
+    sta vmode_rows
+    lda #8
+    sta vmode_ch
+    lda #2
+    sta vmode_xsh
+    lda #255
+    sta vmode_ymax
+    lda #<319
+    sta vmode_xmax
+    lda #>319
+    sta vmode_xmax+1
+    lda vmode_mc
+    bne uc_2bpp
+    lda #7
+    ldx #$58
+    ldy #pal_ulb2-pal_sets
+    lda #2
+    sta vmode_ncol
+    lda #7
+    bne uc_set
+uc_2bpp:
+    lda #4
+    sta vmode_ncol
+    lda #3
+    ldx #$30
+    ldy #pal_ulb4-pal_sets
+uc_set:
+    sta vmode_ppbm
+    stx vmode_bufhi
+    stx vmode_himem
+    sty vmode_pal
+    ldx vmode_ncol
+    dex
+    stx vmode_cmask
+uc_done:
+    rts
+
+; ul_enter
+;   Summary: start Upic Lite for the mode in vmode_*: engine, frame code,
+;            renderer and tables into RAM, buffer cleared, palette to the
+;            Ultimate, raster interrupt on (CIA timer interrupts off: the
+;            frame interrupt also scans the keyboard and counts TIME).
+;   Uses:    A, X, Y, gzp; mosPTR (saved).
+ul_enter:
+    lda mosPTR
+    pha
+    lda mosPTR+1
+    pha
+    sei
+    lda #0                      ; renderer off while it is replaced
+    sta $D01A
+    lda #$0F
+    sta $D019
+    lda #<ule_load              ; engine
+    ldx #>ule_load
+    ldy #>ENGINE
+    jsr ul_pages16
+    lda #<ulf_load              ; frame code
+    ldx #>ulf_load
+    ldy #>UL_FRAME
+    jsr ul_page1
+    lda vmode_mc
+    bne ue_r2
+    lda #<ulr1_load
+    ldx #>ulr1_load
+    ldy #>UL_LINE
+    jsr ul_set
+    ldx #>[ulr1_len+255]
+    jsr ul_copy
+    jmp ue_go
+ue_r2:
+    lda #<ulr2_load
+    ldx #>ulr2_load
+    ldy #>UL_LINE
+    jsr ul_set
+    ldx #>[ulr2_len+255]
+    jsr ul_copy
+    lda #<ult_load              ; shift tables (2 bits per pixel)
+    ldx #>ult_load
+    ldy #>UL_TABLES
+    jsr ul_set
+    ldx #3
+    jsr ul_copy
+ue_go:
+    cli
+    lda #$0B                    ; display off: the whole screen is border
+    sta $D011
+    lda #0
+    sta $D020
+    ldx #GX_MODE                ; clear the buffer, reset the VDU state
+    jsr gx_call
+    farcall ul_setpal, BANK_FS
+    sei
+    lda #$7F                    ; CIA 1 interrupts off
+    sta $DC0D
+    lda $DC0D
+    lda #UL_IRQLINE
+    sta $D012
+    lda $D011
+    and #$7F
+    sta $D011
+    lda #<ul_irq
+    sta $0314
+    lda #>ul_irq
+    sta $0315
+    lda #1
+    sta $D01A
+    sta ul_active
+    lda #$0F
+    sta $D019
+    cli
+    pla
+    sta mosPTR+1
+    pla
+    sta mosPTR
+    rts
+
+; ul_leave: raster interrupt off, CIA timer interrupt and the standard
+; IRQ back, the Ultimate's default palette, the VIC-II engine back
+ul_leave:
+    sei
+    lda #0
+    sta $D01A
+    sta ul_active
+    lda #$0F
+    sta $D019
+    lda #<irq_main
+    sta $0314
+    lda #>irq_main
+    sta $0315
+    lda #$81
+    sta $DC0D
+    cli
+    farcall ul_palreset, BANK_FS
+    farcall engine_init, BANK_MOS
+    rts
+
+; ul_set: source A/X (bank 3), destination page Y -> mosPTR, gzp
+ul_set:
+    sta mosPTR
+    stx mosPTR+1
+    lda #0
+    sta gzp
+    sty gzp+1
+    rts
+; ul_page1 / ul_pages16: copy 1 / 16 pages from A/X to page Y
+ul_page1:
+    jsr ul_set
+    ldx #1
+    bne ul_copy
+ul_pages16:
+    jsr ul_set
+    ldx #16
+; ul_copy: X pages from (mosPTR) to (gzp), with $01 = $33: the cartridge
+; stays visible, writes reach the RAM under I/O and the KERNAL
+; (interrupts are off: the caller's SEI)
+ul_copy:
+    lda #$33
+    sta $01
+    ldy #0
+ulc_loop:
+    lda (mosPTR),y
+    sta (gzp),y
+    iny
+    bne ulc_loop
+    inc mosPTR+1
+    inc gzp+1
+    dex
+    bne ulc_loop
+    lda #CPU_ROMS
+    sta $01
+    rts
+
+; bk_himem (OSBYTE &85): HIMEM page for mode X in Y
+bk_himem:
+    ldy #$80
+    lda ul_ok
+    beq bh_done
+    txa
+    and #$7F
+    beq bh_58
+    cmp #4
+    beq bh_58
+    cmp #1
+    bne bh_done
+    ldy #$30
+    rts
+bh_58:
+    ldy #$58
+bh_done:
+    rts
+
+; ----------------------------------------------------------------------------
+; Upic Lite RAM images (copied by ul_enter)
+
+UL_FRAME   = $E000
+UL_LINE    = $E100
+UL_TABLES  = $F000
+UL_IRQLINE = $10                ; raster interrupt; the picture starts at $19
+
+; Frame loop, from the raster interrupt (core's ul_irq, $01 = $35).
+; The line loop is the one the renderers were calibrated with
+; (tests/proto/upiclite_proto.py; ultimate-uci-oscar64's
+; uii_upic_frame_asm, after Aleksi Eeben's Upic).
+ulf_load:
+    org UL_FRAME, ulf_load
+ulf_entry:
+    lda $D011                   ; late (past line $17): skip this frame
+    bmi uf_skip
+    lda $D012
+    cmp #$18
+    bcs uf_skip
+    lda $D031
+    sta uf_turbo
+    lda #$18
+uf_wait:
+    cmp $D012
+    bne uf_wait
+    ldy #0
+uf_line:
+    lda $D012
+uf_lw:
+    cmp $D012
+    beq uf_lw
+    lda #$80                    ; resync: index 0, then back to turbo
+    ldx #$8F
+    sta $D031
+    stx $D031
+    jsr UL_LINE
+    iny
+    bne uf_line
+    lda uf_turbo
+    sta $D031
+uf_skip:
+    rts
+uf_turbo:
+    dta 0
+ulf_len = * - UL_FRAME
+    .if ulf_len > $100
+    .error "Upic Lite frame code over a page"
+    .endif
+    :[UL_FRAME+$100-*] dta 0    ; a full page: MADS leaves gaps out
+    org ulf_load + $100
+
+ulr1_load:
+    org UL_LINE, ulr1_load
+    icl 'ul_r1.s'
+ulr1_len = * - UL_LINE
+    org ulr1_load + ulr1_len
+
+ulr2_load:
+    org UL_LINE, ulr2_load
+    icl 'ul_r2.s'
+ulr2_len = * - UL_LINE
+    .if UL_LINE + ulr2_len > UL_TABLES
+    .error "Upic Lite renderer runs into its tables"
+    .endif
+    org ulr2_load + ulr2_len
+
+ult_load:                       ; b >> 2, b >> 4, b >> 6
+    :256 dta [#>>2]
+    :256 dta [#>>4]
+    :256 dta [#>>6]
+
+ule_load:
+    org ENGINE, ule_load
+    icl 'gfx_ul.s'
+    org ule_load + $1000
 
 bank3_end:
     .if bank3_end > $C000

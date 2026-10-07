@@ -69,6 +69,7 @@ cold:
     cli
     farcall fs_init, BANK_FS    ; find the Ultimate (up to 0.5 s)
     jsr font_to_reu             ; fonts for MODE changes and bitmap text
+    jsr ul_detect               ; Upic Lite possible?
     jsr banner
     jmp enter_lang
 
@@ -163,6 +164,101 @@ coi_loop:
     dex
     bne coi_loop
     rts
+
+; ----------------------------------------------------------------------------
+; ul_detect
+;   Summary: Upic Lite needs 64 MHz and the Ultimate's palette commands:
+;            sets ul_ok (core) if both are there.
+;   Function: the speed probe (Christian Gleissner's raster-timed loop, as
+;            uii_turbo_probe_max in ultimate-uci-oscar64) runs from RAM
+;            (errbuf), since this bank runs at 1 MHz: 64,764 cycles take
+;            fewer than 19 raster lines at 64 MHz, fewer than 26 at 48.
+;            Measured until two results in a row agree (at most 50):
+;            right after the cartridge starts the Ultimate may not run
+;            at full speed yet (measured: 92 lines). Then a palette reset
+;            ($54) must be accepted.
+;   Uses:    A, X, Y, errbuf, mosTMP+2/+3.
+ul_detect:
+    lda #0
+    sta ul_ok
+    lda turbo_state
+    cmp #2
+    bne uld_done
+    ldx #probe_end-probe_load-1
+uld_copy:
+    lda probe_load,x
+    sta errbuf,x
+    dex
+    bpl uld_copy
+    lda #50                     ; up to 50 tries: right after the start
+    sta mosTMP+2                ; the Ultimate may not run at full speed
+    lda #$FF                    ; yet; two equal classes in a row decide
+    sta mosTMP+3                ; (as uii_turbo_probe_max)
+uld_probe:
+    jsr errbuf
+    ldx #2                      ; class: 2 = 64 MHz, 1 = 48 MHz, 0 = ?
+    cmp #19
+    bcc uld_class
+    dex
+    cmp #26
+    bcc uld_class
+    dex
+uld_class:
+    txa
+    beq uld_again
+    cmp mosTMP+3
+    beq uld_decided
+uld_again:
+    stx mosTMP+3
+    dec mosTMP+2
+    bne uld_probe
+    rts
+uld_decided:
+    cmp #2
+    bne uld_done
+    farcall ul_palreset, BANK_FS
+    bcs uld_done
+    lda #1
+    sta ul_ok
+uld_done:
+    rts
+
+; The probe, assembled for errbuf: A = raster lines for 64,764 cycles.
+; Every loop-back is an absolute jmp (3 cycles), no I/O in the loop.
+probe_load:
+    org errbuf, probe_load
+    php
+    sei
+prb_f1:
+    lda $D011                   ; bottom of the frame...
+    bpl prb_f1
+prb_f2:
+    lda $D011                   ; ...then the wrap to line 0
+    bmi prb_f2
+    lda #$20
+prb_w:
+    cmp $D012
+    bne prb_w
+    ldy #36                     ; 36 x 1799 cycles
+prb_o:
+    ldx #0
+prb_i:
+    dex
+    beq prb_id
+    jmp prb_i
+prb_id:
+    dey
+    beq prb_od
+    jmp prb_o
+prb_od:
+    lda $D012
+    sec
+    sbc #$20
+    plp
+    rts
+probe_len = * - errbuf
+    org probe_load + probe_len
+probe_end:
 
 ; ----------------------------------------------------------------------------
 ; engine_init
@@ -855,7 +951,7 @@ byte_handlers:
     dta a(by_high-1)
     dta a(by_oshwm-1)
     dta a(by_himem-1)
-    dta a(by_himem-1)
+    dta a(by_himem85-1)
     dta a(by_pos-1)
     dta a(by_char-1)
     dta a(by_vduq-1)
@@ -902,10 +998,14 @@ by_oshwm:                       ; &83: PAGE = &0800
     ldx #0
     ldy #$08
     bne by_ret
-by_himem:                       ; &84, &85: HIMEM = &8000
+by_himem:                       ; &84: HIMEM of the current mode
     ldx #0
-    ldy #$80
-    bne by_ret
+    ldy vmode_himem
+    jmp by_ret
+by_himem85:                     ; &85: HIMEM for mode X (BASIC's MODE)
+    farcall bk_himem, BANK_GFX
+    ldx #0
+    jmp by_ret
 by_pos:                         ; &86: X = POS, Y = VPOS
     lda vtype
     beq bp_text
@@ -2098,7 +2198,7 @@ core_load:
 
 engine_load:
     org ENGINE, engine_load
-    icl 'gfx.s'
+    icl 'gfx_vic.s'
     org engine_load + $1000
 
 mos_end:

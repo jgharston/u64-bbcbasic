@@ -559,22 +559,29 @@ ii_whole:                       ; no comma: print what there is
 ii_done:
     rts
 
-; ii_isu64: C = 1 if the text from errbuf+1+mosTMP+3 contains "U64"
+; ii_isu64: C = 1 if the text from errbuf+1+mosTMP+3 contains "U64" or "ULT"
 ii_isu64:
     ldx mosTMP+3
 iu_loop:
     lda errbuf+1,x
     beq iu_no
-    cmp #'U'
-    bne iu_next
-    lda errbuf+2,x
+    cmp #'U'                    ; "U64" or "ULT" (as in "ULTIMATE DOS"):
+    bne iu_next                 ; a byte lost on the bus (seen once in
+    lda errbuf+2,x              ; seven runs) must not hide the drive;
+    cmp #'L'                    ; a 1541's "CBM DOS" matches neither
+    beq iu_ult
     cmp #'6'
     bne iu_next
     lda errbuf+3,x
     cmp #'4'
     bne iu_next
+iu_yes:
     sec
     rts
+iu_ult:
+    lda errbuf+3,x
+    cmp #'T'
+    beq iu_yes
 iu_next:
     inx
     cpx #ERRMAX-4

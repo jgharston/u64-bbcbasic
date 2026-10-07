@@ -25,7 +25,7 @@ BASICSRC  = $(BASICLIB)/basic.s $(BASICLIB)/vars.s
 BASICDIR  = $(BUILD)/basic
 
 MOS_SRCS  = $(wildcard src/mos/*.s)
-GEN       = $(BUILD)/gen/tables.s
+GEN       = $(BUILD)/gen/tables.s $(BUILD)/gen/ul_r1.s $(BUILD)/gen/ul_r2.s
 
 ULTIP1   ?= <set_ULTIP1_in_.env>
 ULTPATH   = /Temp/
@@ -52,6 +52,15 @@ $(BUILD)/basic.rom: $(BASICDIR)/basic.s
 $(GEN): tools/gentables.py
 	@$(MKDIR) $(dir $@)
 	$(PYTHON) $< $@
+
+# Upic Lite line renderers (tools/upiclite_gen.py; delays calibrated on
+# the U64-II: pixel 0 on dot 32, docs/DESIGN_GRAPHICS.md section 10.8)
+$(BUILD)/gen/ul_r1.s: tools/upiclite_gen.py
+	@$(MKDIR) $(dir $@)
+	$(PYTHON) $< --bpp 1 --cols '$$5800' --tables '$$F000' --delay 172 --label ul1_line -o $@
+$(BUILD)/gen/ul_r2.s: tools/upiclite_gen.py
+	@$(MKDIR) $(dir $@)
+	$(PYTHON) $< --bpp 2 --cols '$$3000' --tables '$$F000' --delay 140 --label ul2_line -o $@
 
 # banks 0 and 2 in one assembly (src/mos/cart.s): 32K, bank 0 then bank 2
 $(BUILD)/mos-ef.bin: $(MOS_SRCS) $(GEN)

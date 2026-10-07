@@ -348,6 +348,10 @@ vmode_ppbm  dta 7               ; pixels per byte - 1
 vmode_cw    dta 8               ; text cell width, height in pixels
 vmode_ch    dta 8
 vmode_bbc   dta 1               ; 1: BBC palette numbers in VDU 19
+vmode_ymax  dta 199             ; last pixel row (199, Upic Lite 255)
+vmode_ul    dta 0               ; 1: Upic Lite (live Upic-style display)
+vmode_bufhi dta $58             ; Upic Lite: buffer page (column 0)
+vmode_himem dta $80             ; HIMEM page of the current mode
 tcx         dta 0               ; bitmap modes: text cursor
 tcy         dta 0
 twl         dta 0               ; text window (characters)
@@ -454,6 +458,42 @@ gxc_j:
     sta $01
     plp
     rts
+
+; ----------------------------------------------------------------------------
+; ul_irq ($0314 in Upic Lite modes, from the KERNAL's IRQ entry)
+;   Summary: the raster interrupt draws one Upic Lite frame (UL_FRAME at
+;            $E000, with the KERNAL out), adds 2 to TIME (50 frames a
+;            second), then joins irq_main for RUN/STOP and the KERNAL's
+;            keyboard scan. The CIA timer interrupt is off meanwhile.
+ul_irq:
+    lda $D019
+    sta $D019                   ; acknowledge
+    lsr
+    bcc uli_keys                ; not the raster: keyboard part only
+    lda $01
+    pha
+    lda #$35
+    sta $01
+    jsr UL_FRAME
+    pla
+    sta $01
+    lda mostime                 ; TIME + 2
+    clc
+    adc #2
+    sta mostime
+    bcc uli_keys
+    inc mostime+1
+    bne uli_keys
+    inc mostime+2
+    bne uli_keys
+    inc mostime+3
+    bne uli_keys
+    inc mostime+4
+uli_keys:
+    jmp irq_keys
+
+ul_ok       dta 0               ; Upic Lite possible (64 MHz, palette)
+ul_active   dta 0               ; Upic Lite interrupt running
 
 ; nmi_rti: the RAM NMI/IRQ vectors at $FFFA point here (ROMs out)
 nmi_rti:

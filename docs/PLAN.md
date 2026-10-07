@@ -795,3 +795,26 @@ without changing the interpreter. Proposals:
    pool.
 5. **`*RANDOMIZE NET`** (optional): a seed from the internet (random.org,
    the drand beacon) through the Ultimate's network.
+
+## 22. Demo package: classic BBC BASIC programs (owner, 2026-10-07)
+
+Well-known BBC BASIC programs under permissive licences, to show
+compatibility, next to our own demos (graphics, Upic Lite, Ultimate
+features, ArchBAS ports). Found so far:
+
+| Source | Licence | Candidates | Notes |
+|---|---|---|---|
+| BBC BASIC (Z80) examples by Richard Russell, in [agon-bbc-basic](https://github.com/breakintoprogram/agon-bbc-basic) `examples/` | zlib | ANIMAL (the learning guessing game), serial/random/indexed file demos (F-*), MERGE, SORT, SORTREAL | Plain BBC BASIC; the file demos exercise our filing system (OPENIN/OPENOUT/PTR#/EXT#) |
+| [BBCSDL](https://github.com/rtrussell/BBCSDL) `examples/` (Richard Russell) | zlib (`licence.txt`) | Towers of Hanoi (R.T. Russell, 1982), SINE (John A. Coll, 1981, author of the BBC Micro User Guide), fractal fern, Conway's Life, Mandelbrot, Truchet, kaleidoscope, MODE 7 demo | Stored in BB4W's tokenised format; most have a BBCSDL-only first line (touch IDE) and some use BASIC V/BB4W features (CASE, MODE 8, *REFRESH) that need a small rewrite |
+
+Rules: zlib requires altered versions to be plainly marked, so every
+adapted program gets a header naming the original author, source and
+licence and the changes (as the code attribution rule in CLAUDE.md), and
+the package gets the zlib notices. "BBC PD" (1991 library) is not
+permissive (non-commercial only) and is not used. Each program is
+checked on the machine; ports follow the structured-programming rules
+(section 20) only where the original is ours to restyle -- classics stay
+as close to the original as possible, so they show compatibility.
+
+To do: a converter for BB4W's tokenised .bbc format (tools/), then
+porting and testing per program once triangles, circles and fills exist.

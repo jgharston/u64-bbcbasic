@@ -620,6 +620,35 @@ def test_gfx_text(t):
         "R=531020008")
 
 
+def test_gfx_upiclite(t):
+    # Upic Lite on 64 MHz Ultimates (docs/DESIGN_GRAPHICS.md 10.8): HIMEM
+    # as on the BBC, and the picture pixel-exact in the VIC stream: a
+    # vertical line at x = 640 is one dot wide on dot 32 + 160, lines 0-255
+    if not ult(t):
+        return
+    r = remote(t)
+    out = r.run_lines(["MODE 4", "PRINT HIMEM", "MOVE 640,0:DRAW 640,1023"])["output"]
+    if "32768" in out:
+        t.notes.append("Upic Lite: not on this machine (VIC-II modes)")
+        r.run_lines(["MODE 7"])
+        return
+    assert "22528" in out, out
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import u64shot
+    rows = u64shot.grab(t.host, 11002)
+    top = 9                                 # stream row of picture line 0
+    col = [rows[top + y][192] & 1 for y in range(256)]
+    side = [(rows[top + y][191] & 1) | (rows[top + y][193] & 1) for y in range(256)]
+    assert all(col) and not any(side), (col.count(1), side.count(1))
+    out = r.run_lines(["MODE 1", "PRINT HIMEM", "GCOL 0,2:PLOT 69,0,1020"])["output"]
+    assert "12288" in out, out
+    rows = u64shot.grab(t.host, 11002)
+    assert rows[top][32] & 3 == 2, rows[top][28:40]
+    out = r.run_lines(["MODE 7", "PRINT HIMEM"])["output"]
+    assert "32768" in out, out
+    t.notes.append("Upic Lite: MODE 4/1 live, pixel-exact")
+
+
 def test_turbo_cmd(t):
     if t.is_vice:
         run_line(t, "*TURBO", "No turbo registers")
@@ -754,7 +783,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_a_clock, test_a_copy, test_a_mount, test_a_drive,
          test_a_settime, test_a_partition, test_a_dirhome,
          test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
-         test_gfx_origin_relative, test_gfx_text,
+         test_gfx_origin_relative, test_gfx_text, test_gfx_upiclite,
          test_remote_exec, test_remote_run_error, test_remote_input,
          test_remote_long_output, test_remote_tokeniser, test_remote_stop,
          test_remote_debug]

@@ -202,6 +202,7 @@ irq_tdone:
 irq_tstep:
     stx timefrac
 
+irq_keys:                       ; (Upic Lite's frame interrupt joins here)
     lda STKEY               ; $7F while RUN/STOP is held (last UDTIM)
     cmp #$7F
     bne irq_nostop

@@ -401,24 +401,32 @@ Sunday), hour, minute, second.
 ## VDUCODES
 
 ```
-VDU codes work as on a BBC Micro where
-the C64 text screen allows:
+VDU codes work as on a BBC Micro:
 
   7     bell (not yet)
   8-11  cursor left/right/down/up
-  12    clear screen (CLS)
+  12    clear the text window (CLS)
   13    start of line
+  16    clear the graphics window (CLG)
   17,n  COLOUR n
-  22,n  MODE n (clears the screen)
+  18,a,n  GCOL a,n
+  19,l,p,0,0,0  colour l shows colour p
+  20    default colours and palette
+  22,n  MODE n
   23,1,n  cursor off (0) / on (1)
+  24,l;b;r;t;  graphics window
+  25,k,x;y;  PLOT k,x,y
+  26    default windows
+  28,l,b,r,t  text window
+  29,x;y;  graphics origin
   30    cursor home
   31,x,y  TAB(x,y)
   127   delete
 
-Other codes take their usual parameter
-bytes and are ignored for now: graphics
-(PLOT, GCOL), windows and the palette
-are planned.
+Windows, the graphics codes and the
+palette act in the graphics modes (MODE
+0, 1, 2, 4, 5, 103, 104); in text modes
+12, 17 and 22 act.
 ```
 
 ## COLOURS
@@ -463,11 +471,12 @@ this version:
 Typed lines: 78 characters (C64 screen
 editor); programs sent from a PC (see
 REMOTE) may have lines up to 251
-characters. Text screen 40x25, no
-graphics modes or sound yet. LOAD and
-SAVE work between &0800 and &7FFF. Two
-files open at a time. *KEY, *EXEC and
-*SPOOL are not there yet.
+characters. Graphics: points, lines,
+rectangles (no triangles, circles or
+fills yet); no sound yet. LOAD and SAVE
+work between &0800 and &7FFF. Two files
+open at a time. *KEY, *EXEC and *SPOOL
+are not there yet.
 ```
 
 ## REMOTE
@@ -964,8 +973,8 @@ resident integers @% and A%-Z%.
 ```
   CLG
 
-Clears the graphics area. U64: no
-graphics yet.
+Clears the graphics window in the
+background colour (GCOL 0,128+n).
 ```
 
 ## CLOSE#
@@ -1074,8 +1083,10 @@ Integer division.
 ```
   DRAW x,y
 
-Draws a line to x,y. U64: no graphics
-yet.
+Draws a line from the graphics cursor
+to x,y in the graphics colour (PLOT
+5,x,y). Coordinates: 1280 x 1024, 0,0
+at the bottom left, as on the BBC.
 ```
 
 ## ELSE
@@ -1224,8 +1235,12 @@ from start to end.
 ```
   GCOL action,colour
 
-Sets the graphics colour. U64: no
-graphics yet.
+Sets the graphics colour and how it is
+drawn: action 0 store, 1 OR, 2 AND, 3
+EOR, 4 invert. Colour 128+n sets the
+background (CLG).
+
+  GCOL 0,1:DRAW 1279,1023
 ```
 
 ## GET
@@ -1442,8 +1457,34 @@ The remainder of integer division.
 ```
   MODE n
 
-Selects a screen mode. U64: text only
-for now; MODE clears the screen.
+Selects a screen mode and clears it.
+
+  MODE size     col text  U64
+  0    640x256  2   80x32 Upic Lite
+  1    320x256  4   40x32 Upic Lite
+  2    160x256  16  20x32 VIC-II
+  3    text         80x25 (40 yet)
+  4    320x256  2   40x32 Upic Lite
+  5    160x256  4   20x32 VIC-II
+  6,7  text         40x25
+  100  C64 text     40x25
+  103  320x200  16  40x25 hires
+  104  160x200  16  20x25 multicol.
+
+MODE 0 shows 320 pixels wide. MODE 103:
+2 colours per 8x8 cell, MODE 104: 4 per
+4x8 cell, as the VIC-II does.
+
+Upic Lite: a live picture of 320x256
+with square pixels, as on the BBC, on
+64 MHz machines (Ultimate 64 Elite II,
+C64 Ultimate) with firmware 3.15+. The
+screen memory lies below HIMEM as on
+the BBC (MODE 0 and 4: &5800, MODE 1:
+&3000), and BASIC runs at about 1/6 of
+its speed while the picture is shown.
+Elsewhere these modes use the VIC-II
+(200 lines, 32 rows of 6-line text).
 ```
 
 ## MOVE
@@ -1451,8 +1492,7 @@ for now; MODE clears the screen.
 ```
   MOVE x,y
 
-Moves the graphics cursor. U64: no
-graphics yet.
+Moves the graphics cursor (PLOT 4,x,y).
 ```
 
 ## NEW
@@ -1575,8 +1615,22 @@ The start of the program (&0800).
 ```
   PLOT k,x,y
 
-Graphics plotting. U64: no graphics
-yet.
+Graphics plotting, as on the BBC: k AND
+3 = 0 moves, 1 draws in the graphics
+colour, 2 inverts, 3 draws in the
+background colour; k AND 4 = 0: x,y
+relative to the graphics cursor.
+
+  k 0-7     line
+  k 8-15    line, no end point
+  k 16-31   dotted line
+  k 32-63   line, no start point
+  k 64-71   point
+  k 96-103  filled rectangle
+
+A rectangle's corners are the previous
+point and x,y. Triangles, circles,
+ellipses and fills follow.
 ```
 
 ## POINT
@@ -1584,8 +1638,8 @@ yet.
 ```
   POINT(x,y)
 
-The colour of a pixel. U64: no graphics
-yet.
+The colour of a pixel (logical colour),
+or -1 outside the graphics window.
 ```
 
 ## POS
