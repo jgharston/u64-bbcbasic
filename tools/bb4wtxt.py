@@ -121,7 +121,7 @@ def warnings(lines):
                    "MOUSE", "WAIT", "SWAP", "EXIT", "PRIVATE", "TINT"):
             if re.search(r"\b%s\b" % kw, bare):
                 out.append((num, kw))
-        if "@" in bare:
+        if re.search(r"@[A-Za-z]", bare):     # @% (print format) is BBC too
             out.append((num, "@ variables (@lib$, @vdu%, ...)"))
         m = re.search(r"\bMODE\s*(\d+)", bare)
         if m and int(m.group(1)) > 7:

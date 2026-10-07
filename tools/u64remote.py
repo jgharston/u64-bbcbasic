@@ -117,8 +117,12 @@ class Remote:
 
     # --- mailbox ------------------------------------------------------------
 
-    def mailbox(self):
-        mb = self.read(MBOX, MB_SIZE)
+    def mailbox(self, full=False):
+        """The mailbox: its 20-byte header only, unless full. Each REST read
+        is a DMA that stops the C64's CPU while it runs; long reads during
+        serial-bus transfers (*STATUS, *CP) break their timing (measured:
+        *CP 0.4 s -> 11 s and more), so polls stay short."""
+        mb = self.read(MBOX, MB_SIZE if full else MB_LINE)
         if mb[:4] != b"BBCR":
             raise RemoteError("U64 BBC BASIC is not running on %s "
                               "(no mailbox at $%04X)" % (self.host, MBOX))
@@ -145,7 +149,8 @@ class Remote:
         if len(data) > MB_LINEMAX:
             raise ValueError("request data longer than %d bytes" % MB_LINEMAX)
         seq = (mb[MB_HSEQ] + 1) & 0xFF
-        self.write(MBOX + MB_LINE, data)
+        if data:                                    # (an empty line: the
+            self.write(MBOX + MB_LINE, data)        # length alone)
         self.write(MBOX + MB_LINELEN, [len(data)])
         self.write(MBOX + MB_REQ, [request])
         self.write(MBOX + MB_HSEQ, [seq])           # last: makes it valid
@@ -192,8 +197,12 @@ class Remote:
         w, r = mb[MB_RINGW], mb[MB_RINGR]
         if w == r:
             return b""
-        ring = mb[MB_RING:MB_RING + RING]
-        out = ring[r:w] if w > r else ring[r:] + ring[:w]
+        if w > r:                           # only the new part of the ring
+            out = self.read(MBOX + MB_RING + r, w - r)
+        else:
+            out = self.read(MBOX + MB_RING + r, RING - r)
+            if w:
+                out += self.read(MBOX + MB_RING, w)
         self.write(MBOX + MB_RINGR, [w])
         return out
 

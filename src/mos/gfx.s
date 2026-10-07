@@ -1670,6 +1670,30 @@ e_txy:
     jsr e_mul8
     sta ex
     stx ex+1
+    .if GXUL
+    lda tcy                     ; Upic Lite: rows of 8 or 10 lines
+    jsr e_rowtop
+    sta ey
+    lda #0
+    sta ey+1
+    rts
+
+; e_rowtop (Upic Lite): A = text row -> A = its top line (row * ch;
+; ch = 8, or 10 in MODE 3 and 6: 25 rows of 10 lines in 250, as the BBC)
+e_rowtop:
+    sta etmp
+    asl
+    asl
+    asl
+    ldx vmode_ch
+    cpx #10
+    bne ert_done
+    clc
+    adc etmp
+    adc etmp
+ert_done:
+    rts
+    .else
     lda vmode_ch
     cmp #8
     bne etx_6
@@ -1681,6 +1705,7 @@ e_txy:
     lda #0
     sta ey+1
     rts
+    .endif
 etx_6:
     ldx tcy
     lda row6,x
@@ -1746,13 +1771,21 @@ egc_go:
     sta erx0+1
 egc_row:
     ldx egrow
-    lda vmode_ch
+    .if GXUL = 0
+    lda vmode_ch                ; 6-line cells: the rows e_rows6 chose
     cmp #8
     beq egc_8
     lda erows,x
     tax
+    .endif
 egc_8:
+    .if GXUL
+    lda #0                      ; 10-line cells: glyph rows 8 and 9 blank
+    cpx #8
+    bcs egc_row8
+    .endif
     lda glyph,x
+egc_row8:
     ldx vmode_cw
     cpx #4
     bne egc_bits
@@ -2080,15 +2113,13 @@ egp_none:
 e_scroll:
     jsr eus_cols
     lda twt                     ; first line, and the last row's first
-    asl
-    asl
-    asl
+    jsr e_rowtop
     sta eus_y0
     lda twb
-    asl
-    asl
-    asl
+    jsr e_rowtop
     sta eus_y1
+    lda vmode_ch                ; copy from ch lines further down
+    sta eus_src+1
     ldx eus_c0
 eus_col:
     txa
@@ -2101,7 +2132,8 @@ eus_y:
     cpy eus_y1
     bcs eus_next
 eus_src:
-    lda $FF08,y                 ; line y + 8 (y + 8 < 256: same column)
+    lda $FF08,y                 ; line y + ch (< 256: same column; the low
+                                ; byte of the operand is set to ch above)
 eus_dst:
     sta $FF00,y
     iny
@@ -2165,6 +2197,9 @@ e_clearrow:
     pla
     .endif
     sta ecrow
+    .if GXUL
+    jsr e_rowtop
+    .else
     ldy ecrow
     lda vmode_ch
     cmp #8
@@ -2176,6 +2211,7 @@ e_clearrow:
     jmp ecr_y
 ecr_6:
     lda row6,y
+    .endif
 ecr_y:
     sta ery0
     clc

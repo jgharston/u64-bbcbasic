@@ -311,11 +311,15 @@ ul_choose:
 uc_ok:
     ldx vmode
     lda #0                      ; bits per pixel - 1
-    ldy #4                      ; cell width (MODE 0: 80 columns)
+    ldy #4                      ; cell width (MODE 0, 3: 80 columns)
     cpx #0
+    beq uc_go
+    cpx #3
     beq uc_go
     ldy #8
     cpx #4
+    beq uc_go
+    cpx #6
     beq uc_go
     cpx #1
     beq uc_m1
@@ -332,13 +336,23 @@ uc_go:
 uc_cols:
     sta vmode_cols
     lda #1
+    sta vtype                   ; (MODE 3 and 6 are text modes otherwise)
     sta vmode_ul
     sta vmode_bbc
     sta vmode_ysc               ; y >> 2
-    lda #32
+    lda #32                     ; 32 rows of 8 lines; MODE 3 and 6: 25
+    ldy #8                      ; rows of 10 (250 lines, as the BBC)
+    ldx vmode
+    cpx #3
+    beq uc_25
+    cpx #6
+    bne uc_rows
+uc_25:
+    lda #25
+    ldy #10
+uc_rows:
     sta vmode_rows
-    lda #8
-    sta vmode_ch
+    sty vmode_ch
     lda #2
     sta vmode_xsh
     lda #255
@@ -523,7 +537,11 @@ bk_himem:
     txa
     and #$7F
     beq bh_58
+    cmp #3
+    beq bh_58
     cmp #4
+    beq bh_58
+    cmp #6
     beq bh_58
     cmp #1
     bne bh_done

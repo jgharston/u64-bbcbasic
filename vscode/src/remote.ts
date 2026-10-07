@@ -91,8 +91,11 @@ export class Remote {
 
     // --- mailbox --------------------------------------------------------------
 
+    /** The mailbox header (20 bytes). Every REST read is a DMA that stops
+     *  the C64's CPU; long reads during serial-bus transfers (*STATUS, *CP)
+     *  break their timing, so polls stay short (see u64remote.py). */
     async mailbox(): Promise<Buffer> {
-        const mb = await this.read(MBOX, MB_SIZE);
+        const mb = await this.read(MBOX, MB.LINE);
         if (mb.subarray(0, 4).toString('latin1') !== 'BBCR') {
             throw new RemoteError(`U64 BBC BASIC is not running on ${this.host}`);
         }
@@ -115,7 +118,7 @@ export class Remote {
         if (data.length > MB_LINEMAX) { throw new RemoteError(`line longer than ${MB_LINEMAX} characters`); }
         const mb = await this.mailbox();
         const seq = (mb[MB.HSEQ] + 1) & 0xff;
-        await this.write(MBOX + MB.LINE, Array.from(data));
+        if (data.length) { await this.write(MBOX + MB.LINE, Array.from(data)); }
         await this.write(MBOX + MB.LINELEN, [data.length]);
         await this.write(MBOX + MB.REQ, [request]);
         await this.write(MBOX + MB.HSEQ, [seq]);           // last: makes it valid
@@ -152,8 +155,13 @@ export class Remote {
         mb = mb ?? await this.mailbox();
         const w = mb[MB.RINGW], r = mb[MB.RINGR];
         if (w === r) { return []; }
-        const ring = Array.from(mb.subarray(MB.RING, MB.RING + RING));
-        const out = w > r ? ring.slice(r, w) : ring.slice(r).concat(ring.slice(0, w));
+        let out: number[];                  // only the new part of the ring
+        if (w > r) {
+            out = Array.from(await this.read(MBOX + MB.RING + r, w - r));
+        } else {
+            out = Array.from(await this.read(MBOX + MB.RING + r, RING - r));
+            if (w) { out = out.concat(Array.from(await this.read(MBOX + MB.RING, w))); }
+        }
         await this.write(MBOX + MB.RINGR, [w]);
         return out;
     }

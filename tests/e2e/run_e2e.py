@@ -528,12 +528,16 @@ def test_a_settime(t):
 
 
 def test_a_partition(t):
+    # Through the remote interface, not the screen: the harness's screen
+    # reads (1000-byte DMA) during serial-bus transfers break their timing
     if not ult(t):
         return
-    run_line(t, "*PARTITION 250 /Temp E2E", ">")
-    run_line(t, "*PARTITIONS", '"E2E"')
-    run_line(t, "*CP 250", ">")
-    run_line(t, "*CP 0", ">")
+    r = remote(t)
+    assert not r.run_lines(["*PARTITION 250 /Temp E2E"])["error"]
+    out = r.run_lines(["*PARTITIONS"], timeout=60)["output"]
+    assert '"E2E"' in out, out
+    assert not r.run_lines(["*CP 250"], timeout=60)["error"]
+    assert not r.run_lines(["*CP 0"], timeout=60)["error"]
 
 
 def test_a_dirhome(t):
@@ -665,6 +669,29 @@ def test_gfx_patterns(t):
         "R=-162")
 
 
+def test_gfx_vdu5(t):
+    # VDU 5: text at the graphics cursor (top left of the character cell),
+    # transparent, graphics colour; VDU 4 back to the text cursor
+    gfx_check(t, 4, [
+        "VDU 28,0,31,39,28:VDU 5:GCOL 0,1:MOVE 400,1000:PRINT \"W\";",
+        "N%=0:FOR I%=0 TO 63:N%=N%-POINT(400+(I%AND7)*4,1000-(I%DIV8)*4):NEXT",
+        "VDU 4",
+        "R$=\"R=\"+STR$(N%<0)"],
+        "R=-1")
+
+
+def test_gfx_mode3(t):
+    # MODE 3 on Upic Lite: 80 x 25 text in 10-line rows (as the BBC)
+    if not ult(t):
+        return
+    out = remote(t).run_lines(["MODE 3", "PRINT TAB(70,24);\"X\";:A%=POS:B%=VPOS",
+                               "MODE 7", "PRINT A%,B%"])["output"]
+    if "71" not in out:
+        t.notes.append("MODE 3: not Upic Lite on this machine")
+        return
+    assert re.search(r"71\s+24", out), out
+
+
 def test_gfx_upiclite(t):
     # Upic Lite on 64 MHz Ultimates (docs/DESIGN_GRAPHICS.md 10.8): HIMEM
     # as on the BBC, and the picture pixel-exact in the VIC stream: a
@@ -692,6 +719,23 @@ def test_gfx_upiclite(t):
     out = r.run_lines(["MODE 7", "PRINT HIMEM"])["output"]
     assert "32768" in out, out
     t.notes.append("Upic Lite: MODE 4/1 live, pixel-exact")
+
+
+def test_classic_files(t):
+    # The BBC BASIC (Z80) file examples (demos/classics/files), unchanged:
+    # f-wser1 writes names and numbers with PRINT#, f-rser1 reads them back
+    # with INPUT# (it checks EOF# after reading, so it skips the last
+    # entry: that is the original program)
+    if not ult(t):
+        return
+    r = remote(t)
+    d = os.path.join(ROOT, "demos", "classics", "files")
+    r.run_lines(["*DIR /Temp"])
+    r.send_program(open(os.path.join(d, "f-wser1.bas")).read(), run=True)
+    r.run_lines(["ALICE", "0123", "BOB", "0456", ""])
+    out = r.send_program(open(os.path.join(d, "f-rser1.bas")).read(), run=True)["output"]
+    r.run_lines(["*DELETE PHONENOS"])
+    assert "ALICE" in out and "0123" in out, out
 
 
 def test_turbo_cmd(t):
@@ -829,8 +873,8 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_a_settime, test_a_partition, test_a_dirhome,
          test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
-         test_gfx_patterns,
-         test_gfx_upiclite,
+         test_gfx_patterns, test_gfx_vdu5, test_gfx_mode3,
+         test_gfx_upiclite, test_classic_files,
          test_remote_exec, test_remote_run_error, test_remote_input,
          test_remote_long_output, test_remote_tokeniser, test_remote_stop,
          test_remote_debug]

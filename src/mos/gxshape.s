@@ -32,6 +32,14 @@ bk_shape:
     jmp bks_go                  ; first byte: the core jumps to $F300
 bks_go:
     .endif
+    lda sh_op
+    beq bs_plot
+    cmp #1
+    bne bs_v5move
+    jmp sh_vdu5char
+bs_v5move:
+    jmp sh_vdu5move
+bs_plot:
     lda vdubuf
     lsr
     lsr
@@ -1314,4 +1322,222 @@ msr_next:
     ldx m_n2
     dex
     bne msr_loop
+    rts
+
+; ----------------------------------------------------------------------------
+; VDU 5: text at the graphics cursor
+
+; sh_vdu5char
+;   Summary: draw glyph[] with its top left corner at the graphics cursor,
+;            in the graphics colour and action (GCOL), set pixels only
+;            (transparent, as the BBC), then move the cursor one
+;            character right.
+;   Input:   glyph[], gcx/gcy, gfg, gact_fg.  Uses: A, X, Y.
+sh_vdu5char:
+    lda gcx
+    ldy gcx+1
+    jsr shp_x
+    lda gcy
+    ldy gcy+1
+    jsr shp_y
+    ldx #GX_TODEV
+    jsr gx_call
+    lda ex
+    sta sh_cx
+    lda ex+1
+    sta sh_cx+1
+    lda ey
+    sta sh_cy
+    lda ey+1
+    sta sh_cy+1
+    lda gfg
+    sta ecol
+    lda gact_fg                 ; action and pattern (as e_actsplit)
+    pha
+    and #15
+    sta eact
+    pla
+    lsr
+    lsr
+    lsr
+    lsr
+    sta epat
+    lda #0
+    sta sh_i                    ; glyph row
+sv5_row:
+    ldx sh_i
+    lda vmode_ch                ; 6-line cells: rows 3 and 7 left out
+    cmp #8
+    beq sv5_8
+    cpx #3
+    bcc sv5_8
+    inx
+sv5_8:
+    lda glyph,x
+    ldx vmode_cw
+    cpx #4
+    bne sv5_bits
+    jsr sh_squeeze
+sv5_bits:
+    sta sh_e
+    lda #0
+    sta sh_j                    ; column
+sv5_pix:
+    asl sh_e
+    bcc sv5_next
+    lda sh_cx                   ; ex = x + column, ey = y + row
+    clc
+    adc sh_j
+    sta ex
+    lda sh_cx+1
+    adc #0
+    sta ex+1
+    lda sh_cy
+    clc
+    adc sh_i
+    sta ey
+    lda sh_cy+1
+    adc #0
+    sta ey+1
+    ldx #GX_PSET
+    jsr gx_call
+sv5_next:
+    inc sh_j
+    lda sh_j
+    cmp vmode_cw
+    bne sv5_pix
+    inc sh_i
+    lda sh_i
+    cmp vmode_ch
+    bne sv5_row
+    lda #9                      ; cursor right
+    sta sh_arg
+
+; sh_vdu5move
+;   Summary: VDU 5 cursor codes (PETSCII from the VDU driver in sh_arg):
+;            right/left one character width (cell width in pixels << xsh
+;            OS units), down/up 32 OS units (one BBC text row), return to
+;            the graphics window's left edge, home to its top left.
+sh_vdu5move:
+    lda vmode_cw                ; w = cw << xsh (OS units)
+    sta sh_rx
+    lda #0
+    sta sh_rx+1
+    ldx vmode_xsh
+    beq sv5m_w
+sv5m_shift:
+    asl sh_rx
+    rol sh_rx+1
+    dex
+    bne sv5m_shift
+sv5m_w:
+    lda sh_arg
+    cmp #9                      ; (from sh_vdu5char)
+    beq sv5m_right
+    cmp #$1D
+    beq sv5m_right
+    cmp #$9D
+    beq sv5m_left
+    cmp #$11
+    beq sv5m_down
+    cmp #$91
+    beq sv5m_up
+    cmp #$0D
+    beq sv5m_cr
+    cmp #$13
+    beq sv5m_home
+    rts
+sv5m_right:
+    lda gcx
+    clc
+    adc sh_rx
+    sta gcx
+    lda gcx+1
+    adc sh_rx+1
+    sta gcx+1
+    rts
+sv5m_left:
+    lda gcx
+    sec
+    sbc sh_rx
+    sta gcx
+    lda gcx+1
+    sbc sh_rx+1
+    sta gcx+1
+    rts
+sv5m_down:
+    lda gcy
+    sec
+    sbc #32
+    sta gcy
+    bcs sv5m_ok
+    dec gcy+1
+sv5m_ok:
+    rts
+sv5m_up:
+    lda gcy
+    clc
+    adc #32
+    sta gcy
+    bcc sv5m_ok
+    inc gcy+1
+    rts
+sv5m_cr:                        ; x = the window's left edge (OS units)
+    jsr sv5m_left0
+    rts
+sv5m_home:                      ; top left of the graphics window
+    jsr sv5m_left0
+    lda gwt                     ; y = top edge: from device row gwt
+    sta sh_e                    ; (the top text row: 1023 - origin in BBC
+    lda #<1023                  ; modes; approximate for others)
+    sec
+    sbc goy
+    sta gcy
+    lda #>1023
+    sbc goy+1
+    sta gcy+1
+    rts
+sv5m_left0:                     ; x = gwl << xsh - origin
+    lda gwl
+    sta sh_rx
+    lda gwl+1
+    sta sh_rx+1
+    ldx vmode_xsh
+    beq sv5m_l0
+sv5m_lsh:
+    asl sh_rx
+    rol sh_rx+1
+    dex
+    bne sv5m_lsh
+sv5m_l0:
+    lda sh_rx
+    sec
+    sbc gox
+    sta gcx
+    lda sh_rx+1
+    sbc gox+1
+    sta gcx+1
+    rts
+
+; sh_squeeze: 8 glyph bits -> 4 in the top nybble (pairs ORed), as the
+; engine's e_squeeze
+sh_squeeze:
+    sta sh_nm
+    lda #0
+    sta sh_nm+1
+    ldx #4
+shq_loop:
+    lda sh_nm
+    and #$C0
+    cmp #1
+    rol sh_nm+1
+    asl sh_nm
+    asl sh_nm
+    dex
+    bne shq_loop
+    lda sh_nm+1
+    asl
+    asl
+    asl
+    asl
     rts

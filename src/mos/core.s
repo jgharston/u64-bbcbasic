@@ -33,8 +33,17 @@ pp_bitmap:                      ; bitmap modes: the engine's cursor codes,
     sty pp_y
     pla
     pha
+    ldx vdu5
+    bne pp_vdu5
     ldx #GX_PET
     jsr gx_call
+    jmp pp_back
+pp_vdu5:                        ; VDU 5: they move the graphics cursor
+    sta sh_arg
+    lda #2
+    sta sh_op
+    jsr sh_call
+pp_back:
     ldx pp_x
     ldy pp_y
     pla
@@ -200,8 +209,8 @@ vdu_table:
     dta a(wr_done-1)            ;  1 next char to printer
     dta a(wr_done-1)            ;  2 printer on
     dta a(wr_done-1)            ;  3 printer off
-    dta a(wr_done-1)            ;  4 text at text cursor
-    dta a(wr_done-1)            ;  5 text at graphics cursor
+    dta a(vdu_4-1)              ;  4 text at text cursor
+    dta a(vdu_5-1)              ;  5 text at graphics cursor
     dta a(wr_done-1)            ;  6 VDU on
     dta a(wr_done-1)            ;  7 bell
     dta a(vdu_bs-1)             ;  8 cursor left
@@ -318,6 +327,15 @@ v23_copy:
     cpy #8
     bne v23_copy
     beq vdu_23done
+
+vdu_4:                          ; VDU 4: text at the text cursor
+    lda #0
+    beq v45
+vdu_5:                          ; VDU 5: text at the graphics cursor
+    lda vtype                   ; (graphics modes only)
+v45:
+    sta vdu5
+    jmp wr_done
 
 vdu_tab:                        ; VDU 31,x,y: TAB(x,y), ignored off screen
     lda vtype
@@ -633,6 +651,29 @@ gx_yield:
     sta $01
     rts
 
+; sh_call
+;   Summary: run the shape module: bank 3's copy (VIC-II modes) or the
+;            RAM copy at UL_SHAPES (Upic Lite: KERNAL out, interrupts off;
+;            it yields itself). sh_op: 0 PLOT shape, 1 VDU 5 character,
+;            2 VDU 5 cursor code (sh_arg).
+sh_call:
+    lda vmode_ul
+    bne shc_ram
+    farcall bk_shape, BANK_GFX
+    rts
+shc_ram:
+    php
+    sei
+    lda $01
+    sta sh_save01
+    lda #$35
+    sta $01
+    jsr UL_SHAPES
+    lda sh_save01
+    sta $01
+    plp
+    rts
+
 ; sh_yield: from the shapes' RAM copy ($01 = $35), the same
 sh_yield:
     lda #CPU_RAMBAS
@@ -645,6 +686,8 @@ sh_yield:
     sta $01
     rts
 sh_save01   dta 0
+sh_op       dta 0
+sh_arg      dta 0
 
 ; ----------------------------------------------------------------------------
 ; glyph_get
@@ -866,8 +909,14 @@ out_char:
     jmp putpet
 oc_bitmap:
     jsr glyph_get
+    lda vdu5
+    bne oc_vdu5
     ldx #GX_CHAR
     jmp gx_call
+oc_vdu5:                        ; VDU 5: at the graphics cursor
+    lda #1
+    sta sh_op
+    jmp sh_call
 oc_done:
     rts
 
@@ -902,21 +951,9 @@ ve_bitmap:
     and #$F8
     cmp #96
     beq ve_none
-    lda vmode_ul
-    bne ve_ramshape
-    farcall bk_shape, BANK_GFX
-    jmp wr_done
-ve_ramshape:                    ; Upic Lite: the RAM copy at $F300, with
-    php                         ; the KERNAL out and interrupts off
-    sei
-    lda $01
-    sta sh_save01
-    lda #$35
-    sta $01
-    jsr UL_SHAPES
-    lda sh_save01
-    sta $01
-    plp
+    lda #0
+    sta sh_op
+    jsr sh_call
 ve_none:
     jmp wr_done
 

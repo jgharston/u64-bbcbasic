@@ -34,6 +34,15 @@ the KERNAL ROM. So:
 - the mailbox lives in the resident page;
 - while a UCI file transfer runs, an Ultimate 64-II can refuse a REST
   access: the host retries (as the E2E client does).
+- every REST access is a DMA that stops the C64's CPU while it runs.
+  During serial-bus transfers (`*STATUS`'s drive scan, `*CP`,
+  `*PARTITIONS`) the KERNAL's IEC timing breaks: measured 2026-10-07,
+  `*CP` took 0-4 cs without polling and 11 s or more (or hung the test)
+  with 238-byte mailbox and 1000-byte screen reads during it. Hosts
+  therefore poll only the mailbox header (20 bytes) and read the output
+  ring only when it holds new bytes, and only those (`u64remote.py`,
+  the VS Code extension). Tests of serial-bus commands use the remote
+  interface, not screen polling.
 
 ## 3. The two hook points
 

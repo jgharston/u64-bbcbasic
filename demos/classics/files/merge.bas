@@ -1,0 +1,42 @@
+    1 REM From the BBC BASIC (Z80) example programs by Richard T. Russell,
+    2 REM as distributed with agon-bbc-basic (examples/merge.bbc),
+    3 REM (C) 1984-2000 R.T. Russell, zlib licence (see ../LICENCE).
+    4 REM Converted to text for U64 BBC BASIC (tools/bb4wtxt.py);
+    5 REM the program itself is unchanged.
+100 REM. MERGE UTILITY FOR BBC BASIC
+110 REM. R.T.RUSSELL, 16-10-1982
+120 :
+130 DIM A(1),B(1),C(1),F(1),L(1),A$(1)
+140 :
+150 REPEAT
+160 INPUT "FILE 1",F1$
+170 F(0)=OPENUP(F1$)
+180 IF F(0)=0 PRINT "File not found"
+190 UNTIL F(0)<>0
+200 :
+210 REPEAT
+220 INPUT "FILE 2",F2$
+230 F(1)=OPENUP(F2$)
+240 IF F(1)=0 PRINT "File not found"
+250 UNTIL F(1)<>0
+260 :
+270 INPUT "OUTPUT FILE",F3$
+280 F3=OPENOUT(F3$)
+290 IF F3=0 PRINT "Directory full" : END
+300 :
+310 PROCREAD(0):PROCREAD(1)
+320 REPEAT
+330 IF L(0)<L(1) PROCWRITE(0):PROCREAD(0) ELSE PROCWRITE(1):PROCREAD(1)
+340 UNTIL EOF#F(0) AND EOF#F(1)
+350 BPUT #F3,0
+360 CLOSE#0
+370 END
+380 :
+390 DEF PROCREAD(F):IF EOF#F(F) L(F)=65536:ENDPROC
+400 A(F)=BGET#F(F):B(F)=BGET#F(F):C(F)=BGET#F(F):INPUT#F(F),A$(F)
+410 L(F)=B(F)+256*C(F)
+420 ENDPROC
+430 :
+440 DEF PROCWRITE(F)
+450 BPUT#F3,A(F):BPUT#F3,B(F):BPUT#F3,C(F):PRINT#F3,A$(F)
+460 ENDPROC

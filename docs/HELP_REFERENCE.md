@@ -403,6 +403,8 @@ Sunday), hour, minute, second.
 ```
 VDU codes work as on a BBC Micro:
 
+  4     text at the text cursor
+  5     text at the graphics cursor
   7     bell (not yet)
   8-11  cursor left/right/down/up
   12    clear the text window (CLS)
@@ -1476,16 +1478,20 @@ Selects a screen mode and clears it.
   0    640x256  2   80x32 Upic Lite
   1    320x256  4   40x32 Upic Lite
   2    160x256  16  20x32 VIC-II
-  3    text         80x25 (40 yet)
+  3    text         80x25 Upic Lite
   4    320x256  2   40x32 Upic Lite
   5    160x256  4   20x32 VIC-II
-  6,7  text         40x25
+  6    text         40x25 Upic Lite
+  7    text         40x25
   100  C64 text     40x25
   103  320x200  16  40x25 hires
   104  160x200  16  20x25 multicol.
 
-MODE 0 shows 320 pixels wide. MODE 103:
-2 colours per 8x8 cell, MODE 104: 4 per
+MODE 0 shows 320 pixels wide. MODE 3
+and 6 use rows of 10 lines (250 lines),
+as on the BBC; without Upic Lite they
+are the 40x25 text screen. MODE 103: 2
+colours per 8x8 cell, MODE 104: 4 per
 4x8 cell, as the VIC-II does.
 
 Upic Lite: a live picture of 320x256
