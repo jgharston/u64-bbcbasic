@@ -750,6 +750,9 @@ when the RAM map for graphics is fixed.
 | BBC text grid on the VIC | 32 rows with an 8x6 font in modes 0/1/2/4/5 (fallback only, see Upic Lite); text modes 3/6/7 stay on the VIC-II |
 | Upic Lite (owner, 2026-10-07) | Live Upic-style renderers, 320 x 256 with even 1-dot pixels (32-dot border), 1 or 2 bits per pixel through the programmable palette; proven on the U64-II (DESIGN_GRAPHICS.md section 10.8). Default for BBC MODE 0/1/4 on 64 MHz machines, 160-wide for MODE 2/5 everywhere; the VIC-II versions stay as fallback (48 MHz machines for 320-wide modes, VICE, Ultimate II+) |
 | Teletext MODE 7 | VIC-II hires bitmap, 8x8 cells (per-cell foreground/background), double height, mosaics |
+| BBC font (2026-10-07) | The MOS 1.20 glyphs in the cartridge behind `*FONT BBC`, good faith as for the interpreter (NOTICE.md) |
+| Font files | Explicit format word: `*FONT LOAD/SAVE file [C64|BBC|ASCII]` |
+| Palette files | Both: 48-byte RGB binary (C64 colour order) as the native format, plus VICE `.vpl` text files; `VDU 19,l,16,r,g,b` sets one RGB colour |
 | SoftIEC | Partition support (add partition, `CP`) is needed to reach anything outside `/Temp` from the SoftIEC drive (owner note) |
 
 ## 20. Structured programs and automatic indentation (owner, 2026-10-07)

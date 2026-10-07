@@ -96,6 +96,7 @@ sha_save    = m48+24            ; 16 bytes: slots during a triangle
 REU_FONT_BANK = 0               ; REU system area (DESIGN_GRAPHICS.md 6)
 REU_FONT    = $0000             ; 2K: font in ASCII order (bitmap modes)
 REU_VICFONT = $0800             ; 2K: the text-mode font, for MODE changes
+REU_DEFFONT = $1000             ; 2K: the start-up text font (*FONT DEFAULT)
 
 LANGROM     = $8000             ; language ROM entry (A=1: start)
 

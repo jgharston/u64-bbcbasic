@@ -50,7 +50,7 @@ $(BUILD)/basic.rom: $(BASICDIR)/basic.s
 
 # --- MOS bank 0, one per cartridge type
 
-$(GEN): tools/gentables.py
+$(BUILD)/gen/tables.s: tools/gentables.py
 	@$(MKDIR) $(dir $@)
 	$(PYTHON) $< $@
 

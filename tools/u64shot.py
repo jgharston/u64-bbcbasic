@@ -48,8 +48,13 @@ def local_address(host):
 
 
 def grab(host, port, timeout=10.0):
-    """One complete frame as a list of rows of colour indexes."""
-    return grab_frames(host, port, 1, 0.0, timeout)[0]
+    """One complete frame as a list of rows of colour indexes. Tries a
+    second time if the stream does not start (seen now and then)."""
+    try:
+        return grab_frames(host, port, 1, 0.0, timeout)[0]
+    except (TimeoutError, socket.timeout):
+        time.sleep(1.0)
+        return grab_frames(host, port, 1, 0.0, timeout)[0]
 
 
 def grab_frames(host, port, count, interval, timeout=10.0):

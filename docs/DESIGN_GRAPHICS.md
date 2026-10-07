@@ -223,9 +223,18 @@ Both modes:
   the text screen). Without an REU: the text screen only, until the next
   MODE change. MODE 7 keeps its teletext glyphs. OSWORD 10 reads a
   definition back.
-- `*FONT LOAD <file>` / `*FONT SAVE <file>` / `*FONT DEFAULT` / `*FONT BBC`
-  / `*FONT C64`: whole fonts, 2K files (C64 charset format, so existing
-  C64 fonts work). Fonts are kept in the REU; switching is a DMA.
+- `*FONT LOAD <file> [C64|BBC|ASCII]` / `*FONT SAVE <file> [fmt]` /
+  `*FONT DEFAULT` / `*FONT BBC` / `*FONT C64`: whole fonts. Implemented
+  (`src/mos/font.s`, bank 2). The format is an explicit word (owner
+  decision 2026-10-07; C64 when omitted): C64 = 2048 bytes in screen-code
+  order (2050 with a load address also loads), BBC = 768 bytes,
+  characters 32-127 in ASCII order (a BBC MOS ROM's `&C000-&C2FF`),
+  ASCII = 2048 bytes, 0-255 in ASCII order. Every source goes glyph by
+  glyph into the REU fonts (REU_FONT, REU_VICFONT) and, on the text
+  screen, the live font; the start-up font is kept at REU `$1000` for
+  `*FONT DEFAULT`. `*FONT BBC` uses the MOS 1.20 glyphs, shipped in good
+  faith (owner decision; NOTICE.md). Without an REU only the text screen
+  changes.
 - `VDU 19,l,p,0,0,0` maps logical colour l to physical p (BBC);
   `VDU 19,l,16,r,g,b` sets an RGB colour (BBC Master/RISC OS extension),
   through the Ultimate's palette.

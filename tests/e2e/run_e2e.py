@@ -701,6 +701,34 @@ def test_vdu23_chars(t):
     run_line(t, rd, "R=18")                 # after MODE 4 and MODE 100
 
 
+def test_font(t):
+    # *FONT BBC / C64 / DEFAULT; FNG reads row 0 of a character (OSWORD
+    # 10): "A" is &3C (60) in the BBC font, &18 (24) in the C64 ROM. On
+    # the Ultimates also SAVE/LOAD in two formats and a MODE change.
+    run_line(t, "NEW", ">")
+    run_line(t, "10 DEF FNG(C%):?B%=C%:A%=10:X%=B% MOD 256:Y%=B% DIV 256:"
+                "CALL &C7F1:=B%?1", ">")
+    run_line(t, "DIM B% 9:*FONT BBC", ">")
+    run_line(t, 'PRINT "R=";FNG(65);FNG(96)', "R=6028")
+    run_line(t, "*FONT C64", ">")
+    run_line(t, 'PRINT "R=";FNG(65)', "R=24")
+    run_line(t, "*FONT BBC", ">")
+    run_line(t, "*FONT DEFAULT", ">")
+    run_line(t, 'PRINT "R=";FNG(65)', "R=24")
+    if not ult(t):
+        return
+    for line in ("*FONT BBC", "*FONT SAVE FNTB BBC", "*FONT SAVE FNTC",
+                 "*FONT DEFAULT", "*FONT LOAD FNTB BBC"):
+        run_line(t, line, ">")
+    run_line(t, 'PRINT "R=";FNG(65)', "R=60")
+    run_line(t, "*FONT DEFAULT", ">")       # (a * command takes the line)
+    run_line(t, "*FONT LOAD FNTC", ">")
+    run_line(t, 'MODE 4:MODE 100:PRINT \'"R=";FNG(65)', "R=60")
+    run_line(t, "*FONT LOAD FNTB", "Bad font file")
+    for line in ("*FONT DEFAULT", "*DELETE FNTB", "*DELETE FNTC"):
+        run_line(t, line, ">")
+
+
 def test_gfx_patterns(t):
     # ECF: GCOL 16 + action selects pattern 1 (checker of colours 1, 0);
     # VDU 23,12 redefines pattern 1 (2 x 4 logical colours); VDU 23,11
@@ -970,7 +998,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_a_settime, test_a_partition, test_a_dirhome,
          test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
-         test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars,
+         test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_gfx_vdu5,
          test_gfx_mode3,
          test_gfx_teletext,

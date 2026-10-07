@@ -709,6 +709,7 @@ gg_read:
     sty ggr_cfg+1
     lda asc2pet,x
     jsr pet2scr
+gg_scr:
     sta vm_t
     lda #0
     asl vm_t
@@ -739,6 +740,13 @@ ggr_rd:
     sta $01
     plp
     rts
+
+; glyph_scr: glyph = 8 bytes at page X + screen code A * 8, read with
+; $01 = Y (char ROM: X = >$D800, Y = $33; text font: X = >FONT, Y = $35)
+glyph_scr:
+    stx ggr_base+1
+    sty ggr_cfg+1
+    jmp gg_scr
 
 ; glyph_font: as glyph_get, from the text font at FONT (RAM under the
 ; KERNAL; only valid on the text screen): user-defined characters

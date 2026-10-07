@@ -92,12 +92,13 @@ VDU          VPOS         WIDTH
 
 *CAT         *COPY        *CP
 *DELETE      *DIR         *DRIVE
-*FX          *HELP        *LOAD
-*MKDIR       *MOUNT       *PARTITION
-*PARTITIONS  *PWD         *RENAME
-*SAVE        *SETTIME     *STATUS
-*SWAP        *TIME        *TURBO
-*TYPE        *UNMOUNT     *UVER
+*FONT        *FX          *HELP
+*LOAD        *MKDIR       *MOUNT
+*PARTITION   *PARTITIONS  *PWD
+*RENAME      *SAVE        *SETTIME
+*STATUS      *SWAP        *TIME
+*TURBO       *TYPE        *UNMOUNT
+*UVER
 ```
 
 ## BBC
@@ -548,6 +549,10 @@ Annotated source: Ivo van Poorten
 J.G. Harston's reconstruction
 (mdfs.net).
 
+BBC Micro characters (*FONT BBC): (C)
+1981/1982 Acorn Computers, from the MOS
+1.20 ROM.
+
 MOS: Xander Mol, GPL-3. Ultimate code
 ported from ultimate-uci-oscar64 (Scott
 Hutter, Francesco Sblendorio, Christian
@@ -818,6 +823,37 @@ switched on by the cartridge's .cfg).
 Index 15 is 48 MHz on an Ultimate 64
 and 64 MHz on an Elite II or C64
 Ultimate. See SPEED.
+```
+
+## *FONT
+
+Also: `FONT`
+
+```
+  *FONT LOAD <file> [fmt]  load
+  *FONT SAVE <file> [fmt]  save
+  *FONT BBC      BBC Micro characters
+  *FONT C64      C64 character ROM
+  *FONT DEFAULT  the start-up font
+fmt: C64 (default), BBC or ASCII.
+
+C64 is a C64 charset: 2048 bytes in
+screen-code order (2050 with a load
+address also loads). BBC is 768 bytes,
+characters 32-127 in ASCII order, as in
+a BBC Micro MOS ROM at &C000. ASCII is
+2048 bytes, characters 0-255 in ASCII
+order.
+
+With an REU (the Ultimates) the font
+shows on the text screen and in the
+graphics modes and stays over MODE
+changes. Without one only the text
+screen changes. MODE 7 builds its
+teletext glyphs from the font when it
+starts. VDU 23 changes single
+characters. The BBC characters are
+Acorn's (see CREDITS).
 ```
 
 ## *STATUS

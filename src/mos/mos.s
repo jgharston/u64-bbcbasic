@@ -69,6 +69,7 @@ cold:
     cli
     farcall fs_init, BANK_FS    ; find the Ultimate (up to 0.5 s)
     jsr font_to_reu             ; fonts for MODE changes and bitmap text
+    farcall font_keepdef, BANK_FS ; and the start-up font for *FONT DEFAULT
     jsr ul_detect               ; Upic Lite possible?
     jsr banner
     jmp enter_lang
@@ -1638,6 +1639,7 @@ cmd_table:
     dta 'CP', 0, a(cmd_cp), BANK_FS
     dta 'DELETE', 0, a(cmd_delete), BANK_FS
     dta 'DRIVE', 0, a(cmd_drive), BANK_FS
+    dta 'FONT', 0, a(cmd_font), BANK_FS
     dta 'FX', 0, a(cmd_fx), BANK_MOS
     dta 'HELP', 0, a(cmd_help), BANK_MOS
     dta 'LOAD', 0, a(cmd_load), BANK_FS
