@@ -26,7 +26,10 @@ class Bridge:
         full_env = dict(os.environ)
         full_env.update(env)
         full_env.setdefault("LOG_LEVEL", "warn")
-        cmd = command or ["npx", "-y", "c64bridge@latest"]
+        # C64BRIDGE_CMD overrides the launch command, e.g. a cached install
+        # when the npm registry fails ("node .../c64bridge/scripts/cli.js")
+        cmd = command or os.environ.get("C64BRIDGE_CMD", "").split() \
+            or ["npx", "-y", "c64bridge@latest"]
         self.proc = subprocess.Popen(
             cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, env=full_env, text=True, bufsize=1)

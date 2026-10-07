@@ -544,6 +544,82 @@ def test_a_dirhome(t):
     run_line(t, "*DIR /Temp", ">")
 
 
+# --- Graphics (docs/DESIGN_GRAPHICS.md section 10). Checked from inside
+# BASIC (POINT, POS, VPOS), so the same on VICE and the Ultimates.
+
+def gfx_check(t, mode, lines, expect, timeout=60):
+    """Run lines in MODE mode, then the check line printing "R=..."; back to
+    MODE 7. Returns the R= values."""
+    r = remote(t) if ult(t) else None
+    prog = ["MODE %d" % mode] + lines
+    if r:
+        out = r.run_lines(prog + ["MODE 7", "PRINT R$"], timeout=timeout)["output"]
+    else:
+        for line in prog + ["MODE 7"]:     # typed: the screen is a bitmap
+            screen.type_text(t.bridge, line + "\r")
+            time.sleep(1.5)
+        screen.wait_for(t.bridge, lambda r: any(x.startswith(">") for x in r), timeout)
+        out = "\n".join(run_line(t, "PRINT R$", "R=", timeout=timeout))
+    m = re.search(r"R=(\S*)", out)
+    assert m and "R=" + m.group(1) == expect, (mode, out[-300:], expect)
+
+
+def test_gfx_point_line(t):
+    # A point, a line's end points and middle, clipping off screen, POINT
+    # outside the screen = -1
+    for mode in (0, 1, 2, 4, 5, 103, 104):
+        col = {0: 1, 4: 1, 1: 3, 5: 3, 2: 7, 103: 7, 104: 7}[mode]
+        gfx_check(t, mode, [
+            "GCOL 0,%d:PLOT 69,640,512" % col,
+            "MOVE 0,0:DRAW 1279,799:A%=POINT(0,0):B%=POINT(1279,799)",
+            "R$=\"R=\"+STR$POINT(640,512)+STR$A%+STR$B%+STR$POINT(-8,0)"],
+            "R=%d%d%d-1" % (col, col, col))
+
+
+def test_gfx_rect_clg_window(t):
+    # Filled rectangle; graphics window clips it; CLG clears the window only
+    gfx_check(t, 4, [
+        "GCOL 0,1:MOVE 100,100:PLOT 101,400,400",
+        "A%=POINT(250,250):VDU 24,600;600;800;800;",
+        "MOVE 500,500:PLOT 101,900,900:B%=POINT(700,700):C%=POINT(550,550)",
+        "GCOL 0,129:PLOT 69,0,0:CLG:D%=POINT(700,700):E%=POINT(250,250)",
+        "R$=\"R=\"+STR$A%+STR$B%+STR$C%+STR$D%+STR$E%"],
+        "R=11-11-1")
+
+
+def test_gfx_gcol_actions(t):
+    # OR, AND, EOR, invert on a 4-colour mode (BBC semantics)
+    gfx_check(t, 1, [
+        "GCOL 0,1:PLOT 69,640,512:GCOL 1,2:PLOT 69,640,512:A%=POINT(640,512)",
+        "GCOL 2,1:PLOT 69,640,512:B%=POINT(640,512)",
+        "GCOL 3,3:PLOT 69,640,512:C%=POINT(640,512)",
+        "GCOL 4,0:PLOT 69,640,512:D%=POINT(640,512)",
+        "R$=\"R=\"+STR$A%+STR$B%+STR$C%+STR$D%"],
+        "R=3121")
+
+
+def test_gfx_origin_relative(t):
+    # VDU 29 origin, relative PLOT (k AND 4 = 0), dotted line every 2nd pixel
+    gfx_check(t, 4, [
+        "VDU 29,640;512;:PLOT 69,0,0:A%=POINT(0,0)",
+        "MOVE 0,0:PLOT 1,100,0:B%=POINT(100,0)",
+        "VDU 29,0;0;:C%=POINT(640,512)",
+        "MOVE 0,0:PLOT 21,40,0:D%=POINT(0,0)+POINT(4,0)+POINT(8,0)",
+        "R$=\"R=\"+STR$A%+STR$B%+STR$C%+STR$D%"],
+        "R=1112")
+
+
+def test_gfx_text(t):
+    # Text cursor in a bitmap mode: POS/VPOS, TAB, text window, scrolling
+    gfx_check(t, 4, [
+        "PRINT TAB(0,3);\"HELLO\";:A%=POS:B%=VPOS",
+        "PRINT TAB(10,20);:C%=POS:D%=VPOS",
+        "VDU 28,5,10,20,2:E%=VPOS:F%=POS",
+        "FOR I%=1 TO 20:PRINT I%:NEXT:G%=VPOS",
+        "VDU 26:R$=\"R=\"+STR$A%+STR$B%+STR$C%+STR$D%+STR$E%+STR$F%+STR$G%"],
+        "R=531020008")
+
+
 def test_turbo_cmd(t):
     if t.is_vice:
         run_line(t, "*TURBO", "No turbo registers")
@@ -677,6 +753,8 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_fs_rename_delete, test_turbo_cmd, test_status,
          test_a_clock, test_a_copy, test_a_mount, test_a_drive,
          test_a_settime, test_a_partition, test_a_dirhome,
+         test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
+         test_gfx_origin_relative, test_gfx_text,
          test_remote_exec, test_remote_run_error, test_remote_input,
          test_remote_long_output, test_remote_tokeniser, test_remote_stop,
          test_remote_debug]

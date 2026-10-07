@@ -744,4 +744,10 @@ when the RAM map for graphics is fixed.
 | Firmware functions | Batch A first (drives, storage, SoftIEC partitions), then graphics (docs/ULTIMATE_FUNCTIONS.md) |
 | BBC compatibility | BASIC programs only, not the machine; not an emulator (DESIGN_GRAPHICS.md section 9.1) |
 | Graphics extras | BBC charset and palette in BBC mode; custom fonts/palettes; outline, solid and pattern fill (BBC Master ECF) for every shape; memory modes settable from programs (DESIGN_GRAPHICS.md section 9) |
+| Screen modes | BBC 0-7, Archimedes modes that fit Upic, C64 modes 100-104, Upic 64/48 as 110/111 (DESIGN_GRAPHICS.md section 10) |
+| Graphics kernel | Split: VDU/text core with I/O at `$C800-$CFFF`, drawing engine under I/O at `$D000-$DFFF`, font `$F000`, bitmap `$E000`, RAM vectors at `$FFFA`; HIMEM `&8000` in all VIC modes (replaces the REU overlay / HIMEM fallback of the morning) |
+| BBC modes 0, 1, 2, 4, 5 | Upic by default on a U64 (exact 256 lines): live for MODE 2/5 if the double-pixel live renderer works on hardware, shown by swapping for 0/1/4; the VIC-II elsewhere and on request |
+| BBC text grid on the VIC | 32 rows with an 8x6 font in modes 0/1/2/4/5 (fallback only, see Upic Lite); text modes 3/6/7 stay on the VIC-II |
+| Upic Lite (owner, 2026-10-07) | Live Upic-style renderers, 320 x 256 with even 1-dot pixels (32-dot border), 1 or 2 bits per pixel through the programmable palette; proven on the U64-II (DESIGN_GRAPHICS.md section 10.8). Default for BBC MODE 0/1/4 on 64 MHz machines, 160-wide for MODE 2/5 everywhere; the VIC-II versions stay as fallback (48 MHz machines for 320-wide modes, VICE, Ultimate II+) |
+| Teletext MODE 7 | VIC-II hires bitmap, 8x8 cells (per-cell foreground/background), double height, mosaics |
 | SoftIEC | Partition support (add partition, `CP`) is needed to reach anything outside `/Temp` from the SoftIEC drive (owner note) |

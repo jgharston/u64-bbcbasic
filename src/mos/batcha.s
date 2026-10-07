@@ -797,7 +797,7 @@ cps_end:
     jmp iec_fast
 
 cps_byte:
-    jsr KL_ACPTR
+    jsr iec_get
     pha
     pla
     rts

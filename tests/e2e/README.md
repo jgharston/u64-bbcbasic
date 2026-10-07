@@ -67,3 +67,6 @@ ESCFLG directly and notes it.
 The filing system tests work in `/Temp`, the Ultimate's RAM disk, and
 delete their files. While a UCI file transfer runs, an Ultimate 64-II can
 refuse a REST memory access; the client retries those.
+
+If `npx` cannot fetch c64bridge (an npm registry error), point the harness
+at an installed copy: `C64BRIDGE_CMD="node <path>/c64bridge/scripts/cli.js"`.

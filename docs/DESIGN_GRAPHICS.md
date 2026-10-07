@@ -232,19 +232,20 @@ so existing programs work:
 | Shape | Outline | Solid fill | Pattern fill |
 |---|---|---|---|
 | line, point | PLOT 0-7, 64-71 | - | with a pattern colour |
-| triangle | PLOT 88-95 (U64) | PLOT 80-87 | yes |
-| rectangle | PLOT 104-111 (U64) | PLOT 96-103 | yes |
-| parallelogram | PLOT 120-127 (U64) | PLOT 112-119 | yes |
+| triangle | PLOT 224-231 (U64) | PLOT 80-87 | yes |
+| rectangle | PLOT 216-223 (U64) | PLOT 96-103 | yes |
+| parallelogram | PLOT 240-247 (U64) | PLOT 112-119 | yes |
 | circle | PLOT 144-151 | PLOT 152-159 | yes |
 | ellipse | PLOT 192-199 | PLOT 200-207 | yes |
 | arc, segment, sector | PLOT 160-167 / 168-175 / 176-183 | | yes |
 | flood fill | - | PLOT 128-135 / 136-143 | yes |
 
 The BBC has no outline triangle, rectangle or parallelogram codes. The
-MOS adds them on the plot codes the GXR leaves for them in its numbering
-(88-95, 104-111, 120-127), documented as U64 extensions; on a real BBC a
-program would draw them with DRAW. (To check against the GXR manual
-before implementing: 88-95 may be "triangle in background" there.)
+GXR uses 72-79, 88-95, 104-111 and 120-127 for horizontal line fills
+(also supported), so the outline codes go to blocks the GXR and RISC OS
+leave free: 216-223 rectangle, 224-231 triangle, 240-247 parallelogram,
+documented as U64 extensions. On a real BBC a program would draw these
+shapes with DRAW.
 
 **Pattern fill** is the BBC Master's ECF (extended colour fill): `GCOL
 16..95` selects one of four patterns (`VDU 23,2..5,b0..b7` defines them,
@@ -268,3 +269,203 @@ settable from a program, not only automatic:
   programs do after `MODE`.
 - `MODE` follows the BBC rule: it may move HIMEM, but only with no
   program variables in the way ("Bad MODE" otherwise, as on the BBC).
+
+## 10. Screen modes (2026-10-07)
+
+Owner request: all BBC Micro modes, the C64's own modes (text,
+multicolour text, hires, multicolour hires), Upic 64 and Upic 48, and an
+investigation of Acorn Archimedes modes inside Upic.
+
+Decisions of 2026-10-07 (PLAN.md section 19): split kernel as in 10.1;
+BBC modes 0/1/2/4/5 on Upic by default on a U64 (10.7); 32 text rows with
+an 8x6 font on the VIC-II; mode numbers as proposed.
+
+### 10.1 Memory layout: one RAM kernel, no HIMEM loss
+
+A better layout than section 2's (REU overlay, HIMEM fallback): nothing
+uses the RAM at `$D000-$DFFF` (under I/O) or `$E000-$FFFF` (under the
+KERNAL) yet, and the VIC-II in bank 3 can read all of it.
+
+| Range | Text modes | VIC bitmap modes |
+|---|---|---|
+| `$C000-$C3FF` | screen (characters) | screen matrix (cell colours) |
+| `$C400-$C7FF` | resident MOS | resident MOS |
+| `$C800-$CFFF` | **VDU/text core, 2K**: everything that needs I/O (colour RAM, VIC registers), runs with I/O in | the same |
+| `$D000-$DFFF` | **drawing engine, 4K** under I/O: pure RAM work, runs with `$01=$34` (one switch pair per PLOT); multicolour cell colours through a core stub | the same |
+| `$E000-$EFFF` | kernel tables, fonts in use (4K) | bitmap |
+| `$F000-$F7FF` | font shown by the VIC | bitmap |
+| `$F800-$FFF9` | tables | bitmap (to `$FF3F`) |
+| `$FFFA-$FFFF` | RAM NMI/IRQ vectors into the resident MOS, for when the ROMs are out | the same |
+
+- The kernel is copied from the cartridge into RAM at start-up and stays
+  there: VDU, text output, windows, scrolling, and all drawing run at
+  turbo speed, in every mode.
+- **HIMEM stays `&8000` in all VIC modes.** The REU isn't needed for VIC
+  graphics; it is still used for Upic, fonts, saved screens and tables.
+- The KERNAL ROM can still be switched in over the bitmap for the serial
+  bus routines: the VIC reads the RAM underneath.
+- The C64 screen editor works only in text modes. In bitmap modes, line
+  input (OSWORD 0) uses the MOS's own BBC-style line editor, with
+  DELETE and the copy cursor.
+
+### 10.2 BBC modes on the VIC-II
+
+The VIC-II has 200 lines, the BBC 256. Mapping each BBC mode to the C64
+mode that keeps its colours without colour clash where possible:
+
+| MODE | BBC | VIC-II | Note |
+|---|---|---|---|
+| 0 | 640x256, 2 col, 80x32 text | hires 320x200 | half horizontal resolution; text 80x32 with a 4x6 font |
+| 1 | 320x256, 4 col, 40x32 | multicolour 160x200 | 4 global colours, so no clash; half horizontal resolution |
+| 2 | 160x256, 16 col, 20x32 | multicolour 160x200 | exact horizontally; at most 4 colours per 4x8 cell |
+| 3 | 80x25 text, 2 col | hires bitmap, 4x8 font | exact |
+| 4 | 320x256, 2 col, 40x32 | hires 320x200 | exact horizontally, no clash |
+| 5 | 160x256, 4 col, 20x32 | multicolour 160x200 | exact horizontally, no clash |
+| 6 | 40x25 text, 2 col | text mode | exact |
+| 7 | teletext 40x25 | hires bitmap, 8x8 cells | per-cell foreground/background as teletext; mosaics, double height, held graphics |
+
+- Graphics coordinates stay BBC: 1280x1024, y up. y goes through a
+  1024-entry row table.
+- The 32 text rows of modes 0, 1, 2, 4 and 5 are kept with a 6-pixel-high
+  font, so `TAB(x,31)` still works.
+
+### 10.3 C64 modes
+
+| MODE (proposal) | Mode | Pixels, text | Graphics units |
+|---|---|---|---|
+| 100 | text | 40x25 | - |
+| 101 | multicolour text | 40x25, 4x8 multicolour characters | - |
+| 102 | extended background colour text | 40x25, 64 characters, 4 backgrounds | - |
+| 103 | hires bitmap | 320x200, 2 colours per 8x8 cell, 40x25 text | 1280x800 |
+| 104 | multicolour bitmap | 160x200, 4 colours per 4x8 cell, 20x25 text | 1280x800 |
+
+- 1280x800 is RISC OS style: whole OS units per pixel (4x4 in hires, 8x4
+  in multicolour), so there is no rounding.
+- Colours: the 16 C64 colours, `GCOL`/`COLOUR` with the per-cell rules
+  of the VIC. `VDU 19` changes the palette through the Ultimate.
+
+### 10.4 Upic modes
+
+| MODE (proposal) | Mode | Pixels | Units | Machines |
+|---|---|---|---|---|
+| 110 | Upic 64 | 384x256, 16 colours | 1536x1024 | Ultimate 64 Elite II, C64 Ultimate (64 MHz) |
+| 111 | Upic 48 | 288x256 logical, 16 colours | 1152x1024 | all U64 models (the 48 MHz path shows 3 of every 4 stored pixels; drawing uses only the shown ones) |
+
+- A Upic picture is 48K, and BASIC needs RAM besides it, so the canvas
+  lives in the REU (section 5).
+- Drawing goes straight into the REU by DMA. A pixel is a read and a
+  write of one byte, about 3-5 us at 64 MHz. A filled shape writes whole
+  columns, because the Upic layout is column-major.
+- **Showing**: `*UPIC SHOW` moves the program's RAM to the REU, loads the
+  picture, shows it until a key is pressed, and moves everything back.
+  This takes about 0.1 s each way.
+- **Automatic show**, the proposed default: the picture also shows while
+  BASIC waits for a key (GET, INPUT, INKEY with a long time) and when a
+  program ends, so "draw, then wait for a key" programs just work.
+  `*MEMORY UPIC AUTO|MANUAL` switches this (section 9.5).
+- The canvas saves and loads in the Upic 1.3 file format.
+- Renderer and timing come from ultimate-uci-oscar64's Upic module
+  (Aleksi Eeben's technique, Christian Gleissner's 48 MHz path), ported
+  to MADS with credit.
+
+### 10.5 Archimedes modes inside Upic (investigation)
+
+The Archimedes keeps the BBC's 256-line modes and the 1280x1024 OS-unit
+system, and Upic has exactly 256 lines. Every Archimedes mode with 256
+lines (or fewer), at most 384 pixels wide and at most 16 colours fits
+Upic exactly, pixel for pixel:
+
+| Archimedes MODE | Size, colours | On Upic 64 | On Upic 48 (288 logical) |
+|---|---|---|---|
+| 1, 4, 9 | 320x256, 4/2/16 | exact (32-pixel border left and right) | no: 320 > 288 |
+| 2, 5 | 160x256, 16/4 | exact (pixels doubled) | exact |
+| 50, 51, 52 | 320x240, 2/4/16 | exact | no |
+| 3, 6 | text 80x25 / 40x25 | 40x25 exact; 80 columns with a 4-pixel font | 40x25 |
+| 0, 8, 12 | 640x256, 2/4/16 | half horizontal resolution (320) | no |
+| 11, 14 | 640x250, 4/16 | half horizontal resolution | no |
+| 44, 45, 46 | 640x200, 2/4/16 | half horizontal resolution | no |
+| 10, 13, 15, 21, 24, ... | 256 colours | no (Upic has 16 colours) | no |
+| 18-20, 25-43 | 352 to 600 lines | no (Upic has 256 lines) | no |
+
+- **Exact**: MODE 1, 2, 4, 5, 9 and 50-52, which are also the BBC's own
+  MODE 1, 2, 4 and 5. Upic is the one display that shows BBC/Archimedes
+  graphics at the original 256-line resolution.
+- **Half horizontal resolution**: 0, 8, 11, 12, 14 and 44-46, with every
+  second column of pixels dropped.
+- **Not possible**: the 256-colour modes and the modes with more than
+  256 lines.
+- Proposal: Archimedes mode numbers 8-15 and 44-52 select the Upic
+  version directly.
+- `*DISPLAY UPIC` makes BBC MODE 0-2, 4 and 5 use Upic (exact, shown on
+  demand). `*DISPLAY VIC` is the default: live display, 200 lines.
+
+### 10.7 Live Upic for double-width modes (to prototype)
+
+A full Upic picture can't stay in RAM next to BASIC. Modes with
+double-width pixels can:
+
+| Mode | Buffer | Program space |
+|---|---|---|
+| BBC MODE 2 (160x256, 16 colours) | 20K, 4 bits per pixel | about 12K |
+| BBC MODE 5 (160x256, 4 colours) | 10K, 2 bits per pixel | about 22K |
+
+- At 2 dots per pixel the renderer has about 15.75 cycles per pixel at
+  64 MHz, double what full-resolution Upic gets. That is enough to unpack
+  2- and 4-bit pixels through tables.
+- The renderer runs from the raster IRQ and takes about 82% of the CPU.
+  BASIC keeps running at about 11 MHz, around 6x a BBC Micro.
+- Full-width modes (MODE 0, 1, 4) would need about 9 cycles per pixel
+  against 7.9 available, so they are shown by swapping.
+- To prove on the U64-II (64 MHz) and a U64 Elite (48 MHz path: 23.5
+  cycles per pixel) before relying on it.
+
+### 10.8 Upic Lite: live 320 x 256 with even pixels (proven 2026-10-07)
+
+Instead of squeezing BBC text into 8x6 cells on the VIC-II's 200 lines:
+live Upic-style renderers at 1 or 2 bits per pixel. Every pixel is one
+dot wide, so the 320 pixels are centred with a 32-dot border on each side
+(owner's question: "why not even pixels with a larger border?").
+
+- **The trick**: `$D020` uses only 4 bits, and the Ultimate's palette is
+  programmable. The palette follows bit 0 (2 colours) or bits 0-1 (4
+  colours) of the colour index, so shifted copies of the picture byte go
+  straight to `$D020`, without a colour table:
+  - 1 bit: `lda col,y`, then per pixel `sta $d020` / `lsr` = 6 cycles;
+  - 2 bits: `ldx col,y` / `stx $d020`, then `lda shr2/4/6,x` /
+    `sta $d020` = 8 cycles, with every 4th byte load an immediate operand
+    patched before the line (Upic's trick; 20 patches, 160 cycles).
+  A dot is 7.875 cycles at 64 MHz. `tools/upiclite_gen.py` schedules each
+  store into its pixel's dot and pads with nop/bit; the last store comes
+  at cycle 2514.
+- **Measured** on the U64-II from the VIC stream
+  (`tests/proto/upiclite_proto.py`): picture from dot 32 to 351, 1-pixel
+  stripes are exactly 1 dot each, 2-pixel stripes 2 dots, 4-colour bars
+  40 pixels each, text and circle as drawn.
+- **BBC colours**: in these modes the logical colours *are* the hardware
+  palette entries, so VDU 19 just rewrites the palette (UCI, firmware
+  3.15+).
+- **48 MHz** (5.875 cycles per dot): 1-dot pixels are impossible; the
+  160-wide modes (2 dots per pixel) work there.
+- **Memory**: column-major buffer below HIMEM where the BBC has its
+  screen: MODE 4/0 10K (HIMEM &5800), MODE 1 20K (&3000), MODE 5 10K,
+  MODE 2 20K. Renderer (~2.5K) and shift tables (768 bytes) at
+  `$E000-$FFFF`, which these modes leave free. The engine for these modes
+  is a separate 4K image copied to `$D000` on MODE.
+- **CPU left for BASIC**: a rendered line takes ~3400 of 4032 cycles;
+  with the 56 lines outside the picture about 18% of the CPU, ~11 MHz.
+- **Text**: 32 rows of full 8x8 characters, as on the BBC.
+
+### 10.6 Order of work
+
+1. RAM kernel at `$C800-$DFFF`, font moved to `$F000`, RAM vectors; the
+   VDU driver moves from cartridge ROM into the kernel. Measure `VDU`
+   again; every existing E2E test must still pass.
+2. MODE switching and the VIC modes (BBC 0-7, C64 100-104), CLS/CLG,
+   COLOUR/GCOL, VDU 19/20/24/26/28/29.
+3. PLOT: points, lines (solid, dotted), triangles, rectangles,
+   parallelograms, circles, ellipses, arcs/segments/sectors, flood
+   fill, each with outline, solid and pattern (ECF) variants; POINT.
+4. Text in bitmap modes (VDU 5, the 6-high and 4-wide fonts), the line
+   editor, teletext MODE 7.
+5. Upic 64/48: REU canvas, DMA drawing, show/auto-show, load/save.
+6. Archimedes modes on Upic.

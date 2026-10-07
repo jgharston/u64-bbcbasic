@@ -599,7 +599,7 @@ ii_read:
 ir_loop:
     lda KL_STATUS
     bne ir_end                  ; time-out or end of data
-    jsr KL_ACPTR
+    jsr iec_get
     cmp #13
     beq ir_eoi
     cpy #ERRMAX-2
@@ -613,6 +613,41 @@ ir_end:
     lda #0
     sta errbuf+1,y
     jmp KL_UNTLK
+
+; ----------------------------------------------------------------------------
+; iec_get
+;   Summary: KL_ACPTR with a time-out.
+;   Function: the KERNAL waits without limit for the talker to release the
+;            clock line; a device that holds it (a stuck drive) would hang
+;            the machine. Waits up to ~0.8 s (at 1 MHz) for CLK IN ($DD00
+;            bit 6) first; on time-out sets KL_STATUS bit 1 and returns
+;            a CR, which ends the callers' read loops.
+;   Input:   a TALK session.  Output: A = byte (or 13).  X, Y kept.
+iec_get:
+    txa
+    pha
+    ldx #0
+ig_out:
+    lda #0
+ig_in:
+    bit $DD00
+    bvs ig_ready
+    clc
+    adc #1
+    bne ig_in
+    dex
+    bne ig_out
+    pla
+    tax
+    lda KL_STATUS
+    ora #2
+    sta KL_STATUS
+    lda #13
+    rts
+ig_ready:
+    pla
+    tax
+    jmp KL_ACPTR
 
 sd_types:
     dta <1541, <1571, <1581, >1541, >1571, >1581

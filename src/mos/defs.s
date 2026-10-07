@@ -42,7 +42,21 @@ CPU_RAMBAS  = $36               ; $01: RAM at $A000-$BFFF, KERNAL, I/O
 SCREEN      = $C000             ; text screen (VIC bank 3)
 RESIDENT    = $C400             ; resident MOS, $C400-$C7FF
 OSPAGE      = $C700             ; BBC MOS entry points at $C7CE-$C7FF
-FONT        = $C800             ; 2K character set (lower/upper + ASCII)
+FONT        = $F000             ; 2K character set (lower/upper + ASCII), under the KERNAL
+CORE        = $C800             ; VDU core in RAM, 2K (core.s)
+ENGINE      = $D000             ; drawing engine, 4K under I/O (gfx.s)
+BITMAP      = $E000             ; VIC-II bitmap in the bitmap modes
+gzp         = $FB               ; engine pointer (C64 user zero page)
+GX_MODE     = 0                 ; engine entries (gfx.s jump table)
+GX_VDU      = 3
+GX_CHAR     = 6
+GX_PET      = 9
+GX_CURSOR   = 12
+GX_POINT    = 15
+GX_MATRIX   = 18
+REU_FONT_BANK = 0               ; REU system area (DESIGN_GRAPHICS.md 6)
+REU_FONT    = $0000             ; 2K: font in ASCII order (bitmap modes)
+REU_VICFONT = $0800             ; 2K: the text-mode font, for MODE changes
 
 LANGROM     = $8000             ; language ROM entry (A=1: start)
 
