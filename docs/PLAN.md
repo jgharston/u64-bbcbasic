@@ -771,3 +771,27 @@ bodies). Hence:
   with full indentation, procedure bodies included, without changing the
   interpreter (token table in a spare cartridge bank; options as LISTO,
   line ranges as LIST).
+
+## 21. Random numbers as close to true randomness as possible (proposal, 2026-10-07)
+
+BBC BASIC's RND is a 33-bit shift register (period 2^33 - 1) with its
+seed in BASIC's zero page at `&0D-&11`. At language start BASIC sets its
+fixed seed ("ARW") only when the seed is zero, so the MOS can seed it
+without changing the interpreter. Proposals:
+
+1. **Entropy pool** in the MOS interrupt: mix in, at every interrupt and
+   above all at every key press, timing-dependent values: CIA timer low
+   bytes, the raster position, SID voice 3's noise oscillator (running
+   silently); also the Ultimate's clock and the timing of UCI, network and
+   USB replies. Human key timing at 64 MHz resolution is true entropy.
+2. **Seed at start-up** from the pool into `&0D-&11` before BASIC starts:
+   a different sequence after every start. `RND(-n)` (reproducible) and
+   `RND(0)` keep their BBC meaning.
+3. **`*RANDOMIZE`**: reseed RND from the pool now (for example after a
+   game's first key press).
+4. **A better generator next to RND** (statistically weak, kept for
+   compatibility): a MOS call or `*RND` returning bytes from a modern
+   generator (xorshift128+ or similar), continuously reseeded from the
+   pool.
+5. **`*RANDOMIZE NET`** (optional): a seed from the internet (random.org,
+   the drand beacon) through the Ultimate's network.
