@@ -287,19 +287,30 @@ costs no more than a solid one.
 
 ### 9.5 Memory modes under program control
 
-The memory layout choices (section 2: graphics kernel in the REU overlay
-or below HIMEM; Upic canvas in the REU; text screen kept in the REU) are
-settable from a program, not only automatic:
+Originally planned around section 2's choices (graphics kernel in the REU
+or below HIMEM). The RAM kernel of section 10.1 made those choices
+disappear: the kernel costs no BASIC memory. One choice is left, and it
+is implemented (owner decision 2026-10-08: "both" ways below):
 
-- `*MEMORY` shows the layout; `*MEMORY GRAPHICS REU|HIMEM|AUTO` chooses
-  where the graphics kernel goes, `*MEMORY UPIC ON|OFF` reserves the Upic
-  areas, `*MEMORY REU <size>` sets how much REU the system keeps (the rest
-  is the RAM disk).
-- The same through OSBYTE (`A%=&A0..`, read and write), so a program can
-  check and set it with `USR`/`CALL` and then rely on HIMEM, as BBC
-  programs do after `MODE`.
-- `MODE` follows the BBC rule: it may move HIMEM, but only with no
-  program variables in the way ("Bad MODE" otherwise, as on the BBC).
+- **Upic Lite or the VIC-II for BBC MODE 0-6.** On a 64 MHz Ultimate,
+  Upic Lite shows the exact 320x256 picture, but keeps it below HIMEM
+  (`&5800`, or `&3000` for MODE 1 and 2), as a BBC Micro does. The VIC-II
+  version keeps HIMEM at `&8000` (200 lines).
+- **BBC Master shadow modes** select it, as on a B+/Master where shadow
+  RAM keeps the screen out of BASIC's memory: `MODE 128+n`, `*SHADOW`
+  (from the next MODE on; `*SHADOW 1` back), OSBYTE `&72` (X = 0 shadow,
+  1 normal; returns the old setting), OSBYTE `&75` bit 4 (current mode
+  is shadow), OSBYTE `&85` with bit 7 of X. MODE 7 keeps its screen at
+  `&7C00` also as a shadow mode (direct writes need it there).
+- **`*MEMORY`** shows PAGE, TOP, LOMEM, VARTOP, HIMEM, free memory, the
+  screen's place and the Upic Lite setting; `*MEMORY UPIC OFF|ON|AUTO` is
+  a readable alias of `*SHADOW` / `*SHADOW 1` (ON and AUTO are the same:
+  Upic Lite where the machine can show it).
+- `MODE` follows the BBC rule, from BASIC itself: "Bad MODE" when the
+  new HIMEM would cut into the variables (tested).
+
+Later, with the REU RAM disk and Upic 64/48: `*MEMORY REU <size>` (how
+much REU the system keeps) and the Upic canvas areas.
 
 ## 10. Screen modes (2026-10-07)
 

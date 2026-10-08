@@ -753,6 +753,7 @@ when the RAM map for graphics is fixed.
 | BBC font (2026-10-07) | The MOS 1.20 glyphs in the cartridge behind `*FONT BBC`, good faith as for the interpreter (NOTICE.md) |
 | Font files | Explicit format word: `*FONT LOAD/SAVE file [C64|BBC|ASCII]` |
 | Palette files | Both: 48-byte RGB binary (C64 colour order) as the native format, plus VICE `.vpl` text files; `VDU 19,l,16,r,g,b` sets one RGB colour |
+| Memory modes (2026-10-08) | Both: BBC Master shadow modes (`MODE 128+n`, `*SHADOW`, OSBYTE &72/&75) choose the VIC-II version of MODE 0-6 with HIMEM &8000; `*MEMORY UPIC ON|OFF|AUTO` as an alias; `*MEMORY` shows the map (DESIGN_GRAPHICS.md 9.5) |
 | SoftIEC | Partition support (add partition, `CP`) is needed to reach anything outside `/Temp` from the SoftIEC drive (owner note) |
 
 ## 20. Structured programs and automatic indentation (owner, 2026-10-07)

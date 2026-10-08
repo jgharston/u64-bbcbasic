@@ -910,7 +910,8 @@ rd_ret:
 ;   &7D set escape, &7E acknowledge escape, &80 ADVAL (0), &81 INKEY,
 ;   &82 high address, &83 OSHWM (PAGE), &84/&85 HIMEM, &86 POS/VPOS,
 ;   &87 character at cursor, &DA VDU queue, &E5 escape key on/off,
-;   &7F EOF# (filing system, bank 2).
+;   &7F EOF# (filing system, bank 2), &72 shadow for the next MODE, &75
+;   VDU status (bit 4: shadow mode).
 
 mos_byte:
     sta by_a
@@ -945,7 +946,7 @@ by_found:
 
 byte_codes:
     dta $0F, $15, $7C, $7D, $7E, $80, $81, $82, $83, $84, $85, $86
-    dta $87, $DA, $E5, $7F, 0
+    dta $87, $DA, $E5, $7F, $72, $75, 0
 byte_handlers:
     dta a(by_flush-1)
     dta a(by_flush-1)
@@ -963,6 +964,8 @@ byte_handlers:
     dta a(by_vduq-1)
     dta a(by_escdis-1)
     dta a(by_eof-1)
+    dta a(by_shadow-1)
+    dta a(by_vdustat-1)
 
 by_ret:
     lda by_a
@@ -1011,6 +1014,27 @@ by_himem:                       ; &84: HIMEM of the current mode
 by_himem85:                     ; &85: HIMEM for mode X (BASIC's MODE)
     farcall bk_himem, BANK_GFX
     ldx #0
+    jmp by_ret
+by_shadow:                      ; &72 (Master): X = 0 shadow, 1 normal
+    lda shadow                  ; for the next MODE; X = the old setting
+    eor #1                      ; (others: read only)
+    pha
+    cpx #2
+    bcs bsh_read
+    txa
+    eor #1
+    sta shadow
+bsh_read:
+    pla
+    tax
+    jmp by_ret
+by_vdustat:                     ; &75: X = VDU status (bit 4: shadow)
+    lda mode_shadow
+    asl
+    asl
+    asl
+    asl
+    tax
     jmp by_ret
 by_pos:                         ; &86: X = POS, Y = VPOS
     lda vtype
@@ -1571,25 +1595,36 @@ cli_dot:
     jmp tramp
 cli_match:
     sty mosTMP                  ; start of the command word
-    ldx #0
+    lda #<cmd_table             ; (mosPTR2): the table entry; it is over
+    sta mosPTR2                 ; 256 bytes, so no X index
+    lda #>cmd_table
+    sta mosPTR2+1
 cli_try:
-    lda cmd_table,x
+    ldy #0
+    lda (mosPTR2),y
     beq cli_bad
-    ldy mosTMP
+    lda mosTMP                  ; mosTMP+1: position in the line
+    sta mosTMP+1
+    ldx #0                      ; X: position in the name
 cli_cmp:
-    lda cmd_table,x
+    txa
+    tay
+    lda (mosPTR2),y
     beq cli_endname
+    sta mosTMP+2
+    ldy mosTMP+1
     lda (mosPTR),y
     cmp #'.'
     beq cli_abbrev
     jsr toupper
-    cmp cmd_table,x
+    cmp mosTMP+2
     bne cli_skipname
     inx
-    iny
+    inc mosTMP+1
     bne cli_cmp
 cli_endname:
-    lda (mosPTR),y              ; the word must end here
+    ldy mosTMP+1                ; the word must end here
+    lda (mosPTR),y
     jsr toupper
     cmp #'A'
     bcc cli_found
@@ -1597,31 +1632,48 @@ cli_endname:
     bcc cli_skipname
     bcs cli_found
 cli_abbrev:
-    iny
+    inc mosTMP+1
 cli_toend:
-    lda cmd_table,x
-    beq cli_found
-    inx
-    bne cli_toend
+    txa
+    tay
+cli_toend_y:
+    lda (mosPTR2),y
+    beq cli_foundy
+    iny
+    bne cli_toend_y
 cli_skipname:
-    lda cmd_table,x
+    txa
+    tay
+cli_skip_y:
+    lda (mosPTR2),y
     beq cli_nextcmd
-    inx
-    bne cli_skipname
+    iny
+    bne cli_skip_y
 cli_nextcmd:
-    inx
-    inx
-    inx
-    inx
+    tya                         ; next entry: after the 0 and 3 bytes
+    sec
+    adc #3
+    clc
+    adc mosPTR2
+    sta mosPTR2
+    bcc cli_try
+    inc mosPTR2+1
     bne cli_try
 cli_found:
-    lda cmd_table+1,x           ; handler address and bank
+    txa
+    tay
+cli_foundy:
+    iny                         ; handler address and bank
+    lda (mosPTR2),y
     sta tramp_tgt
-    lda cmd_table+2,x
+    iny
+    lda (mosPTR2),y
     sta tramp_tgt+1
-    lda cmd_table+3,x
+    iny
+    lda (mosPTR2),y
     sta tramp_bank
-    jmp tramp                   ; Y = first character after the word
+    ldy mosTMP+1                ; Y = first character after the word
+    jmp tramp
 cli_bad:
     brk
     dta 254, 'Bad command', 0
@@ -1645,6 +1697,7 @@ cmd_table:
     dta 'LOAD', 0, a(cmd_load), BANK_FS
     dta 'MKDIR', 0, a(cmd_mkdir), BANK_FS
     dta 'MOUNT', 0, a(cmd_mount), BANK_FS
+    dta 'MEMORY', 0, a(cmd_memory), BANK_FS
     dta 'PALETTE', 0, a(cmd_palette), BANK_FS
     dta 'PARTITION', 0, a(cmd_partition), BANK_FS
     dta 'PARTITIONS', 0, a(cmd_partitions), BANK_FS
@@ -1653,6 +1706,7 @@ cmd_table:
     dta 'RENAME', 0, a(cmd_rename), BANK_FS
     dta 'SAVE', 0, a(cmd_save), BANK_FS
     dta 'SETTIME', 0, a(cmd_settime), BANK_FS
+    dta 'SHADOW', 0, a(cmd_shadow), BANK_MOS
     dta 'STATUS', 0, a(cmd_status), BANK_FS
     dta 'SWAP', 0, a(cmd_swap), BANK_FS
     dta 'SYS', 0, a(cmd_status), BANK_FS
@@ -1673,6 +1727,24 @@ toupper:
     bcs tu_done
     and #$DF
 tu_done:
+    rts
+
+; cmd_shadow
+;   Summary: *SHADOW [n] (BBC Master): n = 0 or none: the next MODE is a
+;            shadow mode (the VIC-II version, HIMEM &8000); n = 1: normal
+;            (Upic Lite where possible). As OSBYTE &72.
+;   Input:   mosPTR/Y.  Uses: A, X, Y, mosNUM.
+cmd_shadow:
+    jsr cli_byte
+    bcc csh_n
+    lda #0
+csh_n:
+    cmp #2
+    bcc csh_set
+    jmp cli_badnum
+csh_set:
+    eor #1
+    sta shadow
     rts
 
 ; cmd_fx

@@ -48,6 +48,16 @@ pal_ulb4:
 ;            KERNAL cursor off, and the engine clears the bitmap and
 ;            resets windows, cursors and colours.
 bk_mode:
+    lda shadow                  ; shadow mode: *SHADOW or MODE 128+n (BBC
+    sta mode_shadow             ; Master): the VIC-II version, HIMEM &8000
+    lda vdubuf
+    cmp #128
+    bcc vm_look
+    and #$7F
+    sta vdubuf
+    lda #1
+    sta mode_shadow
+vm_look:
     lda vdubuf
     ldx #0
 vm_find:
@@ -61,7 +71,7 @@ vm_find:
 vm_unknown:
     and #7
     sta vdubuf
-    jmp bk_mode
+    jmp vm_look
 vm_found:
     sta vmode
     txa                         ; entry = X * 10
@@ -345,8 +355,11 @@ vdc_fg:
 ul_choose:
     lda #0
     sta vmode_ul
+    lda mode_shadow             ; shadow modes stay on the VIC-II
+    bne uc_no
     lda ul_ok
     bne uc_ok
+uc_no:
     rts
 uc_ok:
     ldx vmode
@@ -519,6 +532,10 @@ bh_n7:
     ldy #$80
     lda ul_ok
     beq bh_done
+    txa                         ; shadow: MODE 128+n or *SHADOW
+    bmi bh_done
+    lda shadow
+    bne bh_done
     txa
     and #$7F
     beq bh_58

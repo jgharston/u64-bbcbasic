@@ -80,13 +80,13 @@ st_reu:
     beq st_reu_small
     jsr st_text
     dta '16 MB', 13, 0
-    jmp st_mem
+    jmp st_memgo
 st_reu_small:
     lda reu_banks
     bne st_reu_k
     jsr st_text
     dta 'none', 13, 0
-    jmp st_mem
+    jmp st_memgo
 st_reu_k:
     cmp #16                     ; 1 MB or more: in MB
     bcc st_reu_kb
@@ -97,7 +97,7 @@ st_reu_k:
     jsr st_dec8
     jsr st_text
     dta ' MB', 13, 0
-    jmp st_mem
+    jmp st_memgo
 st_reu_kb:
     sta mosTMP                  ; banks * 64 K
     lda #0
@@ -111,7 +111,10 @@ st_reu_mul:
     jsr st_dec16
     jsr st_text
     dta ' K', 13, 0
+    jmp st_memgo
 
+; st_mem: PAGE, TOP, LOMEM, VARTOP, HIMEM and free memory (*STATUS,
+; *MEMORY)
 st_mem:
     jsr st_text
     dta 'PAGE       &', 0
@@ -150,7 +153,10 @@ st_mem:
     jsr st_dec16
     jsr st_text
     dta ' bytes', 13, 0
+    rts
 
+st_memgo:
+    jsr st_mem
     jsr st_text                 ; open files
     dta 'Files      ', 0
     lda #0
@@ -808,3 +814,90 @@ sd16_next:
     rts
 sd16_pow:
     dta a(1), a(10), a(100), a(1000), a(10000)
+
+; ----------------------------------------------------------------------------
+; cmd_memory
+;   Summary: *MEMORY: the memory map of the running program and the
+;            screen; *MEMORY UPIC ON|OFF|AUTO chooses Upic Lite or the
+;            VIC-II for the BBC modes 0-6 from the next MODE on (OFF =
+;            *SHADOW: HIMEM &8000; ON and AUTO = Upic Lite where the
+;            machine can show it, *SHADOW 1).
+;   Input:   mosPTR/Y.  Output: text, or the setting.
+;   Uses:    A, X, Y, mosTMP, fs*.
+cmd_memory:
+    lda #<mw_upic
+    ldx #>mw_upic
+    jsr arg_word
+    bcc cm_show
+    lda #<w_off
+    ldx #>w_off
+    jsr arg_word
+    bcs cm_off
+    lda #<w_on
+    ldx #>w_on
+    jsr arg_word
+    bcs cm_on
+    lda #<mw_auto
+    ldx #>mw_auto
+    jsr arg_word
+    bcs cm_on
+    jmp an_syntax
+cm_off:
+    lda #1
+    sta shadow
+    rts
+cm_on:
+    lda #0
+    sta shadow
+    rts
+
+cm_show:
+    jsr st_mem
+    jsr st_text
+    dta 'Screen     MODE ', 0
+    lda vmode
+    ldx mode_shadow
+    beq cm_mnum
+    ora #$80
+cm_mnum:
+    jsr st_dec8
+    lda vtype
+    cmp #2
+    bne cm_n7
+    jsr st_text
+    dta ', teletext at &7C00', 13, 0
+    jmp cm_upic
+cm_n7:
+    lda vmode_ul
+    beq cm_vic
+    jsr st_text
+    dta ', Upic Lite at &', 0
+    lda vmode_himem
+    ldx #0
+    jsr st_hex16
+    jsr OSNEWL
+    jmp cm_upic
+cm_vic:
+    jsr st_text
+    dta ', VIC-II (above HIMEM)', 13, 0
+cm_upic:
+    jsr st_text
+    dta 'Upic Lite  ', 0
+    lda ul_ok
+    bne cm_ulok
+    jsr st_text
+    dta 'not possible (64 MHz)', 13, 0
+    rts
+cm_ulok:
+    lda shadow
+    bne cm_uloff
+    jsr st_text
+    dta 'on (BBC modes 0-6)', 13, 0
+    rts
+cm_uloff:
+    jsr st_text
+    dta 'off (*SHADOW)', 13, 0
+    rts
+
+mw_upic     dta 'UPIC', 0
+mw_auto     dta 'AUTO', 0

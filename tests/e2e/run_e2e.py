@@ -759,6 +759,29 @@ def test_palette(t):
         run_line(t, line, ">")
 
 
+def test_memory(t):
+    # *SHADOW / OSBYTE &72 (BBC Master), *MEMORY. On a 64 MHz Ultimate:
+    # MODE 1 is Upic Lite (HIMEM &3000), MODE 129 and *SHADOW modes the
+    # VIC-II version (HIMEM &8000), *MEMORY UPIC OFF/AUTO as *SHADOW, and
+    # BASIC's "Bad MODE" when variables are in the way. VICE: always &8000.
+    rd = 'A%=&72:X%=255:PRINT "R=";(USR&C7F4 AND &FF00) DIV 256'
+    run_line(t, "*SHADOW", ">")
+    run_line(t, rd, "R=0")
+    run_line(t, "*SHADOW 1", ">")
+    run_line(t, rd, "R=1")
+    run_line(t, "*MEMORY", "HIMEM      &8000")
+    up = not t.is_vice
+    gfx_check(t, 1, [
+        "F%=HIMEM:MODE 129:B%=HIMEM:*MEMORY UPIC OFF",
+        "MODE 4:C%=HIMEM:*MEMORY UPIC AUTO",
+        "MODE 4:D%=HIMEM:A%=&75:E%=(USR&C7F4 AND &FF00) DIV 256",
+        'R$="R="+STR$~F%+","+STR$~B%+","+STR$~C%+","+STR$~D%+","+STR$E%'],
+        "R=3000,8000,8000,5800,0" if up else "R=8000,8000,8000,8000,0")
+    if up:
+        run_line(t, "CLEAR:DIM Z% 20000:MODE 1", "Bad MODE")
+        run_line(t, "CLEAR", ">")
+
+
 def test_gfx_patterns(t):
     # ECF: GCOL 16 + action selects pattern 1 (checker of colours 1, 0);
     # VDU 23,12 redefines pattern 1 (2 x 4 logical colours); VDU 23,11
@@ -1029,7 +1052,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
-         test_palette,
+         test_palette, test_memory,
          test_gfx_vdu5,
          test_gfx_mode3,
          test_gfx_teletext,

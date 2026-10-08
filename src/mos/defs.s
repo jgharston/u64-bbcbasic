@@ -242,7 +242,9 @@ uf_off      = cwd_n+2           ; uci_finish: status position in errbuf+1
 uf_end      = uf_off+1          ; uci_finish: end of the status
 eng_kind    = uf_end+1          ; engine at $D000: 0 VIC-II, 1 Upic Lite, 2 teletext
 pal_ok      = eng_kind+1        ; 1: the Ultimate takes palette commands
-ramvars_end = pal_ok+1
+shadow      = pal_ok+1          ; 1: the next MODE is a shadow mode (*SHADOW)
+mode_shadow = shadow+1          ; 1: the current mode is a shadow mode
+ramvars_end = mode_shadow+1
     .if ramvars_end > $03FC
     .error "MOS RAM variables overflow the cassette buffer"
     .endif

@@ -93,12 +93,13 @@ VDU          VPOS         WIDTH
 *CAT         *COPY        *CP
 *DELETE      *DIR         *DRIVE
 *FONT        *FX          *HELP
-*LOAD        *MKDIR       *MOUNT
-*PALETTE     *PARTITION   *PARTITIONS
-*PWD         *RENAME      *SAVE
-*SETTIME     *STATUS      *SWAP
-*TIME        *TURBO       *TYPE
-*UNMOUNT     *UVER
+*LOAD        *MEMORY      *MKDIR
+*MOUNT       *PALETTE     *PARTITION
+*PARTITIONS  *PWD         *RENAME
+*SAVE        *SETTIME     *SHADOW
+*STATUS      *SWAP        *TIME
+*TURBO       *TYPE        *UNMOUNT
+*UVER
 ```
 
 ## BBC
@@ -191,6 +192,11 @@ BBC Micro.
 BASIC runs from RAM because the
 Ultimate 64 reads cartridge ROM at 1
 MHz even in turbo mode.
+
+*MEMORY shows the map of the running
+program; *MEMORY UPIC OFF (or *SHADOW)
+keeps HIMEM at &8000 in every mode but
+MODE 7.
 ```
 
 ## FILES
@@ -369,6 +375,8 @@ OSBYTE calls (*FX a,x,y) available:
   &00   OS version (X=1)
   &0F   flush keyboard buffer
   &15   flush keyboard buffer
+  &72   shadow for next MODE
+  &75   VDU status (4: shadow)
   &7C   clear ESCAPE
   &7D   set ESCAPE
   &7E   acknowledge ESCAPE
@@ -376,7 +384,7 @@ OSBYTE calls (*FX a,x,y) available:
   &81   INKEY
   &82   high address (&FFFF)
   &83   OSHWM / PAGE (&0800)
-  &84   HIMEM (&8000)
+  &84   HIMEM of the mode
   &85   HIMEM for a mode
   &86   POS (X) and VPOS (Y)
   &87   character at cursor
@@ -863,6 +871,47 @@ teletext glyphs from the font when it
 starts. VDU 23 changes single
 characters. The BBC characters are
 Acorn's (see CREDITS).
+```
+
+## *MEMORY
+
+```
+  *MEMORY            memory map
+  *MEMORY UPIC OFF   VIC-II modes
+  *MEMORY UPIC ON    Upic Lite
+  *MEMORY UPIC AUTO  (as ON)
+
+Shows PAGE, TOP, LOMEM, VARTOP, HIMEM,
+free memory and where the screen is.
+
+On a 64 MHz Ultimate the BBC modes 0-6
+use Upic Lite: exact 320x256 like a BBC
+Micro, with the picture below HIMEM
+(&5800 or &3000), as on the BBC. UPIC
+OFF makes the next MODE use the VIC-II
+version instead: 200 lines, but HIMEM
+stays &8000. The same as *SHADOW. MODE
+7 always keeps its screen at &7C00.
+```
+
+## *SHADOW
+
+Also: `SHADOW`
+
+```
+  *SHADOW     shadow modes
+  *SHADOW 1   normal modes
+
+As on a BBC Master: from the next MODE
+on, a shadow mode keeps the screen out
+of BASIC's memory, so HIMEM stays
+&8000. Here that is the VIC-II version
+of the mode instead of Upic Lite. MODE
+128+n is shadow for that mode only.
+OSBYTE &72 does the same from a program
+(X = 0 shadow, 1 normal), OSBYTE &75
+bit 4 says whether the current mode is
+one. See *MEMORY.
 ```
 
 ## *PALETTE
