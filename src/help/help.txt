@@ -221,7 +221,7 @@ VDU codes work as on a BBC Micro:
 
   4     text at the text cursor
   5     text at the graphics cursor
-  7     bell (not yet)
+  7     bell (SOUND &13,-15,101,6)
   8-11  cursor left/right/down/up
   12    clear the text window (CLS)
   13    start of line
@@ -267,7 +267,7 @@ TIME stays in real time at every speed. *TURBO shows or changes the speed. On an
 @@ LIMITS
 Things that differ from a BBC Micro in this version:
 
-Typed lines: 78 characters (C64 screen editor); programs sent from a PC (see REMOTE) may have lines up to 251 characters. Graphics: points, lines, triangles, rectangles, parallelograms, circles, ellipses, pattern fills, flood fill, arcs, segments, sectors; no sound yet. LOAD and SAVE work between &1900 and &7FFF. Two files open at a time. *KEY, *EXEC and *SPOOL are not there yet.
+Typed lines: 78 characters (C64 screen editor); programs sent from a PC (see REMOTE) may have lines up to 251 characters. Graphics: points, lines, triangles, rectangles, parallelograms, circles, ellipses, pattern fills, flood fill, arcs, segments, sectors. Sound: SOUND and ENVELOPE as on a BBC Micro. LOAD and SAVE work between &1900 and &7FFF. Two files open at a time. *KEY, *EXEC and *SPOOL are not there yet.
 
 @@ REMOTE
 Programs can be written on a PC and run here: the MOS has a mailbox that a PC (or an AI coding agent) reaches through the Ultimate's network API. At the > prompt the MOS accepts lines and programs from it as if typed, and copies the output back.
@@ -463,6 +463,15 @@ VDU 19,l,16,r,g,b sets logical colour l to an RGB colour (0-255 each): in Upic L
 
 Needs firmware 3.15a or later; all but C64 need an REU. Upic Lite and MODE 7 use the palette for their own picture and keep it until the next MODE change.
 
+@@ *SID | SID
+  *SID               list the SIDs
+  *SID PAN <unit> <p>     stereo
+  *SID VOL <unit> <dB>    volume
+
+The SIDs found at start-up: up to 8, at &D400-&D7E0. The cartridge's .cfg sets up 8 UltiSIDs (two UltiSIDs split four ways, as Heartbeat Soundtracker does) and switches them on, UltiSID 1 left and UltiSID 2 right.
+
+unit: 1 or 2 (UltiSID 1 or 2; with the .cfg the 1st, 3rd, 5th and 7th SID are UltiSID 1's) or S1, S2 (the SID sockets). p: -5 (left) to 5 (right), 0 centre. dB: -42 to 6 (the Ultimate's steps), or OFF. The setting takes effect at once and lasts until the Ultimate is reset. Needs firmware 3.15a.
+
 @@ *STATUS | STATUS | *SYS | SYS
   *STATUS     (also *SYS)
 
@@ -498,7 +507,7 @@ Arc cosine of n, in radians.
 @@ ADVAL
   ADVAL(n)
 
-On a BBC Micro reads the analogue port or buffers. U64: returns 0 for now.
+ADVAL(-5) to ADVAL(-8): free room in the sound queue of channel 0 to 3, as on a BBC Micro: 15 when empty, 4 bytes per note waiting. Other values return 0 (no analogue port).
 
 @@ AND
   a AND b
@@ -644,9 +653,10 @@ Ends the program.
 Ends a procedure. See PROC.
 
 @@ ENVELOPE
-  ENVELOPE n,...
+  ENVELOPE n,t,pi1,pi2,pi3,pn1,pn2,pn3,
+           aa,ad,as,ar,ala,ald
 
-Defines a sound envelope. U64: no sound yet.
+Defines envelope n (1-16), as on a BBC Micro. t: step length in 1/100 s (add 128: the pitch part does not repeat). pi1-pi3: pitch change per step in three sections of pn1-pn3 steps. aa, ad: amplitude change per step in the attack and decay, up to the levels ala and ald (0-126); as: change per step while the note lasts; ar: in the release, down to 0. Use it with SOUND c,n,p,d.
 
 @@ EOF# | EOF
   EOF#c
@@ -1084,7 +1094,9 @@ Sine of r radians.
 @@ SOUND
   SOUND c,a,p,d
 
-Plays a note on a BBC Micro. U64: no sound yet (SID support planned).
+Queues a note, as on a BBC Micro. c = &HSFN: N channel (0 noise, 1-3 tone), F=1 flush the queue first, S sync with S other channels (they start together), H=1 hold (the previous note's release goes on). a: -15 (loud) to 0, or envelope 1-16. p: pitch, 4 steps per semitone, 53 = middle C, 89 = A 440 Hz; channel 0: 0-2 periodic noise, 4-6 white noise (high to low), 3 and 7 at channel 1's pitch. d: 1/20 s, 255 or -1 for ever.
+
+Plays on the SIDs: channels 1-3 on SID 1, channel 0 on the second SID (or with one SID, on channel 3's voice while it plays). Three notes wait per channel; see ADVAL. The extended SID mode with all voices of up to 8 SIDs comes next.
 
 @@ SPC
   PRINT SPC(n)

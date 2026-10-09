@@ -28,8 +28,10 @@ programs that poke the machine or call BBC machine code will not work.
 Copy the `.cfg` with the same name next to the `.crt`. When the cartridge
 is started from the Ultimate's file browser (firmware 3.15+), it switches
 on the Command Interface, the REU, the Ultimate Audio mapping and the U64
-turbo registers. The settings are loaded into memory only, not saved to
-flash.
+turbo registers, and sets up 8 UltiSIDs for sound (as Heartbeat
+Soundtracker does: UltiSID 1 at `$D400`, UltiSID 2 at `$D420`, each split
+four ways; SIDs in the sockets keep their addresses and play along). The
+settings are loaded into memory only, not saved to flash.
 
 ## Using it
 

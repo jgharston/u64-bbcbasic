@@ -782,6 +782,52 @@ def test_memory(t):
         run_line(t, "CLEAR", ">")
 
 
+def test_sound(t):
+    # BBC mode SOUND/ENVELOPE (sound.s): queues (ADVAL(-5..-8) = 15 empty,
+    # 4 bytes per waiting note), flush, sync, an envelope note that
+    # ends; on the U64 also the chip itself: channel 3 is SID 1 voice 3,
+    # whose envelope reads back at &D41C (255 at -15).
+    run_line(t, 'PRINT "R=";ADVAL(-5);ADVAL(-6);ADVAL(-8)', "R=151515")
+    run_line(t, "SOUND 1,-15,53,100:SOUND 1,-15,57,100:SOUND 1,-15,61,100", ">")
+    run_line(t, 'PRINT "R=";ADVAL(-6)', "R=7")      # one plays, two wait
+    rows = run_line(t, 'SOUND &11,-10,65,4:PRINT "R=";ADVAL(-6)', "R=1")
+    assert any(r.startswith("R=11") or r.startswith("R=15") for r in rows), rows
+    # (11: still queued; 15: an interrupt started it already)
+    time.sleep(1.0)
+    run_line(t, 'PRINT "R=";ADVAL(-6)', "R=15")     # flushed and played
+    run_line(t, 'SOUND &101,-15,53,4:PRINT "R=";ADVAL(-6)', "R=11")
+    time.sleep(0.5)                                  # waits for its partner
+    run_line(t, 'PRINT "R=";ADVAL(-6)', "R=11")
+    run_line(t, "SOUND &102,-15,61,4", ">")
+    time.sleep(1.0)
+    run_line(t, 'PRINT "R=";ADVAL(-6);ADVAL(-7)', "R=1515")
+    run_line(t, "ENVELOPE 1,2,1,-1,0,4,4,0,20,-2,-1,-4,120,80", ">")
+    run_line(t, "SOUND 2,1,89,10:SOUND 2,1,93,10", ">")
+    time.sleep(2.5)
+    run_line(t, 'PRINT "R=";ADVAL(-7)', "R=15")
+    if not t.is_vice:                                # VICE's ENV3 differs
+        run_line(t, 'SOUND 3,-15,89,40:T%=TIME:REPEAT UNTIL TIME>T%+20:'
+                    'PRINT "R=";?&D41C', "R=255")
+
+
+def test_sid(t):
+    # *SID lists the SIDs probed at start-up (VICE: one at $D400); *SID
+    # PAN/VOL set the Ultimate's mixer through a loaded .cfg (UCI $50), here
+    # to the values the cartridge's own .cfg sets; a bad value is refused
+    rows = run_line(t, "*SID", "&D400")
+    assert any("SID" in r and "&D400" in r for r in rows), rows
+    if not ult(t):
+        run_line(t, "*SID PAN 1 -3", "No Ultimate command interface")
+        return
+    for line in ("*SID VOL 1 -6", "*SID VOL 2 -6", "*SID PAN 1 -3",
+                 "*SID PAN 2 3"):
+        rows = run_line(t, line + ':PRINT "R=OK"', ">")
+        assert not any("rror" in r or "errors" in r for r in rows), rows
+    run_line(t, "*TYPE /Temp/bbcmix.cfg", "Pan UltiSID 2=Right 3")
+    run_line(t, "*SID PAN 1 9", "Syntax")
+    run_line(t, "*SID VOL 1 -41", "had errors")    # not one of its steps
+
+
 def test_gfx_patterns(t):
     # ECF: GCOL 16 + action selects pattern 1 (checker of colours 1, 0);
     # VDU 23,12 redefines pattern 1 (2 x 4 logical colours); VDU 23,11
@@ -1053,7 +1099,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
-         test_palette, test_memory,
+         test_palette, test_memory, test_sound, test_sid,
          test_gfx_vdu5,
          test_gfx_mode3,
          test_gfx_teletext,

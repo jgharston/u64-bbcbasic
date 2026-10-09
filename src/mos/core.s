@@ -218,7 +218,7 @@ vdu_table:
     dta a(vdu_4-1)              ;  4 text at text cursor
     dta a(vdu_5-1)              ;  5 text at graphics cursor
     dta a(wr_done-1)            ;  6 VDU on
-    dta a(wr_done-1)            ;  7 bell
+    dta a(vdu_bell-1)           ;  7 bell
     dta a(vdu_bs-1)             ;  8 cursor left
     dta a(vdu_ht-1)             ;  9 cursor right
     dta a(vdu_lf-1)             ; 10 cursor down
@@ -295,6 +295,10 @@ vdu_bg:
     tax
     lda bbc2c64,x
     sta $D021
+    jmp wr_done
+
+vdu_bell:                       ; VDU 7: the BBC's bell (sound.s)
+    jsr SOUNDRAM+21
     jmp wr_done
 
 vdu_23:                         ; VDU 23: bank 3 (bk_vdu23)

@@ -57,7 +57,8 @@ cold:
     lda #CART_MODE16
     sta CART_CTRL
     jsr resident_init
-    jsr core_init
+    farcall snd_install, BANK_UL ; sound engine (the interrupt calls it:
+    jsr core_init               ; before anything may let one in)
     jsr engine_init
     jsr state_init
     jsr copy_basic
@@ -995,10 +996,23 @@ by_ackesc:                      ; &7E: X = $FF if ESCAPE was pending
     sta NDX                     ; drop the RUN/STOP code and type-ahead
     ldx #$FF
     bne by_ret
-by_adval:                       ; &80: no ADC or buffers yet
-    ldx #0
+by_adval:                       ; &80: X = &F8-&FB: sound queues 3-0
+    ldy #0                      ; (free bytes, sound.s); others 0 (no
+    cpx #$F8                    ; ADC, no other buffers)
+    bcc bad_zero
+    cpx #$FC
+    bcs bad_zero
+    txa
+    eor #$FF                    ; &FB -> 4 ... &F8 -> 7
+    sec
+    sbc #4                      ; channel 0-3
+    tax
+    jsr SOUNDRAM+12
     ldy #0
-    beq by_ret
+    jmp by_ret
+bad_zero:
+    ldx #0
+    jmp by_ret
 by_high:                        ; &82: no second processor
     ldx #$FF
     ldy #$FF
@@ -1177,8 +1191,8 @@ ink_esc:
 ; ----------------------------------------------------------------------------
 ; mos_word (OSWORD)
 ;   Summary: OSWORD calls 0 (read line), 1 (read TIME), 2 (write TIME),
-;            9 (read a pixel), 10 (read a character definition), 14
-;            (read the clock, bank 2). Other calls
+;            7 (SOUND), 8 (ENVELOPE), 9 (read a pixel), 10 (read a
+;            character definition), 14 (read the clock, bank 2). Other calls
 ;            return without action.
 ;   Input:   A = call number, X/Y = address of the parameter block.
 ;   Output:  per call.
@@ -1197,6 +1211,14 @@ mw_not1:
     bne mw_not2
     jmp word2
 mw_not2:
+    cmp #7
+    bne mw_not7
+    jmp SOUNDRAM+6              ; SOUND (sound.s)
+mw_not7:
+    cmp #8
+    bne mw_not8
+    jmp SOUNDRAM+9              ; ENVELOPE
+mw_not8:
     cmp #9
     bne mw_not9
     jmp word9
@@ -1707,6 +1729,7 @@ cmd_table:
     dta 'SAVE', 0, a(cmd_save), BANK_FS
     dta 'SETTIME', 0, a(cmd_settime), BANK_FS
     dta 'SHADOW', 0, a(cmd_shadow), BANK_MOS
+    dta 'SID', 0, a(cmd_sid), BANK_FS
     dta 'STATUS', 0, a(cmd_status), BANK_FS
     dta 'SWAP', 0, a(cmd_swap), BANK_FS
     dta 'SYS', 0, a(cmd_status), BANK_FS

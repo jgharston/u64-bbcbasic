@@ -1,6 +1,7 @@
 # Design: sound (SID, up to 8 SIDs)
 
-Status: decided 2026-10-09 (section 6); BBC mode is built first.
+Status: decided 2026-10-09 (section 6). Step (a), BBC mode with SID
+probing, is implemented (section 7); SID mode follows.
 
 Owner requests (2026-10-09):
 
@@ -173,3 +174,108 @@ Heartbeat's own numbering puts them next to the SID channels).
 4. Order of work: (a) SID list and probing, engine, BBC mode, (b) SID
    mode with instruments, (c) `*PLAY`, (d) Ultimate Audio / Heartbeat.
 5. Still to do: a BBC sound check by the owner's ears.
+
+## 7. Implementation notes, step (a) (2026-10-09)
+
+- `src/mos/sound.s`, assembled for `&0800` and copied by `snd_install`
+  (bank 4) right after the resident code at start-up: `font_init` lets
+  interrupts in early, and the interrupt calls the engine (`irq_keys`,
+  so the system, Upic Lite and teletext interrupts all reach it).
+  Entry points `&0800+n`: 0 init, 3 interrupt, 6 OSWORD 7, 9 OSWORD 8,
+  12 ADVAL, 15 stop all, 18 probe, 21 bell. Engine about 1.9K, variables
+  and tables to about `&1300`.
+- Centiseconds per call come from TIME (60 Hz system interrupt, 50 Hz
+  Upic Lite frames), at most 10 per call.
+- Queues: 3 waiting notes per channel, `ADVAL(-5..-8)` = 15 - 4 x
+  waiting (MOS 1.20: 16-byte buffers, full when the next write would meet
+  the read position; the `ADVAL(-6)=15` idiom of BBC programs works).
+- SID probing: voice 3's oscillator must hold still under TEST (0 on a
+  SID or UltiSID, **255 on an ARMSID**: measured on the U64-II's
+  sockets), run without it and stop again; the display is off meanwhile
+  so open-bus reads never pass. The 8SID addresses come first, then
+  `$D400-$D7E0`; at most 8.
+- The shipped `.cfg` sets Heartbeat's SID addressing (UltiSID 1 `$D400`,
+  UltiSID 2 `$D420`, Range Split 1/4 on A7/A8, no mirroring); the
+  sockets stay as they are and play along where they share an address
+  (owner). With it the probe finds exactly the 8 UltiSIDs. The `.cfg` is
+  applied when the cartridge is started from the Ultimate's file
+  browser, not by REST `run_crt`.
+- Amplitude in software through the sustain level: a rising level
+  retriggers the gate (2 ms attack to full, 6 ms decay to the level), so
+  slow attacks in BBC envelopes come out as small steps. VICE's ENV3
+  read-back does not follow the envelope; the U64's does (255 at -15).
+- Not yet: noise checked by ear, the owner's BBC sound check, SID mode,
+  `*SOUND`/`*SID` commands.
+
+## 8. Stereo and volume (owner, 2026-10-09)
+
+The Ultimate's audio mixer has a volume and a stereo position for each
+UltiSID (all four split instances of an UltiSID share them) and for each
+SID socket; there is no setting per split instance.
+
+- The shipped `.cfg` switches the UltiSIDs on (`Vol UltiSid 1/2 = -6 dB`;
+  the owner's U64-II had them OFF, so only the ARMSID sockets sounded)
+  and pans them as Heartbeat's does: UltiSID 1 `Left 3`, UltiSID 2
+  `Right 3`. In the SID list (8SID order) SIDs 0, 2, 4, 6 are UltiSID 1's
+  (left) and 1, 3, 5, 7 UltiSID 2's (right). The sockets keep the user's
+  settings.
+- From BASIC: `*SID PAN <unit> <-5..5>` and `*SID VOL <unit> <dB>|OFF`,
+  unit `1`, `2` (UltiSIDs) or `S1`, `S2` (sockets). The MOS writes a
+  two-line configuration file (`[Audio Mixer]`, `<item>=<value>`) to
+  `/Temp/bbcmix.cfg` and sends the firmware's "load config" control
+  command (`$04 $50` + path, firmware 3.15a, 2026-08-11), which applies it
+  at once (not saved to flash) and answers with an error status for a
+  line it cannot apply. There is no command to read mixer settings back.
+- `*SID` lists the SIDs found.
+
+## 9. Instruments and their defaults (owner, 2026-10-09)
+
+Owner request: commands to program SID instruments, with default ones.
+Part of step (b), SID mode.
+
+Record (64 bytes, in the REU, 64 instruments; the fields follow
+Heartbeat's instrument record, laid out for this engine):
+
+| Offset | Field |
+|---|---|
+| 0 | waveform: control register bits ($10 triangle, $20 saw, $40 pulse, $80 noise, $04 ring, $02 sync) |
+| 1, 2 | ADSR: attack/decay, sustain/release |
+| 3, 4 | pulse width at the start (12 bits) |
+| 5, 6, 7 | pulse sweep: rate (signed), top, bottom (high bytes; bounces) |
+| 8, 9, 10 | vibrato: delay (interrupts), width, rate |
+| 11 | portamento speed (0 = none) |
+| 12 | filter: bit 0 on; bits 4-6 low/band/high pass |
+| 13 | resonance (0-15) |
+| 14, 15, 16, 17 | cutoff: start (high 8 bits), sweep rate (signed), top, bottom |
+| 18 | finetune (signed, 1/64 semitone) |
+| 19 | flags: bit 0 hard restart (gate off one interrupt before the note), bit 1 cutoff sweep stops at the end instead of bouncing |
+| 20-35 | wave table: 16 steps of waveform bytes ($FF n = loop to step n, 0 = end) |
+| 36-51 | arpeggio table: 16 steps of semitone offsets, alongside the wave table |
+| 52 | table speed (interrupts per step) |
+| 53-63 | name (up to 10 characters, padded with spaces) |
+
+Defaults 1-16 (in the cartridge, copied to the REU at start-up and by
+`*INSTRUMENT DEFAULT`); 17-64 start as copies of 1:
+
+| # | Name | Sound |
+|---|---|---|
+| 1 | SQUARE | 50% pulse, quick decay: the BBC-like default |
+| 2 | PIANO | pulse, short attack, long decay |
+| 3 | ORGAN | triangle and pulse, full sustain |
+| 4 | STRINGS | saw, slow attack, slow pulse sweep |
+| 5 | BRASS | saw, low pass opening |
+| 6 | LEAD | pulse, width sweep, delayed vibrato |
+| 7 | BASS | saw, low pass, short decay |
+| 8 | FLUTE | triangle, vibrato |
+| 9 | PLUCK | pulse, fast decay |
+| 10 | BELL | triangle, ring modulation |
+| 11 | KICK | noise click, then triangle falling in pitch (tables) |
+| 12 | SNARE | noise and triangle (tables) |
+| 13 | HIHAT | short noise |
+| 14 | PAD | saw, slow cutoff sweep |
+| 15 | ARP | major chord arpeggio (tables) |
+| 16 | SYNC | hard-sync lead |
+
+Commands: `*INSTRUMENT n <fields>` (as section 2.2), `*INSTRUMENT n` lists
+it with its name, `*INSTRUMENT n NAME <text>`, `*INSTRUMENT n COPY m`,
+`*INSTRUMENT DEFAULT`, `*INSTRUMENT SAVE/LOAD <file>` (64 x 64 bytes).

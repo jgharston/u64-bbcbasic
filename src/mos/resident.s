@@ -203,6 +203,7 @@ irq_tstep:
     stx timefrac
 
 irq_keys:                       ; (Upic Lite's frame interrupt joins here)
+    jsr SOUNDRAM+3              ; sound (sound.s): durations, envelopes
     lda STKEY               ; $7F while RUN/STOP is held (last UDTIM)
     cmp #$7F
     bne irq_nostop

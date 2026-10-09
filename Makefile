@@ -26,7 +26,7 @@ BASICDIR  = $(BUILD)/basic
 
 MOS_SRCS  = $(wildcard src/mos/*.s)
 GEN       = $(BUILD)/gen/tables.s $(BUILD)/gen/ul_r1.s $(BUILD)/gen/ul_r2.s \
-            $(BUILD)/gen/ul_r3.s $(BUILD)/gen/ul_r4.s
+            $(BUILD)/gen/ul_r3.s $(BUILD)/gen/ul_r4.s $(BUILD)/gen/sound_tables.s
 
 ULTIP1   ?= <set_ULTIP1_in_.env>
 ULTPATH   = /Temp/
@@ -49,6 +49,10 @@ $(BUILD)/basic.rom: $(BASICDIR)/basic.s
 	$(MADS) -d:BUILD_U64_BASIC310=1 -l:$(BUILD)/basic.lst -o:$@ $< >/dev/null
 
 # --- MOS bank 0, one per cartridge type
+
+$(BUILD)/gen/sound_tables.s: tools/gensound.py
+	@$(MKDIR) $(dir $@)
+	$(PYTHON) $< -o $@
 
 $(BUILD)/gen/tables.s: tools/gentables.py
 	@$(MKDIR) $(dir $@)

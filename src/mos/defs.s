@@ -51,6 +51,7 @@ BITMAP      = $E000             ; VIC-II bitmap in the bitmap modes
 TTXBUF      = $7C00             ; MODE 7 screen memory (teletext codes)
 SOUNDRAM    = $0800             ; sound engine, queues, voice state
 OSHWM       = $1900             ; PAGE: above the sound engine (DESIGN_SOUND.md 4)
+MOSBUF      = $1800             ; 256: scratch for * commands (below PAGE)
 gzp         = $FB               ; engine pointer (C64 user zero page)
 GX_MODE     = 0                 ; engine entries (gfx.s jump table)
 GX_VDU      = 3

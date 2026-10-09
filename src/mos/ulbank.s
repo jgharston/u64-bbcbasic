@@ -235,6 +235,106 @@ ule_load:
     icl 'gfx_ul.s'
     org ule_load + $1000
 
+; ----------------------------------------------------------------------------
+; Sound engine image (sound.s), copied to SOUNDRAM by snd_install
+
+snd_load:
+    org SOUNDRAM, snd_load
+    icl 'sound.s'
+snd_len = snd.s_vars - SOUNDRAM
+    org snd_load + snd_len
+
+    icl 'sound_tables.s'
+
+; ----------------------------------------------------------------------------
+; snd_install
+;   Summary: at start-up, before interrupts are on: the sound engine to
+;            SOUNDRAM, its variables cleared, the pitch and noise tables
+;            for the machine's clock (PAL or NTSC, KERNAL flag $02A6),
+;            then the SIDs found and the engine reset.
+;   Uses:    A, X, Y, mosPTR, mosPTR2.
+snd_install:
+    lda #<snd_load              ; image
+    sta mosPTR
+    lda #>snd_load
+    sta mosPTR+1
+    lda #<SOUNDRAM
+    sta mosPTR2
+    lda #>SOUNDRAM
+    sta mosPTR2+1
+    ldx #>snd_len               ; whole pages, then the rest
+    ldy #0
+sni_page:
+    cpx #0
+    beq sni_rest
+sni_pb:
+    lda (mosPTR),y
+    sta (mosPTR2),y
+    iny
+    bne sni_pb
+    inc mosPTR+1
+    inc mosPTR2+1
+    dex
+    bne sni_page
+sni_rest:
+    cpy #<snd_len
+    beq sni_vars
+    lda (mosPTR),y
+    sta (mosPTR2),y
+    iny
+    bne sni_rest
+sni_vars:
+    lda #<snd.s_vars            ; variables to 0
+    sta mosPTR2
+    lda #>snd.s_vars
+    sta mosPTR2+1
+    ldx #>[snd.s_end-snd.s_vars+255]
+    lda #0
+    tay
+sni_z:
+    sta (mosPTR2),y
+    iny
+    bne sni_z
+    inc mosPTR2+1
+    dex
+    bne sni_z
+    ldx #0                      ; pitch table for the clock
+    lda $02A6
+    beq sni_ntsc
+sni_pal:
+    lda snd_ppal_lo,x
+    sta snd.ptab_lo,x
+    lda snd_ppal_hi,x
+    sta snd.ptab_hi,x
+    inx
+    bne sni_pal
+    ldx #5
+sni_npal:
+    lda snd_npal_lo,x
+    sta snd.ntab_lo,x
+    lda snd_npal_hi,x
+    sta snd.ntab_hi,x
+    dex
+    bpl sni_npal
+    bmi sni_go
+sni_ntsc:
+    lda snd_pntsc_lo,x
+    sta snd.ptab_lo,x
+    lda snd_pntsc_hi,x
+    sta snd.ptab_hi,x
+    inx
+    bne sni_ntsc
+    ldx #5
+sni_nn:
+    lda snd_nntsc_lo,x
+    sta snd.ntab_lo,x
+    lda snd_nntsc_hi,x
+    sta snd.ntab_hi,x
+    dex
+    bpl sni_nn
+sni_go:
+    jsr SOUNDRAM+18             ; find the SIDs
+    jmp SOUNDRAM+0              ; reset the engine
 
 bank4_end:
     .if bank4_end > $C000
