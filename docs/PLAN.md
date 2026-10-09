@@ -755,6 +755,7 @@ when the RAM map for graphics is fixed.
 | Font files | Explicit format word: `*FONT LOAD/SAVE file [C64|BBC|ASCII]` |
 | Palette files | Both: 48-byte RGB binary (C64 colour order) as the native format, plus VICE `.vpl` text files; `VDU 19,l,16,r,g,b` sets one RGB colour |
 | Sound (2026-10-09) | SID mode (all 24 voices of up to 8 SIDs, Heartbeat-style instruments, `SOUND &FSVV`) as default, `*SOUND BBC` sounding like a BBC; engine in RAM with PAGE &1900; BBC mode first (DESIGN_SOUND.md) |
+| Memory (2026-10-09, later) | The REU first, to leave BASIC as much RAM as possible: the sound engine keeps its large tables (note queues, BBC envelopes, part of the instrument data) in the REU; PAGE &1D00 (as a BBC with ADFS) for the sound engine with modulation and the tracker; REU data storage and the REU RAM disk (section 23) come before the tracker |
 | Memory modes (2026-10-08) | Both: BBC Master shadow modes (`MODE 128+n`, `*SHADOW`, OSBYTE &72/&75) choose the VIC-II version of MODE 0-6 with HIMEM &8000; `*MEMORY UPIC ON|OFF|AUTO` as an alias; `*MEMORY` shows the map (DESIGN_GRAPHICS.md 9.5) |
 | SoftIEC | Partition support (add partition, `CP`) is needed to reach anything outside `/Temp` from the SoftIEC drive (owner note) |
 
@@ -852,6 +853,46 @@ instead (owner, 2026-10-09), after the sound phase:
    program with PAGE moved, or appended after TOP) is the first question.
 
 Not chosen: a patched interpreter with more memory (as HIBASIC).
+
+Status (2026-10-09): item 1 built (`srcmd.s`: `*SRWRITE`, `*SRREAD`,
+OSWORD `&42` with the Master's block layout, the REU bank in place of
+the ROM number; C64 side PAGE-`&7FFF`, REU side from `$040000`; "No REU"
+on a C64 without one). Item 2, step 1 (whole files) built: the
+directory `/REU` (owner: a directory, not a drive letter), cartridge
+bank 5 (`reudisk.s`; routing in `rdglue.s`, bank 2):
+
+- an REU of 2 MB or more; header at `$100000` ("U64RDISK", version,
+  data end), 127 entries of 32 bytes from `$100020` (name of up to 16
+  characters, start, length, load and execution address), data from
+  `$101000`, one file after another; a delete moves the files after it
+  down (no gaps, no fragmentation). Kept over a reset (recognised by its
+  header), lost when switched off.
+- `*DIR /REU` makes it current (`*DIR ..` back to the Ultimate's
+  directory, which is kept), or `/REU/NAME` from anywhere: OSFILE
+  (LOAD, SAVE, CHAIN, `*LOAD`, `*SAVE`), `*CAT [/REU]`, `*DELETE`,
+  `*RENAME`, `*TYPE`, `*COPY` between `/REU` and the drives (128-byte
+  pieces).
+- Step 2 (owner: everything, in two steps): open files on `/REU`
+  (OPENIN/OPENOUT/OPENUP, BGET#, BPUT#, PTR#, EXT#, EOF#) on the same
+  two channels as the Ultimate's files (`ch_open` bit 0 marks a RAM disk
+  channel, `rd_chent` its entry). Writing past the end of a file that is
+  not the last one first moves it to the end (`rd_tolast`: copy, then
+  close the gap), so files stay contiguous; setting PTR# past EXT# and
+  writing fills zeros. Deleting or replacing an open file: "Open".
+  Bank 2 is nearly full after this (about 200 bytes left).
+
+Order (owner, 2026-10-09): items 1 and 2 now, before the song tracker.
+REU map for it: banks 0-3 (`$000000-$03FFFF`) stay the MOS's (fonts,
+palettes, instruments, songs); programs' data from `$040000` up to the
+RAM disk; the RAM disk at `$100000-` (the REU's size).
+
+Switching functions off for more RAM (owner, 2026-10-09): `*SOUND NONE`
+takes the sound engine out and frees `&0800-&1CFF`; a program may then
+set `PAGE=&800` itself (as on a BBC, where PAGE could be lowered when a
+filing system's workspace was not needed) and has 30K; `*SOUND SID|BBC`
+brings the engine back and refuses while PAGE is below `&1D00`.
+`*MEMORY` shows what is switched on. To be built with the sound
+engine's split (DESIGN_TRACKER.md section 6).
 
 ## 24. Music demo (owner, 2026-10-09)
 

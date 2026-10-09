@@ -208,7 +208,7 @@ OSBYTE calls (*FX a,x,y) available:
 Other calls are ignored.
 
 @@ OSWORD
-OSWORD calls available: 0 reads a line (screen editor), 1 reads TIME, 2 sets TIME (5 bytes, centiseconds), 9 reads a pixel (POINT), 10 reads a character definition (block +0 = character; +1 to +8 = rows), 14 reads the Ultimate's clock. Others are ignored.
+OSWORD calls available: 0 reads a line (screen editor), 1 reads TIME, 2 sets TIME (5 bytes, centiseconds), 9 reads a pixel (POINT), 10 reads a character definition (block +0 = character; +1 to +8 = rows), 14 reads the Ultimate's clock, &42 copies between memory and the REU (block +0: &80 to the REU, 0 from it; +1/+2 address; +5/+6 length; +7 the REU's 64K bank (4-255); +8/+9 address in the bank; as the Master's sideways RAM transfer). Others are ignored.
 
 OSWORD 14 as on a BBC Master: put 0 in the first byte of a 25-byte block for the text "Wed,07 Oct 2026.08:42:55" and a CR, or 1 for 7 BCD bytes: year (2 digits), month, day, day of week (1 = Sunday), hour, minute, second.
 
@@ -492,6 +492,34 @@ SID mode: SOUND plays all voices of up to 8 SIDs with instruments (see SOUND, *I
   *INSTRUMENT LOAD <file>
 
 64 instruments for SID mode; 1-16 are ready-made: SQUARE PIANO ORGAN STRINGS BRASS LEAD BASS FLUTE PLUCK BELL KICK SNARE HIHAT PAD ARP SYNC. Parts: TRI SAW PULSE NOISE RING SYNC (the waveform; several mix), ADSR a d s r (0-15 each), PW w (pulse width 0-4095), FILTER [LOW] [BAND] [HIGH] [RES r] [CUT c] (c 0-255), NOFILTER, FINE f. Example: *INSTRUMENT 20 COPY 2 SAW ADSR 0 8 0 9. Needs an REU.
+
+@@ *SRWRITE | SRWRITE
+  *SRWRITE <start> <end> <REU addr>
+  *SRWRITE <start> +<len> <REU addr>
+
+Copies memory to the REU, as the BBC Master's sideways RAM command. Programs keep data there (tables, levels, text, pictures) and fetch it with *SRREAD. REU addresses from &40000 up to the REU's size (&40000-&FFFFFF with 16 MB); memory from PAGE to &7FFF. Numbers decimal or &hex.
+
+  *SRWRITE &3000 +&1000 &40000
+
+OSWORD &42 does the same from a program (see OSWORD).
+
+@@ *SRREAD | SRREAD
+  *SRREAD <start> <end> <REU addr>
+  *SRREAD <start> +<len> <REU addr>
+
+Copies from the REU into memory at start, the reverse of *SRWRITE.
+
+  *SRREAD &3000 +&1000 &40000
+
+@@ /REU | RAMDISK | RAM
+The REU RAM disk: up to 127 files in the REU from 1 MB up (an REU of 2 MB or more), as the directory /REU. *DIR /REU makes it current (*DIR .. goes back), or give names as /REU/NAME.
+
+LOAD, SAVE, CHAIN, *LOAD, *SAVE, *CAT, *DELETE, *RENAME and *TYPE work there at REU speed, as do OPENIN, OPENOUT, OPENUP, BGET#, BPUT#, PTR#, EXT# and EOF#. *COPY copies between /REU and the Ultimate's drives:
+
+  *COPY GAME /REU
+  *COPY /REU/GAME /Usb0/games
+
+Names up to 16 characters, no directories. The disk survives a reset, not switching off.
 
 @@ *STATUS | STATUS | *SYS | SYS
   *STATUS     (also *SYS)

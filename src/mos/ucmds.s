@@ -59,6 +59,10 @@ an_syntax:
 ;   Uses:    A, X, Y, fs*.
 
 cmd_dir:
+    jsr cd_reu                  ; /REU, or leaving it (rdglue.s)
+    bcc cd_ult
+    rts
+cd_ult:
     jsr uci_need
     lda (mosPTR),y              ; "*DIR ~": the Ultimate's home directory
     cmp #' '
@@ -94,6 +98,12 @@ cd_target:
 ;   Input:   none.  Output: text.  Uses: A, X, Y, fs*.
 
 cmd_pwd:
+    lda reu_cwd                 ; on the REU RAM disk
+    beq pwd_ult
+    jsr st_text
+    dta '/REU', 13, 0
+    rts
+pwd_ult:
     jsr uci_need
     lda #TARGET_DOS1
     sta fsTGT
@@ -116,6 +126,19 @@ cmd_pwd:
 ;   Uses:    A, X, Y, fs*, mosCNT (column).
 
 cmd_cat:
+    jsr ci_skipsp               ; "*CAT /REU"
+    cmp #13
+    beq cat_cwd
+    jsr arg_name
+    jsr rr_isdir
+    bcs cat_reu
+cat_cwd:
+    lda reu_cwd                 ; on the REU RAM disk
+    beq cat_ult
+cat_reu:
+    farcall rd_cat, BANK_RD
+    rts
+cat_ult:
     jsr cmd_pwd
     jsr fs_free_target
     lda #DOS_OPENDIR
@@ -208,8 +231,17 @@ cat_done:
 ;   Input:   command line.  Output: raises on error.  Uses: A, X, Y, fs*.
 
 cmd_delete:
-    jsr uci_need
     jsr arg_name
+    jsr rd_route                ; the REU RAM disk?
+    bcc del_ult
+    farcall rd_delete, BANK_RD
+    bcc del_rts
+    brk
+    dta 214, 'File not found', 0
+del_rts:
+    rts
+del_ult:
+    jsr uci_need
     jsr fs_free_target
     lda #DOS_DELETE
     jsr fs_hdr2
@@ -237,9 +269,13 @@ cmd_mkdir:
 ;   Input:   command line.  Output: raises on error.  Uses: A, X, Y, fs*.
 
 cmd_rename:
-    jsr uci_need
     jsr arg_name                ; old
     sty fsCNT                   ; command line position (rn_copy uses Y)
+    jsr rd_route                ; on the REU RAM disk?
+    bcc ren_ult
+    jmp rd_ren
+ren_ult:
+    jsr uci_need
     ldx #0
     jsr rn_copy
     lda #0
@@ -367,6 +403,10 @@ cs_call:
 
 cmd_type:
     jsr arg_name
+    jsr rd_route                ; the REU RAM disk?
+    bcc ty_ult
+    jmp rd_type
+ty_ult:
     jsr fs_free_target
     lda #FA_READ
     jsr fs_open

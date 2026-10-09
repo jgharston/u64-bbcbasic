@@ -392,6 +392,9 @@ reu_banks   dta 0, 0            ; REU size in 64K banks (0: none)
 reu_tmp     dta 0               ; REU byte transfers
 reu_save0   dta 0
 reu_saveS   dta 0
+rd_ok       dta 0               ; there is an REU RAM disk (reudisk.s)
+reu_cwd     dta 0               ; /REU is the current directory
+rd_chent    dta 0, 0            ; per channel on /REU: its entry
 iec_dev     dta 0               ; serial-bus device for the IEC helpers
 softiec_dev dta 0               ; SoftIEC drive's device number (0: unknown)
 osfblk      dta 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  ; OSFILE block for *LOAD/*SAVE

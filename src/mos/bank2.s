@@ -20,6 +20,8 @@
     icl 'font.s'
     icl 'sidcmd.s'
     icl 'sndcmd.s'
+    icl 'srcmd.s'
+    icl 'rdglue.s'
 
 ; ----------------------------------------------------------------------------
 ; fs_init

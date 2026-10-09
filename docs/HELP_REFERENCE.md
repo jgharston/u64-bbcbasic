@@ -28,13 +28,13 @@ stops.
 ```
 Topics (*HELP <topic>):
 
-ASSEMBLER    BBC          COLOURS
-CREDITS      DEBUG        ERRORS
-FILES        KEYBOARD     LIMITS
-MEMORY       MOS          OPERATORS
-OSBYTE       OSWORD       REMOTE
-SPEED        ULTIMATE     VARIABLES
-VDUCODES
+/REU         ASSEMBLER    BBC
+COLOURS      CREDITS      DEBUG
+ERRORS       FILES        KEYBOARD
+LIMITS       MEMORY       MOS
+OPERATORS    OSBYTE       OSWORD
+REMOTE       SPEED        ULTIMATE
+VARIABLES    VDUCODES
 ```
 
 ## KEYWORDS
@@ -98,9 +98,9 @@ VDU          VPOS         WIDTH
 *PARTITION   *PARTITIONS  *PWD
 *RENAME      *SAVE        *SETTIME
 *SHADOW      *SID         *SOUND
-*STATUS      *SWAP        *TIME
-*TURBO       *TYPE        *UNMOUNT
-*UVER
+*SRREAD      *SRWRITE     *STATUS
+*SWAP        *TIME        *TURBO
+*TYPE        *UNMOUNT     *UVER
 ```
 
 ## BBC
@@ -406,7 +406,13 @@ TIME (5 bytes, centiseconds), 9 reads a
 pixel (POINT), 10 reads a character
 definition (block +0 = character; +1 to
 +8 = rows), 14 reads the Ultimate's
-clock. Others are ignored.
+clock, &42 copies between memory and
+the REU (block +0: &80 to the REU, 0
+from it; +1/+2 address; +5/+6 length;
++7 the REU's 64K bank (4-255); +8/+9
+address in the bank; as the Master's
+sideways RAM transfer). Others are
+ignored.
 
 OSWORD 14 as on a BBC Master: put 0 in
 the first byte of a 25-byte block for
@@ -1017,6 +1023,69 @@ FILTER [LOW] [BAND] [HIGH] [RES r] [CUT
 c] (c 0-255), NOFILTER, FINE f.
 Example: *INSTRUMENT 20 COPY 2 SAW ADSR
 0 8 0 9. Needs an REU.
+```
+
+## *SRWRITE
+
+Also: `SRWRITE`
+
+```
+  *SRWRITE <start> <end> <REU addr>
+  *SRWRITE <start> +<len> <REU addr>
+
+Copies memory to the REU, as the BBC
+Master's sideways RAM command. Programs
+keep data there (tables, levels, text,
+pictures) and fetch it with *SRREAD.
+REU addresses from &40000 up to the
+REU's size (&40000-&FFFFFF with 16 MB);
+memory from PAGE to &7FFF. Numbers
+decimal or &hex.
+
+  *SRWRITE &3000 +&1000 &40000
+
+OSWORD &42 does the same from a program
+(see OSWORD).
+```
+
+## *SRREAD
+
+Also: `SRREAD`
+
+```
+  *SRREAD <start> <end> <REU addr>
+  *SRREAD <start> +<len> <REU addr>
+
+Copies from the REU into memory at
+start, the reverse of *SRWRITE.
+
+  *SRREAD &3000 +&1000 &40000
+```
+
+## /REU
+
+Also: `RAMDISK`, `RAM`
+
+```
+The REU RAM disk: up to 127 files in
+the REU from 1 MB up (an REU of 2 MB or
+more), as the directory /REU. *DIR /REU
+makes it current (*DIR .. goes back),
+or give names as /REU/NAME.
+
+LOAD, SAVE, CHAIN, *LOAD, *SAVE, *CAT,
+*DELETE, *RENAME and *TYPE work there
+at REU speed, as do OPENIN, OPENOUT,
+OPENUP, BGET#, BPUT#, PTR#, EXT# and
+EOF#. *COPY copies between /REU and the
+Ultimate's drives:
+
+  *COPY GAME /REU
+  *COPY /REU/GAME /Usb0/games
+
+Names up to 16 characters, no
+directories. The disk survives a reset,
+not switching off.
 ```
 
 ## *STATUS

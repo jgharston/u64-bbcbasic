@@ -51,6 +51,7 @@ what this BASIC can and cannot do.
 | `src/mos/mos.s` | bank 0: boot, VDU, keyboard, OSBYTE/OSWORD, OSCLI, *HELP reader |
 | `src/mos/resident.s` | RAM $C400-$C7FF: entry points, trampoline, IRQ/BRK/NMI, mailbox |
 | `src/mos/uci.s`, `fs.s`, `ucmds.s` | bank 2: UCI driver, filing system, Ultimate commands |
-| `src/help/help.txt` | *HELP source (banks 3+, docs/HELP_REFERENCE.md) |
+| `src/mos/reudisk.s`, `rdglue.s` | bank 5: the /REU RAM disk; its routing (bank 2) |
+| `src/help/help.txt` | *HELP source (banks 6+, docs/HELP_REFERENCE.md) |
 | `tools/` | mkcrt, gentables, genhelp, checkcfg, bbctok (tokeniser), u64remote, u64mcp |
 | `tests/e2e/` | end-to-end suite |

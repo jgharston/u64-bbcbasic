@@ -25,3 +25,6 @@
 
     org $8000, $C000            ; bank 4 (Upic Lite images)
     icl 'ulbank.s'
+
+    org $8000, $C000            ; bank 5 (the REU RAM disk)
+    icl 'rdbank.s'

@@ -276,6 +276,11 @@ cmd_copy:
     jsr uci_need
     jsr arg_name                ; from
     sty fsCNT
+    jsr rd_copy                 ; to or from the REU RAM disk? (rdglue.s)
+    bcc cc_ult
+    rts
+cc_ult:
+    ldy fsCNT
     ldx #0
     jsr rn_copy
     lda #0

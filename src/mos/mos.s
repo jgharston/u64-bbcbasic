@@ -73,6 +73,7 @@ cold:
     jsr font_to_reu             ; fonts for MODE changes and bitmap text
     farcall font_keepdef, BANK_FS ; and the start-up font for *FONT DEFAULT
     farcall snd_instinit, BANK_FS ; default instruments to the REU
+    farcall rd_boot, BANK_RD    ; the REU RAM disk
     jsr ul_detect               ; Upic Lite possible?
     jsr banner
     jmp enter_lang
@@ -1190,7 +1191,8 @@ ink_esc:
 ; mos_word (OSWORD)
 ;   Summary: OSWORD calls 0 (read line), 1 (read TIME), 2 (write TIME),
 ;            7 (SOUND), 8 (ENVELOPE), 9 (read a pixel), 10 (read a
-;            character definition), 14 (read the clock, bank 2). Other calls
+;            character definition), 14 (read the clock, bank 2), &42
+;            (REU data transfer, as the Master's sideways RAM). Other calls
 ;            return without action.
 ;   Input:   A = call number, X/Y = address of the parameter block.
 ;   Output:  per call.
@@ -1200,7 +1202,9 @@ mos_word:
     stx mosPTR
     sty mosPTR+1
     cmp #0
-    beq word0
+    bne mw_not0
+    jmp word0
+mw_not0:
     cmp #1
     bne mw_not1
     jmp word1
@@ -1227,6 +1231,11 @@ mw_not9:
     bne mw_not10
     jmp word10
 mw_not10:
+    cmp #$42
+    bne mw_not42
+    farcall sr_word, BANK_FS    ; REU data transfer (srcmd.s)
+    rts
+mw_not42:
     cmp #14
     bne mw_not14
     farcall clock_word, BANK_FS ; OSWORD 14: read the clock
@@ -1731,6 +1740,8 @@ cmd_table:
     dta 'SETTIME', 0, a(cmd_settime), BANK_FS
     dta 'SHADOW', 0, a(cmd_shadow), BANK_MOS
     dta 'SOUND', 0, a(cmd_sound), BANK_FS
+    dta 'SRREAD', 0, a(cmd_srread), BANK_FS
+    dta 'SRWRITE', 0, a(cmd_srwrite), BANK_FS
     dta 'SID', 0, a(cmd_sid), BANK_FS
     dta 'STATUS', 0, a(cmd_status), BANK_FS
     dta 'SWAP', 0, a(cmd_swap), BANK_FS

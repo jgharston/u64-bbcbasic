@@ -247,9 +247,12 @@ ff_closeall:
     lda ch_open,x
     beq ff_cnext
     stx fsCH
+    lsr                         ; (bit 0: on the REU RAM disk, nothing to
+    bcs ff_creu                 ; close there)
     inx
     stx fsTGT
     jsr fs_close_tgt
+ff_creu:
     ldx fsCH
     lda #0
     sta ch_open,x
@@ -260,7 +263,11 @@ ff_cnext:
     bcs ff_ret0
 ff_close1:
     jsr fs_chan
+    lda ch_open,x
+    lsr
+    bcs ff_c1reu
     jsr fs_close_tgt
+ff_c1reu:
     ldx fsCH
     lda #0
     sta ch_open,x
@@ -281,6 +288,11 @@ ff_open:
     dta 192, 'Too many open files', 0
 ff_got:
     stx fsCH
+    jsr rd_route                ; a file on the REU RAM disk?
+    bcc ff_ult
+    jmp rd_ffopen
+ff_ult:
+    ldx fsCH
     inx
     stx fsTGT
     lda fsMODE
@@ -442,6 +454,15 @@ fs_bget:
     jsr fs_chan
     jsr fs_ateof
     bcs fb_eof
+    lda ch_open,x               ; on the REU RAM disk?
+    lsr
+    bcc fb_ult
+    jsr rd_chptr
+    farcall rd_fbget, BANK_RD
+    bcs fb_eof
+    sta fsTMP
+    jmp fb_got
+fb_ult:
     lda #DOS_READ
     jsr fs_hdr2
     lda #1
@@ -466,6 +487,7 @@ fs_bget:
     jsr uci_finish
     pla
     beq fb_eof                  ; no byte: the file ended early
+fb_got:
     ldx fsCH
     jsr fs_incptr
     lda fsTMP
@@ -491,6 +513,15 @@ fs_bput:
     stx fsSX
     sty fsSY
     jsr fs_chan
+    lda ch_open,x               ; on the REU RAM disk?
+    lsr
+    bcc fp_ult
+    lda fsTMP
+    sta RD_CBYTE
+    jsr rd_chptr
+    farcall rd_fbput, BANK_RD
+    jmp fpu_done
+fp_ult:
     lda #DOS_WRITE
     jsr fs_hdr2
     lda #0
@@ -507,6 +538,7 @@ fs_bput:
     lda #0
     sta fsLEN+1
     jsr uci_cmd_payload
+fpu_done:
     ldx fsCH
     jsr fs_incptr
     lda fsTMP
@@ -578,6 +610,25 @@ fa_ext:
     sta $03,x
     jmp fa_ret
 fa_setptr:                      ; A=1: seek
+    ldx fsCH                    ; on the REU RAM disk: only PTR# (EXT#
+    lda ch_open,x               ; grows when a byte is written there)
+    lsr
+    bcc fa_useek
+    txa
+    asl
+    asl
+    tay
+    ldx fsSX
+    lda $00,x
+    sta ch_ptr,y
+    lda $01,x
+    sta ch_ptr+1,y
+    lda $02,x
+    sta ch_ptr+2,y
+    lda $03,x
+    sta ch_ptr+3,y
+    jmp fa_ret
+fa_useek:
     lda #DOS_SEEK
     jsr fs_hdr2
     ldx fsSX
@@ -673,6 +724,10 @@ fl_load:
     bcc fl_file
     jmp fl_rload
 fl_file:
+    jsr rd_route                ; the REU RAM disk? (rdglue.s)
+    bcc fl_ufile
+    jmp rf_load
+fl_ufile:
     ldy #6                      ; own load address wanted?
     lda (fsBLK),y
     beq fl_addr
@@ -815,6 +870,10 @@ fl_send_nopay:
 
 ; OSFILE 0: save start..end
 fl_save:
+    jsr rd_route                ; the REU RAM disk?
+    bcc fl_usave
+    jmp rf_save
+fl_usave:
     ldy #10
     lda (fsBLK),y
     sta fsADDR
@@ -928,6 +987,10 @@ fse_back:
 
 ; OSFILE 5: read information (A = 1 and length, or A = 0 if not found)
 fl_info:
+    jsr rd_route                ; the REU RAM disk?
+    bcc fl_uinfo
+    jmp rf_info
+fl_uinfo:
     jsr fs_free_target
     lda #FA_READ
     jsr fs_open
@@ -951,6 +1014,10 @@ fi_len:
 
 ; OSFILE 6: delete
 fl_delete:
+    jsr rd_route                ; the REU RAM disk?
+    bcc fl_udel
+    jmp rf_delete
+fl_udel:
     jsr uci_need
     jsr fs_free_target
     jsr fs_name

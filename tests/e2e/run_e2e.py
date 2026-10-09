@@ -878,6 +878,84 @@ def test_text_colours(t):
     run_line(t, "VDU 19,0,0,0,0,0", ">")
 
 
+def test_reu_storage(t):
+    # *SRWRITE / *SRREAD and OSWORD &42: a pattern to the REU and back
+    if t.is_vice:
+        run_line(t, "*SRWRITE &4000 +16 &40000", "No REU")
+        return
+    run_line(t, "FOR I%=0 TO 255:I%?&4000=I%:NEXT", ">")
+    run_line(t, "*SRWRITE &4000 +256 &40100", ">")
+    run_line(t, "FOR I%=0 TO 255:I%?&4000=0:NEXT", ">")
+    run_line(t, "*SRREAD &4100 &4200 &40100", ">")
+    run_line(t, 'PRINT "R=";?&4100;",";?&41FF;",";?&4000', "R=0,255,0")
+    run_line(t, "DIM B% 10:B%?0=0:B%!1=&4200:B%?5=0:B%?6=1", ">")
+    run_line(t, "B%?7=4:B%?8=0:B%?9=1:A%=&42:X%=B%:Y%=B% DIV 256:CALL &C7F1", ">")
+    run_line(t, 'PRINT "R=";?&4280', "R=128")
+    run_line(t, "*SRWRITE &4000 +16 &3FFF0", "Bad address")
+    run_line(t, "*SRREAD &1000 +16 &40000", "Bad address")
+
+
+def test_ramdisk(t):
+    # the REU RAM disk as /REU: SAVE/LOAD, *SAVE/*LOAD, *CAT, *RENAME,
+    # *DELETE, *TYPE, *COPY both ways, full names from elsewhere
+    if t.is_vice:
+        run_line(t, "*DIR /REU", "No RAM disk")
+        return
+    ult(t)                                      # current directory /Temp
+    run_line(t, "*DIR /REU", ">")
+    run_line(t, "*PWD", "/REU")
+    run_line(t, "NEW", ">")
+    run_line(t, '10 PRINT "RAMDISK OK"', ">")
+    run_line(t, 'SAVE "TPROG"', ">")
+    run_line(t, "NEW", ">")
+    run_line(t, 'LOAD "TPROG"', ">")
+    run_line(t, "RUN", "RAMDISK OK")
+    run_line(t, "FOR I%=0 TO 99:I%?&4000=I%:NEXT", ">")
+    run_line(t, "*SAVE TDATA &4000 +100", ">")
+    run_line(t, "*LOAD TDATA &5000", ">")
+    run_line(t, 'PRINT "R=";?&5000;",";?&5063', "R=0,99")
+    run_line(t, "*RENAME TDATA TDAT2", ">")
+    rows = run_line(t, "*CAT", "files")
+    assert any("TDAT2" in r for r in rows) and any("TPROG" in r for r in rows), rows
+    run_line(t, "*DELETE TPROG", ">")
+    rows = run_line(t, "*CAT", "files")
+    assert not any("TPROG" in r for r in rows), rows
+    run_line(t, "*DIR ..", ">")
+    run_line(t, "*PWD", "/Temp")
+    rows = run_line(t, "*CAT /REU", "files")
+    assert any("TDAT2" in r for r in rows), rows
+    run_line(t, 'F%=OPENOUT "/Temp/TTEXT":A$="HELLO REU"', ">")
+    run_line(t, "FOR I%=1 TO LEN A$:BPUT#F%,ASC MID$(A$,I%,1):NEXT:CLOSE#F%", ">")
+    run_line(t, "*COPY /Temp/TTEXT /REU", ">")
+    run_line(t, "*TYPE /REU/TTEXT", "HELLO REU")
+    run_line(t, "*COPY /REU/TDAT2 /Temp", ">")
+    run_line(t, "*LOAD /Temp/TDAT2 &6000", ">")
+    run_line(t, 'PRINT "R=";?&6063', "R=99")
+    for line in ("*DELETE /REU/TDAT2", "*DELETE /REU/TTEXT", "*DELETE /Temp/TDAT2",
+                 "*DELETE /Temp/TTEXT"):
+        run_line(t, line, ">")
+    # open files: write, read, PTR#, EOF#; growing a file that is not the
+    # last one (it moves to the end); zeros up to PTR#; "Open"
+    run_line(t, 'F%=OPENOUT "/REU/TF"', ">")
+    run_line(t, "FOR I%=1 TO 300:BPUT#F%,I% MOD 256:NEXT:CLOSE#F%", ">")
+    run_line(t, '*SAVE /REU/TG &4000 +100', ">")
+    run_line(t, 'F%=OPENIN "/REU/TF":PRINT "E=";EXT#F%', "E=300")
+    run_line(t, 'PTR#F%=200:PRINT "B=";BGET#F%;" P=";PTR#F%', "B=201 P=201")
+    run_line(t, '*DELETE /REU/TF', "Open")
+    run_line(t, 'PTR#F%=300:PRINT "Q=";EOF#F%:CLOSE#F%', "Q=-1")
+    run_line(t, 'F%=OPENUP "/REU/TF":PTR#F%=EXT#F%:BPUT#F%,77', ">")
+    run_line(t, 'PRINT "E=";EXT#F%:CLOSE#F%', "E=301")
+    run_line(t, 'F%=OPENIN "/REU/TF":PTR#F%=300:A%=BGET#F%', ">")
+    run_line(t, 'PTR#F%=0:PRINT "L=";A%;",";BGET#F%:CLOSE#F%', "L=77,1")
+    run_line(t, "*LOAD /REU/TG &5000", ">")
+    run_line(t, 'PRINT "R=";?&5063', "R=99")
+    run_line(t, 'F%=OPENOUT "/REU/TH":PTR#F%=10:BPUT#F%,9', ">")
+    run_line(t, 'PTR#F%=0:PRINT "Z=";EXT#F%;",";BGET#F%:CLOSE#F%', "Z=11,0")
+    run_line(t, 'PRINT "N=";OPENIN "/REU/NONE"', "N=0")
+    for line in ("*DELETE /REU/TF", "*DELETE /REU/TG", "*DELETE /REU/TH"):
+        run_line(t, line, ">")
+
+
 def test_gfx_patterns(t):
     # ECF: GCOL 16 + action selects pattern 1 (checker of colours 1, 0);
     # VDU 23,12 redefines pattern 1 (2 x 4 logical colours); VDU 23,11
@@ -1150,7 +1228,8 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode,
-         test_sid, test_text_colours,
+         test_sid, test_text_colours, test_reu_storage,
+         test_ramdisk,
          test_gfx_vdu5,
          test_gfx_mode3,
          test_gfx_teletext,
