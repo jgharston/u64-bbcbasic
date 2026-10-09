@@ -93,15 +93,15 @@ VDU          VPOS         WIDTH
 *CAT         *COPY        *CP
 *DELETE      *DIR         *DRIVE
 *FONT        *FX          *HELP
-*INSTRUMENT  *LOAD        *MEMORY
-*MKDIR       *MOUNT       *PALETTE
-*PARTITION   *PARTITIONS  *PWD
-*RENAME      *SAVE        *SETTIME
-*SHADOW      *SID         *SONG
-*SOUND       *SRREAD      *SRWRITE
-*STATUS      *SWAP        *TIME
-*TURBO       *TYPE        *UNMOUNT
-*UVER
+*INSTRUMENT  *LIST        *LOAD
+*MEMORY      *MKDIR       *MOUNT
+*PALETTE     *PARTITION   *PARTITIONS
+*PWD         *RENAME      *SAVE
+*SETTIME     *SHADOW      *SID
+*SONG        *SOUND       *SRREAD
+*SRWRITE     *STATUS      *SWAP
+*TIME        *TURBO       *TYPE
+*UNMOUNT     *UVER
 ```
 
 ## BBC
@@ -778,6 +778,26 @@ Also: `RENAME`
   *RENAME <old> <new>
 
 Renames a file.
+```
+
+## *LIST
+
+```
+  *LIST           all
+  *LIST n         line n
+  *LIST n,        from line n
+  *LIST ,m        up to line m
+  *LIST n,m       lines n to m
+
+Lists the program indented by its
+structure: two spaces per level of DEF
+PROC ... ENDPROC, a DEF FN that ends
+with a line starting "=", FOR ... NEXT
+and REPEAT ... UNTIL (LISTO 7 indents
+only the loops). The program itself is
+not changed; spaces at the start of its
+lines are replaced by the indentation.
+ESCAPE stops.
 ```
 
 ## *LOAD

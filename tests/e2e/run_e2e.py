@@ -918,6 +918,32 @@ def test_song(t):
     run_line(t, "*SOUND SID", ">")
 
 
+def test_star_list(t):
+    # *LIST: indented by structure (PROC bodies too), keywords spelt out,
+    # line number constants decoded, ranges as LIST
+    run_line(t, "NEW", ">")
+    for line in ('10 DEF PROCa', '20 FOR I%=1 TO 2', '30 PRINT "FOR";I%',
+                 '40 NEXT', '50 ENDPROC', '60 DEF FNb(X)', '70 =X*2',
+                 '80 DEF FNc(X)=X', '90 REPEAT:UNTIL TRUE', '100 GOTO 30',
+                 '110 REM FOR NEXT'):
+        run_line(t, line, ">")
+    rows = run_line(t, "*LIST", "110 REM")
+    want = ["   10 DEF PROCa", "   20   FOR I%=1 TO 2", '   30     PRINT "FOR";I%',
+            "   40   NEXT", "   50 ENDPROC", "   60 DEF FNb(X)", "   70 =X*2",
+            "   80 DEF FNc(X)=X", "   90 REPEAT:UNTIL TRUE", "  100 GOTO 30",
+            "  110 REM FOR NEXT"]
+    got = [r.rstrip() for r in rows if r[:5].strip().isdigit()]
+    for w in want:
+        assert w in got, (w, got)
+    rows = run_line(t, "*LIST 20,40", ">")
+    got = [r.rstrip() for r in rows if r[:5].strip().isdigit()]
+    assert got[-3:] == want[1:4], got
+    rows = run_line(t, "*LIST 70", ">")
+    got = [r.rstrip() for r in rows if r[:5].strip().isdigit()]
+    assert got[-1] == "   70 =X*2", got
+    run_line(t, "NEW", ">")
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -1340,7 +1366,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song,
+         test_inst_mods, test_song, test_star_list,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

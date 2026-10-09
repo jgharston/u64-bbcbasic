@@ -20,6 +20,7 @@
     icl 'font.s'
     icl 'sidcmd.s'
     icl 'reufile.s'
+    icl 'listcmd.s'
     icl 'srcmd.s'
     icl 'rdglue.s'
 

@@ -1732,6 +1732,7 @@ cmd_table:
     dta 'FX', 0, a(cmd_fx), BANK_MOS
     dta 'HELP', 0, a(cmd_help), BANK_MOS
     dta 'LOAD', 0, a(cmd_load), BANK_FS
+    dta 'LIST', 0, a(cmd_list), BANK_FS
     dta 'MKDIR', 0, a(cmd_mkdir), BANK_FS
     dta 'MOUNT', 0, a(cmd_mount), BANK_FS
     dta 'MEMORY', 0, a(cmd_memory), BANK_FS
