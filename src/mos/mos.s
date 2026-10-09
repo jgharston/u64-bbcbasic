@@ -75,6 +75,7 @@ cold:
     farcall font_keepdef, BANK_FS ; and the start-up font for *FONT DEFAULT
     farcall snd_instinit, BANK_SND ; default instruments to the REU
     farcall rd_boot, BANK_RD    ; the REU RAM disk
+    farcall net.net_init, BANK_NET ; no JSON reply kept
     jsr ul_detect               ; Upic Lite possible?
     jsr banner
     jmp enter_lang
@@ -1241,6 +1242,11 @@ mw_not10:
     farcall sr_word, BANK_FS    ; REU data transfer (srcmd.s)
     rts
 mw_not42:
+    cmp #$70
+    bne mw_not70
+    farcall net.json_word, BANK_NET ; a JSON value (netcmd.s)
+    rts
+mw_not70:
     cmp #14
     bne mw_not14
     farcall clock_word, BANK_FS ; OSWORD 14: read the clock
@@ -1735,6 +1741,8 @@ cmd_table:
     dta 'LIST', 0, a(cmd_list), BANK_FS
     dta 'MKDIR', 0, a(cmd_mkdir), BANK_FS
     dta 'MOUNT', 0, a(cmd_mount), BANK_FS
+    dta 'NET', 0, a(net.cmd_net), BANK_NET
+    dta 'JSON', 0, a(net.cmd_json), BANK_NET
     dta 'MEMORY', 0, a(cmd_memory), BANK_FS
     dta 'PALETTE', 0, a(cmd_palette), BANK_FS
     dta 'PARTITION', 0, a(cmd_partition), BANK_FS

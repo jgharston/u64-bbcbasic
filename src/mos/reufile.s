@@ -81,6 +81,42 @@ rx_err:
     jmp uci_error
 
 ; ----------------------------------------------------------------------------
+; rx_wtail
+;   Summary: write the first X bytes (1-255) of the REU page at bank A,
+;            page Y to the open file (the end of something not a whole
+;            number of pages long).
+;   Output:  raises the Ultimate's error (the file closed).
+;   Uses:    A, X, Y, fs*, rx_*.
+rx_wtail:
+    stx fsTMP+3
+    ldx #1
+    jsr rx_set
+    jsr rx_reu
+    lda #REU_TO_C64
+    sta REU_CMD
+    lda #<MOSBUF
+    sta fsPTR
+    lda #>MOSBUF
+    sta fsPTR+1
+    lda fsTMP+3
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    lda #DOS_WRITE
+    jsr fs_hdr2
+    lda #0
+    sta uciHDR+2
+    sta uciHDR+3
+    lda #4
+    sta uciHLEN
+    jsr uci_send
+    jsr uci_finish
+    bcc rwt_rts
+    jmp rx_err
+rwt_rts:
+    rts
+
+; ----------------------------------------------------------------------------
 ; rx_read
 ;   Summary: read up to X pages from the open file into the REU at bank
 ;            A, page Y; a short last piece is padded with zeros.

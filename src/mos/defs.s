@@ -32,7 +32,8 @@ BANK_GFX    = 3                 ; graphics: modes, palettes, Upic Lite (gxbank.s
 BANK_UL     = 4                 ; Upic Lite RAM images (ulbank.s)
 BANK_RD     = 5                 ; the REU RAM disk (reudisk.s)
 BANK_SND    = 6                 ; sound: engine images, commands (sndbank.s)
-BANK_HELP   = 7                 ; first help bank: index + texts (tools/genhelp.py)
+BANK_NET    = 7                 ; network (netbank.s)
+BANK_HELP   = 8                 ; first help bank: index + texts (tools/genhelp.py)
 BANK_RAM    = $FF               ; cartridge off: BASIC runs from its RAM
                                 ; copy at $8000-$BFFF. The Ultimate 64 runs
                                 ; cartridge ROM fetches at 1 MHz, RAM at

@@ -464,7 +464,8 @@ def test_a_clock(t):
                  r"|Aug|Sep|Oct|Nov|Dec) (\d{4})\.(\d\d):(\d\d):(\d\d)$", lines[0])
     assert m, lines
     bcd = lines[1].split()
-    assert len(bcd) == 7 and bcd[0] == m.group(4)[2:] and int(bcd[2], 16) == int(m.group(2)) \
+    # (BCD bytes printed in hex read as decimal digits: day 10 is "10")
+    assert len(bcd) == 7 and bcd[0] == m.group(4)[2:] and int(bcd[2]) == int(m.group(2)) \
         and int(bcd[3]) in range(1, 8), lines
     import datetime
     dow = datetime.date(int(m.group(4)), int(bcd[1]), int(bcd[2])).isoweekday() % 7 + 1
@@ -944,6 +945,85 @@ def test_star_list(t):
     run_line(t, "NEW", ">")
 
 
+def test_net(t):
+    # *NET: the Ultimate's address; *NET GET through the firmware's HTTP
+    # target (needs the internet: example.com over plain http)
+    if not ult(t):
+        run_line(t, "*NET", "No Ultimate")
+        return
+    run_line(t, "*NET", "Gateway")
+    run_line(t, "*NET GET http://example.com/ /Temp/TNET", "bytes", timeout=60)
+    run_line(t, "*TYPE /Temp/TNET", "</html>")
+    # (no 404 check: firmware 3.15a's raw exchange returns no status, so
+    # an error page is saved like any reply; DESIGN_NETWORK.md section 8)
+    run_line(t, "*DELETE /Temp/TNET", ">")
+    rows = run_line(t, "*NET TIME", ">", timeout=30)   # the firmware's SNTP
+    assert any(r.count(":") == 2 for r in rows), rows  # "Sat,10 Oct 2026.08:00:00"
+    run_line(t, "*NET RANDOM", "RND seeded", timeout=60)
+
+
+def test_json(t):
+    # *JSON through the firmware's HTTP target (needs the internet); the
+    # BASIC library (demos/net/JSONLIB) through OSWORD &70
+    if not ult(t):
+        run_line(t, "*JSON message", "No Ultimate")
+        return
+    run_line(t, "*JSON GET http://api.open-notify.org/iss-now.json", ">", timeout=60)
+    run_line(t, "*JSON message", "success")
+    rows = run_line(t, "*JSON timestamp", ">")
+    assert any(r.strip().isdigit() for r in rows), rows
+    run_line(t, "*JSON nothere", "element nothere")   # (firmware: 400 ...)
+    lib = open(os.path.join(os.path.dirname(__file__), "..", "..", "demos", "net",
+                            "JSONLIB.bas")).read()
+    prog = ('10 PROCjsoninit\n'
+            '20 PRINT "T=";FNjsontype("iss_position");" C=";FNjsoncount("iss_position")\n'
+            '30 PRINT "M=";FNjson("message")\n'
+            '40 PRINT "N=";FNjsonnum("timestamp")>1E9\n'
+            '50 END\n' + lib)
+    out = remote(t).send_program(prog, run=True, timeout=60)["output"]
+    assert "T=4 C=2" in out and "M=success" in out and "N=-1" in out, out
+
+
+def test_netchan(t):
+    # network channels: OPENIN "http://..." read as a file; a TCP socket
+    # (an HTTP request sent by hand to example.com:80, the reply's first line)
+    if not ult(t):
+        run_line(t, 'F%=OPENIN "TCP:example.com:80"', "No Ultimate")
+        return
+    prog = '''10 F%=OPENIN "http://example.com/"
+20 PRINT "H=";EXT#F%>100;
+30 A$="":FOR I%=1 TO 15:A$=A$+CHR$BGET#F%:NEXT
+40 PRINT " ";A$:CLOSE#F%
+50 F%=OPENUP "TCP:example.com:80"
+60 PROCsend("GET / HTTP/1.0"):PROCsend("Host: example.com"):PROCsend("")
+70 A$="":REPEAT C%=BGET#F%:IF C%>31 A$=A$+CHR$C%
+80 UNTIL C%=10 OR EOF#F%
+90 PRINT "T=";LEFT$(A$,12)
+100 REPEAT C%=BGET#F%:UNTIL EOF#F%
+110 PRINT "E=";EOF#F%:CLOSE#F%
+120 END
+130 DEF PROCsend(A$)
+140   LOCAL I%
+150   IF A$<>"" FOR I%=1 TO LEN A$:BPUT#F%,ASC MID$(A$,I%,1):NEXT
+160   BPUT#F%,13:BPUT#F%,10
+170 ENDPROC
+'''
+    out = remote(t).send_program(prog, run=True, timeout=90)["output"]
+    assert "h=-1 <!doctype html>" in out.lower(), out
+    assert "T=HTTP/1.0 200" in out or "T=HTTP/1.1 200" in out, out
+    assert "E=-1" in out, out
+    # UDP: an NTP request (48 bytes, PTR#=0 sends the datagram), the reply's
+    # first byte has mode 4 (server) in its low 3 bits, 48 bytes long
+    prog = """10 F%=OPENUP "UDP:pool.ntp.org:123"
+20 BPUT#F%,&1B:FOR I%=2 TO 48:BPUT#F%,0:NEXT:PTR#F%=0
+30 T%=TIME:REPEAT UNTIL EXT#F%>0 OR TIME>T%+500
+40 N%=EXT#F%:B%=BGET#F%:PRINT "N=";N%;" M=";B% AND 7
+50 CLOSE#F%:END
+"""
+    out = remote(t).send_program(prog, run=True, timeout=60)["output"]
+    assert "N=48 M=4" in out, out
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -1366,7 +1446,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list,
+         test_inst_mods, test_song, test_star_list, test_net, test_json, test_netchan,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

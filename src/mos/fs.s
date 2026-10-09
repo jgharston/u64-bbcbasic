@@ -248,7 +248,12 @@ ff_closeall:
     beq ff_cnext
     stx fsCH
     lsr                         ; (bit 0: on the REU RAM disk, nothing to
-    bcs ff_creu                 ; close there)
+    bcs ff_creu                 ; close there; bit 1: the network)
+    lsr
+    bcc ff_cufile
+    farcall net.nc_close, BANK_NET
+    jmp ff_creu
+ff_cufile:
     inx
     stx fsTGT
     jsr fs_close_tgt
@@ -266,6 +271,11 @@ ff_close1:
     lda ch_open,x
     lsr
     bcs ff_c1reu
+    lsr                         ; (the network: bank 7)
+    bcc ff_c1file
+    farcall net.nc_close, BANK_NET
+    jmp ff_c1reu
+ff_c1file:
     jsr fs_close_tgt
 ff_c1reu:
     ldx fsCH
@@ -288,6 +298,13 @@ ff_open:
     dta 192, 'Too many open files', 0
 ff_got:
     stx fsCH
+    farcall net.nc_isnet, BANK_NET ; TCP:, UDP:, http://? (netchan.s)
+    bcc ff_file
+    ldx fsCH
+    lda fsMODE
+    farcall net.nc_open, BANK_NET
+    jmp ff_ret
+ff_file:
     jsr rd_route                ; a file on the REU RAM disk?
     bcc ff_ult
     jmp rd_ffopen
@@ -314,7 +331,9 @@ ff_try:
     lda fsMODE                  ; failed: OPENOUT raises, others give 0
     and #$C0
     cmp #$80
-    bne ff_ret0
+    beq ff_oerr
+    jmp ff_ret0
+ff_oerr:
     jmp uci_error
 ff_opened:
     ldx fsCH                    ; PTR = 0
@@ -432,7 +451,13 @@ fs_eof:
     txa
     tay
     jsr fs_chan
+    jsr fs_isnet
+    beq fe_file
+    farcall net.nc_eof, BANK_NET
+    jmp fe_c
+fe_file:
     jsr fs_ateof
+fe_c:
     ldx #0
     bcc fe_ret
     dex
@@ -452,6 +477,13 @@ fs_bget:
     stx fsSX
     sty fsSY
     jsr fs_chan
+    jsr fs_isnet                ; the network (netchan.s)?
+    beq fb_file
+    farcall net.nc_bget, BANK_NET
+    ldx fsSX
+    ldy fsSY
+    rts
+fb_file:
     jsr fs_ateof
     bcs fb_eof
     lda ch_open,x               ; on the REU RAM disk?
@@ -513,6 +545,15 @@ fs_bput:
     stx fsSX
     sty fsSY
     jsr fs_chan
+    jsr fs_isnet                ; the network?
+    beq fp_file
+    lda fsTMP
+    farcall net.nc_bput, BANK_NET
+    lda fsTMP
+    ldx fsSX
+    ldy fsSY
+    rts
+fp_file:
     lda ch_open,x               ; on the REU RAM disk?
     lsr
     bcc fp_ult
@@ -571,6 +612,29 @@ fa_fsnum:
     jmp fa_retA
 fa_chan:
     jsr fs_chan
+    jsr fs_isnet                ; the network: EXT#, setting PTR# there
+    beq fa_file
+    lda fsMODE
+    cmp #2
+    bne fa_nptr
+    farcall net.nc_ext, BANK_NET
+    ldx fsSX
+    ldy #0
+fa_next:
+    lda fsTMP,y
+    sta $00,x
+    inx
+    iny
+    cpy #4
+    bne fa_next
+    jmp fa_ret
+fa_nptr:
+    cmp #1
+    bne fa_file
+    farcall net.nc_setptr, BANK_NET
+    jmp fa_ret
+fa_file:
+    ldx fsCH
     lda fsMODE
     cmp #2
     beq fa_ext
@@ -1043,4 +1107,11 @@ lo_page:
     rts
 lop_none:
     lda #>OSHWM_NONE
+    rts
+
+; fs_isnet: channel index X: Z = 0 if it is a network channel (bit 1 of
+; ch_open: netchan.s). X kept.  Uses: A.
+fs_isnet:
+    lda ch_open,x
+    and #2
     rts

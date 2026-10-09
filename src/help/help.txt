@@ -209,7 +209,7 @@ OSBYTE calls (*FX a,x,y) available:
 Other calls are ignored.
 
 @@ OSWORD
-OSWORD calls available: 0 reads a line (screen editor), 1 reads TIME, 2 sets TIME (5 bytes, centiseconds), 9 reads a pixel (POINT), 10 reads a character definition (block +0 = character; +1 to +8 = rows), 14 reads the Ultimate's clock, &42 copies between memory and the REU (block +0: &80 to the REU, 0 from it; +1/+2 address; +5/+6 length; +7 the REU's 64K bank (4-255); +8/+9 address in the bank; as the Master's sideways RAM transfer). Others are ignored.
+OSWORD calls available: 0 reads a line (screen editor), 1 reads TIME, 2 sets TIME (5 bytes, centiseconds), 9 reads a pixel (POINT), 10 reads a character definition (block +0 = character; +1 to +8 = rows), 14 reads the Ultimate's clock, &42 copies between memory and the REU (block +0: &80 to the REU, 0 from it; +1/+2 address; +5/+6 length; +7 the REU's 64K bank (4-255); +8/+9 address in the bank; as the Master's sideways RAM transfer), &70 reads a value of the JSON reply *JSON GET keeps (see *JSON). Others are ignored.
 
 OSWORD 14 as on a BBC Master: put 0 in the first byte of a 25-byte block for the text "Wed,07 Oct 2026.08:42:55" and a CR, or 1 for 7 BCD bytes: year (2 digits), month, day, day of week (1 = Sunday), hour, minute, second.
 
@@ -459,6 +459,35 @@ On a 64 MHz Ultimate the BBC modes 0-6 use Upic Lite: exact 320x256 like a BBC M
   *SHADOW 1   normal modes
 
 As on a BBC Master: from the next MODE on, a shadow mode keeps the screen out of BASIC's memory, so HIMEM stays &8000. Here that is the VIC-II version of the mode instead of Upic Lite. MODE 128+n is shadow for that mode only. OSBYTE &72 does the same from a program (X = 0 shadow, 1 normal), OSBYTE &75 bit 4 says whether the current mode is one. See *MEMORY.
+
+@@ *JSON | JSON
+  *JSON GET <url>   fetch and keep
+  *JSON <path>      show a value
+
+A JSON reply from a web address (plain http), read and kept by the Ultimate (firmware 3.15). Paths go down the reply with / and pick an array's element with %n (from 0):
+
+  *JSON GET http://api.open-notify.org/
+    iss-now.json
+  *JSON iss_position/latitude
+  *JSON %0/title
+
+A string is shown as it is, a whole number in decimal, TRUE or FALSE; an object or array shows nothing (OSWORD &70 gives its count).
+
+Programs use OSWORD &70 with a 9-byte block: +0/+1 the path's address, +2 its length, +3/+4 where the value goes, +5 the room there. Back: +6 the type (0 none, 1 number, 2 TRUE/FALSE, 3 string, 4 object, 5 array), +7 the value's length, +8 an object's or array's count. demos/net/JSONLIB has FNjson(path$), FNjsonnum(path$) and FNjsoncount(path$).
+
+@@ *NET | NET | NETWORK
+  *NET                  the address
+  *NET GET <url> <file> download
+  *NET TIME [server]    set the clock
+  *NET RANDOM           seed RND
+
+The Ultimate's network. *NET shows its IP address, netmask and gateway. *NET GET fetches a web address over plain http (not https: the Ultimate cannot do encryption) and saves what it returns in a file, also on the RAM disk; up to 16 KB (the Ultimate keeps no more of a reply). Needs firmware 3.15 and an REU.
+
+  *NET GET http://example.com/ PAGE
+
+*NET TIME has the Ultimate set its clock from a time server (its own SNTP client, in its time zone setting); the server is optional. *NET RANDOM seeds RND from the drand public randomness beacon, so a program gets a sequence nobody can predict.
+
+Files on the network open as channels: OPENIN "http://..." reads a web reply like a file (BGET#, EOF#, EXT#), and OPENUP "TCP:host:port" or "UDP:host:port" opens a connection: BPUT# sends (a TCP line goes out at its CR or LF), BGET# waits for the next byte (ESCAPE stops it), EXT# is the number of bytes waiting, EOF# is TRUE when the other side has closed. PTR#c=0 sends what is waiting (a UDP datagram). At most two files and connections are open at a time.
 
 @@ *PALETTE | PALETTE
   *PALETTE LOAD <file> [VPL]

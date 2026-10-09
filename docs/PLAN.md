@@ -901,6 +901,10 @@ song tracker (`*SONG`, DESIGN_TRACKER.md section 7). Large tables in the
 REU: the BBC envelopes, instruments, wave/arpeggio tables, the song;
 the note queues stay in RAM (the interrupt reads them every time).
 
+Phase 5 (network) status (2026-10-10): built, docs/DESIGN_NETWORK.md
+section 9; the U64TEXT demo and the blog mirror on the BBS server are
+next.
+
 ## 24. Music demo (owner, 2026-10-09)
 
 A music demo that shows off the instruments and all 24 voices, with

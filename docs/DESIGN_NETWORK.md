@@ -132,3 +132,50 @@ enter latitude and longitude directly; "auto" uses the IP's place
 (ip-api.com). The choice (name, latitude, longitude, timezone, units)
 is saved in a settings file next to the program (`U64TEXT.CFG`) and
 read at start-up.
+
+## 8. Findings on the U64 (firmware 3.15a, 2026-10-10)
+
+- The HTTP target has no TLS (plain sockets in `http_request.cc`): https
+  URLs cannot work; the blog needs the plain-HTTP mirror.
+- A reply's body is collected in a 16 KB buffer; more is dropped
+  ("buffer full"). Chunked replies are decoded by the firmware.
+- After a raw exchange (`$32`) the status is empty, also for a 404: the
+  library manual's "the status holds the server's response line" is not
+  what the firmware does. `*NET GET` cannot tell an error page from a
+  reply. The JSON exchange (`$31`) reports errors (a non-JSON reply:
+  "400 NO VALID JSON").
+- A query for a path that is not there: "400 bad format: element ...
+  not found" (the manual says 404).
+- JSON numbers are read with `strtol` (`software/api/json.cc`): the
+  decimals are dropped (12.7 -> 12, 52.09 -> 52) and `null` gives 0.
+  Programs that need decimals read the reply as text (`OPENIN
+  "http://..."`); Open-Meteo's forecast also answers as CSV
+  (`&format=csv`), its geocoding only as JSON.
+- Header create, raw and JSON exchange, body query and the frees work as
+  the library describes otherwise. To be reported to ultimate-uci-oscar64
+  (manual section 19 and the test table, section 20).
+
+## 9. As built (2026-10-10)
+
+Cartridge bank 7 (`netbank.s`: everything inside `.local net`, with its
+own copies of the helpers, `bankhelp.s`, and of the UCI driver, because
+bank 2's read payloads from the mapped bank); the help moved to banks
+8+.
+
+- `*NET` (address, netmask, gateway), `*NET GET <url> <file>`, `*NET
+  TIME [server]` (switches on the Ultimate's own SNTP client through
+  "load config"; no NTP code in the MOS), `*NET RANDOM` (drand beacon,
+  JSON, 40 bits into RND's seed `&0D-&11`).
+- `*JSON GET <url>`, `*JSON <path>`, OSWORD &70, `demos/net/JSONLIB`
+  (lines 30000+: BBC BASIC line numbers end at 32767).
+- Channels (`netchan.s`; hooks in `fs.s`, `ch_open` bit 1): `OPENIN
+  "http://..."` (the reply in the REU buffer, read as a file),
+  `OPENUP "TCP:host:port"` / `"UDP:host:port"`; receive and send
+  buffers in REU bank 0 (`$3100`, `$3300`); a TCP line goes out at CR or
+  LF, `PTR#c=0` sends a UDP datagram. Tested: an HTTP request by hand
+  over TCP to example.com, an NTP query over UDP.
+- REU bank 0 now: `$3100-$34FF` socket buffers, `$4000-$7FFF` the HTTP
+  reply buffer.
+- A BBC BASIC FOR loop runs at least once: `FOR I%=1 TO LEN A$` with an
+  empty A$ sends `ASC ""` (-1, a byte 255) -- the first TCP test
+  program's mistake, worth a line in the manual.
