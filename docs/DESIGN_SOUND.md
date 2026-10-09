@@ -305,3 +305,57 @@ it with its name, `*INSTRUMENT n NAME <text>`, `*INSTRUMENT n COPY m`,
 - Read-back: on the split UltiSIDs the voice-3 read-back registers
   appear to be shared by an UltiSID's four instances, so they cannot
   tell the instances apart; tests read back only SID 0.
+
+## 11. Two engine images, modulation (step b2) (2026-10-09)
+
+Memory (owner: the REU first, PAGE &1D00, options to switch functions
+off for more RAM):
+
+| RAM | |
+|---|---|
+| `&0800-&08FF` | MOSBUF, the `*` commands' 256-byte scratch (moved from `&1800`: under `*SOUND NONE` a program may start at `&900`) |
+| `&0900-&1C5F` | the engine image in use: code and its variables |
+| `&1C60-&1CF5` | data both images share (`defs.s` SNDSHR): mode, on/off, the SIDs found, filter registers, the note being queued, pitch tables, recording |
+| `&1D00` | PAGE (OSHWM) |
+
+- Two images assembled from `sound.s` with `SIDIMG` 0 or 1 (`sound_bbc.s`
+  and `sound_sid.s` are their own parts), both in cartridge bank 6 with
+  the sound commands (`sndbank.s`, `sndcmd.s`, `songcmd.s`; the help
+  moved to banks 7+). `*SOUND BBC` / `SID` copies one into RAM (same
+  entry points); BBC envelopes are kept in the REU (`$3000`), so they
+  survive a switch. `*SOUND NONE` takes the engine out (`snd_on` 0: the
+  interrupt and VDU 7 leave it alone, SOUND is ignored, OSBYTE &83 says
+  `&900`, LOAD / `*SRREAD` may go down to `&900`); `*SOUND SID|BBC`
+  refuses while PAGE is below `&1D00` and then finds the SIDs again.
+  The SID image with modulation and the tracker fills its space to
+  `&1C3F`.
+- Bank 6 cannot call bank 2's helpers directly (they read keywords and
+  texts from their caller's bank): copies (`s6_word`, `s6_text`, ...) or
+  `farcall` (numbers, file names, `rx_` REU-file transfers in
+  `reufile.s`).
+
+Modulation (SID image, `s_mod` every interrupt for voices that use it;
+`c_mod` bits say which), with the units of the instrument record:
+
+| Part | Unit |
+|---|---|
+| pitch | 1/64 semitone internally (`(P + 235) * 16`), interpolated between the quarter-semitone table entries |
+| FINE f | 1/64 semitone, signed |
+| PW w rate top bottom | rate: width units per interrupt, signed; top, bottom: the width's high nybble; bounces |
+| CUT c rate top bottom | rate: cutoff (high 8 bits) units per interrupt; bounces, or stops (flag bit 1, `STOP`) |
+| VIB delay width rate | delay in interrupts; width in 1/8 semitone (a triangle); phase step rate * 4 per interrupt (rate 5: about 4 Hz at 50 Hz) |
+| PORTA speed | speed/64 semitone per interrupt, from the previous note (also on a tie) |
+| WAVES / ARP / SPEED | step every SPEED interrupts, fetched from the REU record by DMA (1 byte each); wave 0 ends, `$FF n` goes on at step n; arpeggio in semitones, signed |
+| RESTART | hard restart: TEST bit, envelope 0, the gate one interrupt later |
+
+SOUND's amplitude in SID mode may also be `instrument + 256 * level`
+(`&0A08`: instrument 8 at 10/15): the level scales the instrument's own
+sustain level (sustain * level / 15, rounded), so a percussive
+instrument (sustain 0) stays percussive; a queue carries the level
+(`q_lvl`), the recorder writes it as the effect `&1v`, which a song
+plays the same way. (A first version set the sustain level itself:
+KICK and SNARE then held a tone for the whole note.) Amplitude -15..-1
+still sets the voice's sustain level directly, as before. Before this, a
+note with a level (amplitude -15..-1) could only use the voice's
+previous instrument, so programs that gave every note a level (the
+music demo) played the default instrument on every voice.

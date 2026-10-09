@@ -19,7 +19,7 @@
     icl 'ulpal.s'
     icl 'font.s'
     icl 'sidcmd.s'
-    icl 'sndcmd.s'
+    icl 'reufile.s'
     icl 'srcmd.s'
     icl 'rdglue.s'
 

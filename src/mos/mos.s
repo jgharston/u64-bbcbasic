@@ -57,8 +57,8 @@ cold:
     lda #CART_MODE16
     sta CART_CTRL
     jsr resident_init
-    farcall snd_install, BANK_UL ; sound engine (the interrupt calls it:
-    farcall snd_setup, BANK_FS  ; before anything may let one in), SIDs
+    lda #0                      ; sound engine, SID image (the interrupt
+    farcall snd_setup, BANK_SND ; calls it: before anything may let one in)
     jsr core_init
     jsr engine_init
     jsr state_init
@@ -72,7 +72,7 @@ cold:
     farcall fs_init, BANK_FS    ; find the Ultimate (up to 0.5 s)
     jsr font_to_reu             ; fonts for MODE changes and bitmap text
     farcall font_keepdef, BANK_FS ; and the start-up font for *FONT DEFAULT
-    farcall snd_instinit, BANK_FS ; default instruments to the REU
+    farcall snd_instinit, BANK_SND ; default instruments to the REU
     farcall rd_boot, BANK_RD    ; the REU RAM disk
     jsr ul_detect               ; Upic Lite possible?
     jsr banner
@@ -1002,11 +1002,12 @@ by_ackesc:                      ; &7E: X = $FF if ESCAPE was pending
     bne by_ret
 by_adval:                       ; &80: X = &E4-&FB: sound queues of
     ldy #0                      ; voices 23-0 (free bytes, sndcmd.s);
-    cpx #$E4                    ; others 0 (no ADC, no other buffers)
+    cpx #$CC                    ; &CC-&E3: the song's notes of voices
+                                ; 23-0; others 0 (no ADC, no buffers)
     bcc bad_zero
     cpx #$FC
     bcs bad_zero
-    farcall snd_adval, BANK_FS
+    farcall snd_adval, BANK_SND
     ldy #0
     jmp by_ret
 bad_zero:
@@ -1016,9 +1017,12 @@ by_high:                        ; &82: no second processor
     ldx #$FF
     ldy #$FF
     bne by_ret
-by_oshwm:                       ; &83: PAGE = &1900 (as a BBC with discs:
-    ldx #0                      ; &0800-&18FF is the sound engine's)
+by_oshwm:                       ; &83: PAGE = &1D00 (&0800-&1CFF: MOSBUF,
+    ldx #0                      ; the sound engine); &0900 under *SOUND NONE
     ldy #>OSHWM
+    lda snd_on
+    bne by_ret
+    ldy #>OSHWM_NONE
     bne by_ret
 by_himem:                       ; &84: HIMEM of the current mode
     ldx #0
@@ -1215,12 +1219,12 @@ mw_not1:
 mw_not2:
     cmp #7
     bne mw_not7
-    farcall snd_word7, BANK_FS  ; SOUND (sndcmd.s)
+    farcall snd_word7, BANK_SND  ; SOUND (sndcmd.s)
     rts
 mw_not7:
     cmp #8
     bne mw_not8
-    farcall snd_word8, BANK_FS  ; ENVELOPE
+    farcall snd_word8, BANK_SND  ; ENVELOPE
     rts
 mw_not8:
     cmp #9
@@ -1723,7 +1727,7 @@ cmd_table:
     dta 'DELETE', 0, a(cmd_delete), BANK_FS
     dta 'DRIVE', 0, a(cmd_drive), BANK_FS
     dta 'FONT', 0, a(cmd_font), BANK_FS
-    dta 'INSTRUMENT', 0, a(cmd_instrument), BANK_FS
+    dta 'INSTRUMENT', 0, a(cmd_instrument), BANK_SND
     dta 'FX', 0, a(cmd_fx), BANK_MOS
     dta 'HELP', 0, a(cmd_help), BANK_MOS
     dta 'LOAD', 0, a(cmd_load), BANK_FS
@@ -1739,7 +1743,8 @@ cmd_table:
     dta 'SAVE', 0, a(cmd_save), BANK_FS
     dta 'SETTIME', 0, a(cmd_settime), BANK_FS
     dta 'SHADOW', 0, a(cmd_shadow), BANK_MOS
-    dta 'SOUND', 0, a(cmd_sound), BANK_FS
+    dta 'SONG', 0, a(cmd_song), BANK_SND
+    dta 'SOUND', 0, a(cmd_sound), BANK_SND
     dta 'SRREAD', 0, a(cmd_srread), BANK_FS
     dta 'SRWRITE', 0, a(cmd_srwrite), BANK_FS
     dta 'SID', 0, a(cmd_sid), BANK_FS

@@ -74,6 +74,16 @@ aw_no:
     clc
     rts
 
+; ci_skipsp: A = the next non-space character at mosPTR/Y
+ci_skipsp:
+    lda (mosPTR),y
+    cmp #' '
+    bne cis_rts
+    iny
+    bne ci_skipsp
+cis_rts:
+    rts
+
 ; up2: ASCII a-z to A-Z (bank 2 copy of toupper)
 up2:
     cmp #'a'
@@ -762,6 +772,8 @@ cps_named:
     jsr KL_TKSA
     jsr cps_byte                ; load address
     jsr cps_byte
+    lda #0
+    sta fsTMP+3                 ; 0: the header line
 cps_line:
     jsr cps_byte                ; link
     sta mosTMP
@@ -774,9 +786,11 @@ cps_line:
     sta mosTMP
     jsr cps_byte
     sta mosTMP+1
+    jsr cps_digits              ; (fsTMP = its digits)
     jsr st_dec16
-    lda #' '
-    jsr OSWRCH
+    lda #0                      ; leading spaces not printed yet
+    sta fsTMP+1
+    sta fsTMP+2                 ; 0: before the first character
 cps_text:
     jsr cps_byte
     beq cps_eol
@@ -784,10 +798,21 @@ cps_text:
     bcc cps_text
     cmp #127
     bcs cps_text
+    ldx fsTMP+2
+    bne cps_out
+    cmp #' '                    ; the drive's padding: counted, not printed
+    bne cps_first
+    inc fsTMP+1
+    bne cps_text
+cps_first:
+    inc fsTMP+2
+    jsr cps_pad
+cps_out:
     jsr st_capc
     jmp cps_text
 cps_eol:
     jsr OSNEWL
+    inc fsTMP+3                 ; (not the header line any more)
     bit ESCFLG
     bmi cps_end
     lda KL_STATUS
@@ -809,6 +834,54 @@ cps_byte:
 
 cps_dollar:
     dta '$=P', 0
+
+; cps_digits: fsTMP = the number of digits of mosTMP (1-5)
+cps_digits:
+    ldx #1
+    ldy #3
+cpd_try:
+    lda mosTMP                  ; mosTMP >= 10, 100, 1000, 10000?
+    cmp cpd_lo,y
+    lda mosTMP+1
+    sbc cpd_hi,y
+    bcc cpd_done
+    inx
+    dey
+    bpl cpd_try
+cpd_done:
+    stx fsTMP
+    rts
+cpd_lo:
+    dta <10000, <1000, <100, <10
+cpd_hi:
+    dta >10000, >1000, >100, >10
+
+; cps_pad: before the first character of a line (A, kept): an entry's
+; quote goes to column 5, as a 1541 lists (the Ultimate pads 3-digit
+; numbers one short); other lines keep the drive's spacing
+cps_pad:
+    pha
+    ldx fsTMP+1                 ; the drive's spaces + 1
+    inx
+    cmp #'"'
+    bne cpp_out
+    lda fsTMP+3
+    beq cpp_out                 ; (the header line)
+    lda #5                      ; spaces = 5 - digits, at least 1
+    sec
+    sbc fsTMP
+    tax
+    beq cpp_one
+    bpl cpp_out
+cpp_one:
+    ldx #1
+cpp_out:
+    lda #' '
+    jsr OSWRCH
+    dex
+    bne cpp_out
+    pla
+    rts
 
 ; ----------------------------------------------------------------------------
 ; clock_word (OSWORD 14, from mos_word)

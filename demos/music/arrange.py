@@ -11,12 +11,22 @@ Fair, Pachelbel's Canon and Ode to Joy are written out here.
 Every block (bar) is checked: all voices must last as long as the bar.
 
     demos/music/arrange.py --mutopia DIR      (the downloaded .mid files)
+    demos/music/arrange.py --instruments      (only the instrument choice)
+
+The MIDI files, from https://www.mutopiaproject.org/ftp/ (DIR as named):
+    green.mid        Traditional/greensleeves/greensleeves.mid
+    entertainer.mid  JoplinS/entertainer/entertainer.mid
+    maple.mid        JoplinS/maple/maple.mid
+    toccata.mid      BachJS/BWV565/ToccataFugue/ToccataFugue.mid
+    kv525/           MozartWA/KV525/MozartWA-KV525/MozartWA-KV525-mids.zip
+                     (unzipped)
 
 Voices: voice v is voice v MOD 3 of SID v DIV 3; SIDs 0, 2, 4, 6 play
 left, 1, 3, 5, 7 right (DESIGN_SOUND.md section 8).
 """
 import argparse
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "tools"))
@@ -29,6 +39,67 @@ PLUCK, BELL, KICK, SNARE, HIHAT, PAD, ARP, SYNC = range(9, 17)
 # balance: melodies at full level on both UltiSIDs (left and right, so
 # they sound in the middle), the rest clearly below them
 MEL, SECOND, CHORD, ARPV, BASSV = 15, 9, 5, 6, 11
+
+# the demo's own instruments (17-30), made with the engine's modulation
+# (*INSTRUMENT, DESIGN_SOUND.md sections 9 and 11); each starts as a copy
+# of 1, so a definition is complete; a piece's file defines the ones it uses
+CUSTOM = {
+    17: ["COPY 1 SAW ADSR 3 4 12 6", "VIB 18 2 6 FILTER LOW RES 2 CUT 150 NAME VIOLIN"],
+    18: ["COPY 1 SAW ADSR 4 6 11 7", "VIB 20 2 5 FILTER LOW RES 4 CUT 90 NAME CELLO"],
+    19: ["COPY 1 PULSE PW 500 10 12 2 ADSR 0 9 0 9 NAME HARPSI"],
+    20: ["COPY 1 PULSE PW 2048 30 14 2 ADSR 9 6 11 8", "VIB 30 1 4 NAME CHOIR"],
+    21: ["COPY 1 PULSE PW 1000 6 12 4 ADSR 0 10 3 8 FINE 6 NAME RAGPIANO"],
+    22: ["COPY 1 PULSE PW 300 ADSR 0 7 0 6 NAME BANJO"],
+    23: ["COPY 1 PULSE PW 1900 ADSR 2 4 12 5", "FILTER LOW RES 3 CUT 110 NAME CLARINET"],
+    24: ["COPY 1 SAW ADSR 2 7 10 6 VIB 25 2 6", "FILTER LOW RES 5 CUT 50 6 170 50 STOP NAME TRUMPET"],
+    25: ["COPY 3 ADSR 0 2 14 4 PW 1600 3 12 6", "VIB 40 1 3 NAME CHURCH"],
+    26: ["COPY 1 TRI ADSR 0 9 0 9 WAVES 17 17 0", "ARP 12 0 SPEED 1 NAME GLOCK"],
+    27: ["COPY 1 SAW ADSR 1 6 10 6 PORTA 20", "VIB 20 2 6 FILTER LOW CUT 140 NAME SLIDE"],
+    28: ["COPY 1 PULSE PW 1024 ADSR 2 6 12 5", "FILTER LOW RES 6 CUT 40 NAME TUBA"],
+    29: ["COPY 1 TRI ADSR 0 8 0 8 NAME STRBASS"],
+    30: ["COPY 1 SAW ADSR 8 8 12 9 VIB 30 1 4", "FILTER LOW RES 4 CUT 60 1 140 60 NAME STRINGS2"],
+}
+
+# per piece: instruments 1-16 replaced (old: new), and voices that get
+# their own (voice: new) whatever the plan gave them
+PIECE_INSTR = {
+    "greenslv": ({9: 19, 4: 20, 7: 18}, {3: 23}),
+    "scarboro": ({10: 26, 14: 20, 7: 18}, {}),
+    "entertnr": ({2: 21, 9: 22, 6: 27}, {}),
+    "nachtmus": ({4: 17, 7: 18, 9: 19}, {}),
+    "canon": ({4: 17, 7: 29, 14: 30, 3: 25}, {3: 18}),
+    "toccata": ({3: 25, 5: 24}, {}),
+    "odetojoy": ({3: 25, 5: 24, 4: 17, 15: 26}, {}),
+    "maplelf": ({2: 21, 9: 22, 7: 28}, {}),
+}
+
+
+def apply_instruments(name, lines):
+    """The piece's instrument choice on .mml lines: I<n> (n <= 16) of a
+    voice replaced; #INSTRUMENT lines for the instruments 17+ it uses (after
+    #VOICES; old ones dropped)"""
+    remap, voices = PIECE_INSTR.get(name, ({}, {}))
+    out, used = [], set()
+    for line in lines:
+        if line.startswith("#INSTRUMENT"):
+            continue
+        m = re.match(r"(\d+):(.*)", line)
+        if m:
+            v = int(m.group(1))
+
+            def sub(mm):
+                n = int(mm.group(1))
+                if n <= 16:
+                    n = voices.get(v, remap.get(n, n))
+                if n >= 17:
+                    used.add(n)
+                return "I%d" % n
+            line = "%d:%s" % (v, re.sub(r"I(\d+)", sub, m.group(2)))
+        out.append(line)
+    defs = ["#INSTRUMENT %d %s" % (n, part) for n in sorted(used) for part in CUSTOM[n]]
+    k = next(i for i, l in enumerate(out) if l.startswith("#VOICES")) + 1
+    return out[:k] + defs + out[k:]
+
 
 LEN = {"1": 32, "2": 16, "4": 8, "8": 4, "16": 2, "32": 1}
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -70,8 +141,9 @@ def duration(text, state):
 
 
 class Piece:
-    def __init__(self, name, title, composer, tempo, bar):
+    def __init__(self, name, title, composer, tempo, bar, hold_end=False):
         self.name, self.title, self.composer = name, title, composer
+        self.hold_end = hold_end                    # last bar: its downbeat held
         self.tempo, self.bar = tempo, bar           # bar: 32nds per bar
         self.blocks = []                            # [{voice: text}]
         self.instr = {}
@@ -110,6 +182,10 @@ class Piece:
             for v in voices:
                 if v not in b:
                     b[v] = "R" + self.rest_len()
+        if self.hold_end:               # end on the cadence's chord
+            last = self.blocks[-1]
+            for v in voices:
+                last[v] = hold_first(last[v], self.rest_len())
         state = {v: {"L": "4"} for v in voices}
         out = ["#TITLE " + self.title, "#COMPOSER " + self.composer,
                "#TEMPO %d" % self.tempo, "#VOICES %d" % (max(voices) + 1),
@@ -125,6 +201,7 @@ class Piece:
                     raise SystemExit("%s: bar %d voice %d: line too long" % (self.name, n + 1, v))
                 out.append("%d: %s" % (v, b[v]))
             out.append("")
+        out = apply_instruments(self.name, out)
         with open(os.path.join(HERE, self.name + ".mml"), "w") as f:
             f.write("\n".join(out))
         print("%s: %d bars, voices %s" % (self.name, len(self.blocks), voices))
@@ -132,6 +209,15 @@ class Piece:
 
 # ----------------------------------------------------------------------------
 # From MIDI
+
+def hold_first(text, length):
+    """A bar's text reduced to its first note (or rest) held for the whole
+    bar (length: e.g. "2" for 2/4): the commands before it are kept"""
+    m = re.match(r"((?:\s*(?:[IVOL]\d+|[<>]))*)\s*([A-GR][#+-]?)", text)
+    if not m:
+        return text
+    return ("%s %s%s" % (m.group(1).strip(), m.group(2), length)).strip()
+
 
 def midi_lines(path, track, count, first, bars, transpose=0):
     m = M.Midi(path)
@@ -225,7 +311,8 @@ def scarborough(_src):
 
 def entertainer(src):
     f = os.path.join(src, "entertainer.mid")
-    p = Piece("entertnr", "The Entertainer", "Scott Joplin, 1902", 84, 16)
+    p = Piece("entertnr", "The Entertainer", "Scott Joplin, 1902", 84, 16,
+              hold_end=True)              # bar 36: the A strain's last C
     up = midi_lines(f, 1, 2, 0, 36)
     lo = midi_lines(f, 2, 2, 0, 36)
     again = midi_lines(f, 1, 1, 20, 16)[0]         # the repeat, converted fresh
@@ -243,8 +330,9 @@ def entertainer(src):
 
 def nachtmusik(src):
     f = os.path.join(src, "kv525", "MozartWA-KV525-mov-01.mid")
-    p = Piece("nachtmus", "Eine kleine Nachtmusik", "W. A. Mozart, 1787", 132, 32)
-    parts = [midi_lines(f, t, 1, 0, 28)[0] for t in (1, 2, 3, 4)]
+    p = Piece("nachtmus", "Eine kleine Nachtmusik", "W. A. Mozart, 1787", 132, 32,
+              hold_end=True)              # bar 18: back in G
+    parts = [midi_lines(f, t, 1, 0, 18)[0] for t in (1, 2, 3, 4)]
     # violins I and II, viola, cello: strings left and right
     p.add(0, parts[0], STRINGS, MEL)
     p.add(3, parts[0], STRINGS, MEL)
@@ -325,7 +413,8 @@ def canon(_src):
 
 def toccata(src):
     f = os.path.join(src, "toccata.mid")
-    p = Piece("toccata", "Toccata in D minor", "J. S. Bach, BWV 565", 66, 32)
+    p = Piece("toccata", "Toccata in D minor", "J. S. Bach, BWV 565", 66, 32,
+              hold_end=True)              # bar 12: the D minor arrival
     rh = midi_lines(f, 1, 2, 0, 12)
     lh = midi_lines(f, 2, 2, 0, 12)
     ped = midi_lines(f, 3, 1, 0, 12)[0]
@@ -416,13 +505,31 @@ def maple(src):
     drums(p, 16, 16, 9, 10, 11)
     p.add(6, ["R2"] * 16, LEAD, SECOND, start=0)
     p.add(6, shift(again, -1), start=16)
+    # the A strain ends on A-flat: a bar of its chord to end on
+    for voice, text in ((0, "O5 G#2"), (3, "O5 G#2"), (1, "O5 C2"), (4, "O4 D#2"),
+                        (2, "O2 G#2"), (6, "O4 G#2"), (9, "O2 C2"), (10, "R2"),
+                        (11, "R2")):
+        p.add(voice, [text], start=32)
     p.write()
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--mutopia", required=True, help="directory with the .mid files")
+    ap.add_argument("--mutopia", help="directory with the .mid files")
+    ap.add_argument("--instruments", action="store_true",
+                    help="only apply the instrument choice to the .mml files there are")
     a = ap.parse_args()
+    if a.instruments:
+        for name in PIECE_INSTR:
+            path = os.path.join(HERE, name + ".mml")
+            with open(path) as f:
+                lines = f.read().split("\n")
+            with open(path, "w") as f:
+                f.write("\n".join(apply_instruments(name, lines)))
+            print(name)
+        return
+    if not a.mutopia:
+        ap.error("--mutopia is needed to arrange")
     for f in (greensleeves, scarborough, entertainer, nachtmusik, canon,
               toccata, ode, maple):
         f(a.mutopia)

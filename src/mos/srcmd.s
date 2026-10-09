@@ -124,10 +124,16 @@ sr_copy:
 src_reu:
     lda fsLEN                   ; length 1 or more
     ora fsLEN+1
-    beq sr_bad
-    lda fsADDR+1                ; C64: OSHWM <= start, start + length
-    cmp #>OSHWM                 ; <= $8000
-    bcc sr_bad
+    bne src_len
+    jmp sr_bad
+src_len:
+    jsr lo_page                 ; C64: the lowest PAGE <= start, start +
+    sta fsCNT                   ; length <= $8000
+    lda fsADDR+1
+    cmp fsCNT
+    bcs src_low
+    jmp sr_bad
+src_low:
     lda fsADDR
     clc
     adc fsLEN

@@ -894,6 +894,13 @@ brings the engine back and refuses while PAGE is below `&1D00`.
 `*MEMORY` shows what is switched on. To be built with the sound
 engine's split (DESIGN_TRACKER.md section 6).
 
+Status (2026-10-09, later): the sound engine split is built (two images
+in bank 6, PAGE &1D00, MOSBUF at &0800, `*SOUND NONE` with PAGE down to
+&900; DESIGN_SOUND.md section 11), with modulation (step b2) and the
+song tracker (`*SONG`, DESIGN_TRACKER.md section 7). Large tables in the
+REU: the BBC envelopes, instruments, wave/arpeggio tables, the song;
+the note queues stay in RAM (the interrupt reads them every time).
+
 ## 24. Music demo (owner, 2026-10-09)
 
 A music demo that shows off the instruments and all 24 voices, with

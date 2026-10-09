@@ -1,20 +1,21 @@
-10 REM MUSIC: U64 BBC BASIC music demo player
-20 REM Plays .mml note files on the 24 voices of 8 SIDs
-30 REM Design: docs/DESIGN_MUSICDEMO.md. Notation (one block per bar,
-40 REM blank line between blocks; "v: notes" per voice):
-50 REM   C D E F G A B (# + sharp, - flat), R rest, digits = length
-60 REM   (1 2 4 8 16 32, . dotted), & tie to the next note, O4 octave,
-70 REM   < > octave down/up, L8 default length, I5 instrument, V12 loudness
-80 REM   header lines: #TITLE, #COMPOSER, #TEMPO bpm, #VOICES n
-90 :
+10 REM MUSIC: U64 BBC BASIC music demo
+20 REM Builds each piece as a song with SOUND (*SONG RECORD), then plays
+30 REM it in the background on 24 voices of 8 SIDs (*SONG PLAY) and
+40 REM shows the voices from ADVAL(-29-v). Design: docs/DESIGN_MUSICDEMO.md.
+50 REM Note files (.mml, one block per bar, blank line between blocks;
+60 REM "v: notes" per voice):
+70 REM   C D E F G A B (# + sharp, - flat), R rest, digits = length
+80 REM   (1 2 4 8 16 32, . dotted), & tie to the next note, O4 octave,
+90 REM   < > octave down/up, L8 default length, I5 instrument, V12 loudness
+95 REM   header lines: #TITLE, #COMPOSER, #TEMPO bpm, #VOICES n,
+97 REM   #INSTRUMENT n parts (as *INSTRUMENT)
 100 ON ERROR PROCerror
-110 DIM V$(23),P%(23),T(23),O%(23),L(23),I%(23),A%(23),U%(23)
-120 DIM R1(23,3),R2(23,3),R3%(23,3),R4%(23,3),K%(23),H%(23),N$(16)
-125 REM MODE here, at the top: BASIC refuses MODE while its stack is in
-126 REM use (inside a PROC or FN: Bad MODE); later screens use CLS.
+110 DIM V$(23),P%(23),T%(23),O%(23),L%(23),I%(23),A%(23),U%(23),H%(23),K%(23)
+120 REM MODE here, at the top: BASIC refuses MODE while its stack is in
+125 REM use (inside a PROC or FN: Bad MODE); later screens use CLS.
 127 REM MODE 100 is the C64 text screen (40 x 25).
 128 MODE 100
-129 PROCnames:PROCblocks
+129 PROCblocks
 130 PROCmenu
 140 END
 150 :
@@ -46,8 +47,9 @@
 500 DEF PROCall
 510   LOCAL N%
 520   FOR N%=1 TO 8
-530     PROCpiece(N%)
+530     IF NOT Q% PROCpiece(N%)
 540   NEXT
+545   Q%=FALSE
 550 ENDPROC
 560 :
 600 DEF PROCpiece(N%)
@@ -57,9 +59,10 @@
 640     READ F$
 650   NEXT
 660   F$=FNword(F$)
-670   PROCplay(F$+".mml")
-680 ENDPROC
-690 :
+670   PROCbuild(F$+".mml")
+680   PROCplay
+690 ENDPROC
+695 :
 700 REM The file name is the first word of a menu line, the title the rest
 710 DEF FNword(A$)
 720   =LEFT$(A$,INSTR(A$+" "," ")-1)
@@ -71,31 +74,32 @@
 780   UNTIL LEFT$(A$,1)<>" "
 790 =A$
 795 :
-1000 REM Play one note file
-1010 DEF PROCplay(N$)
-1020   LOCAL F%,L$,E,NOW,V%,NV%,TEMPO
+1000 REM Build the song from a note file: header lines set it up, every
+1005 REM note becomes a SOUND that *SONG RECORD writes into the song; a
+1007 REM duration is in rows (8 rows per beat: 32 for a whole note)
+1010 DEF PROCbuild(N$)
+1020   LOCAL F%,L$,V%,B%
 1030   *SOUND SID
 1040   *SOUND STOP
 1050   F%=OPENIN(N$)
 1060   IF F%=0 PRINT "No file ";N$:ENDPROC
 1070   CLS:PROCframe
-1080   NV%=24:TEMPO=120
+1080   TEMPO=120:E%=0
 1090   FOR V%=0 TO 23
-1100     T(V%)=0:O%(V%)=4:L(V%)=4:I%(V%)=1:A%(V%)=0:U%(V%)=0
-1110     K%(V%)=0:H%(V%)=-1:V$(V%)=""
-1120     R1(V%,0)=-1:R1(V%,1)=-1:R1(V%,2)=-1:R1(V%,3)=-1
-1130   NEXT
-1140   W=4800/TEMPO
-1150   T0%=TIME
-1160   REPEAT
-1170     L$=FNblock(F%)
-1180     IF L$<>"" PROCheader(L$)
-1190     PROCmerge
-1200   UNTIL EOF#F% AND FNempty
-1210   CLOSE#F%
-1220   REPEAT PROCdraw:UNTIL FNquiet
-1230 ENDPROC
-1240 :
+1100     T%(V%)=0:O%(V%)=4:L%(V%)=4:I%(V%)=1:A%(V%)=0:U%(V%)=0
+1110     H%(V%)=-1:V$(V%)="":P%(V%)=1:K%(V%)=FALSE
+1120   NEXT
+1130   REPEAT
+1140     L$=FNblock(F%)
+1150     IF L$<>"" PROCheader(L$)
+1160     PROCmerge
+1165     B%=B%+1
+1170     COLOUR 3:PRINT TAB(3,23);"Building the song: bar ";B%;"   ";
+1180   UNTIL EOF#F% AND FNempty
+1190   CLOSE#F%
+1200   *SONG RECORD OFF
+1210 ENDPROC
+1220 :
 1300 REM Read one block: voice lines into V$(); a header line ends the
 1310 REM block early and is returned (a FN cannot return from inside a
 1315 REM REPEAT). Ends at a blank line or the end of the file.
@@ -118,47 +122,46 @@
 1560   UNTIL C%=10 OR EOF#F%
 1570 =A$
 1580 :
-1600 DEF PROCheader(L$)
-1610   LOCAL K$,A$,V%
-1620   K$=FNword(L$)
-1630   A$=MID$(L$,LEN K$+2)
-1640   IF K$="#TITLE" T$=A$
-1650   IF K$="#COMPOSER" PROChead(T$,A$)
-1660   IF K$="#TEMPO" TEMPO=VAL A$:W=4800/TEMPO
-1665   IF K$="#VOICES" FOR V%=0 TO VAL A$-1:U%(V%)=1:NEXT
-1670 ENDPROC
-1680 :
-1700 REM Give the next note to the voice furthest behind, until the
-1710 REM block is done; voices that have played get rests to the end
-1720 DEF PROCmerge
-1730   LOCAL V%,B%,M,E
-1740   REPEAT
-1750     M=1E9:B%=-1
-1760     FOR V%=0 TO 23
-1770       IF V$(V%)<>"" IF T(V%)<M M=T(V%):B%=V%
-1780     NEXT
-1790     IF B%>=0 PROCahead(T(B%),B%):PROCnote(B%)
-1800   UNTIL B%<0
-1810   E=0
-1820   FOR V%=0 TO 23
-1830     IF T(V%)>E E=T(V%)
-1840   NEXT
-1850   FOR V%=0 TO 23
-1860     IF U%(V%) AND T(V%)<E PROCsound(V%,0,0,E-T(V%),0)
-1870   NEXT
-1880 ENDPROC
-1890 :
-1900 REM Wait (and draw) until the time X is less than a second ahead
-1905 REM and voice V% has room in its queue (ADVAL: 4 bytes per note), so
-1907 REM SOUND never waits; no drawing when the note can go at once
-1910 DEF PROCahead(X,V%)
-1915   LOCAL D%
-1920   REPEAT
-1925     D%=X>=(TIME-T0%)/5+20 OR ADVAL(-5-V%)<4
-1926     IF D% PROCdraw
-1928   UNTIL NOT D%
+1600 REM Header lines: #TEMPO starts a new song (title from #TITLE)
+1610 DEF PROCheader(L$)
+1620   LOCAL K$,A$,V%
+1630   K$=FNword(L$)
+1640   A$=MID$(L$,LEN K$+2)
+1650   IF K$="#TITLE" T$=A$
+1660   IF K$="#COMPOSER" PROChead(T$,A$)
+1670   IF K$="#TEMPO" TEMPO=VAL A$:PROCnew
+1680   IF K$="#VOICES" FOR V%=0 TO VAL A$-1:U%(V%)=1:NEXT
+1690   IF K$="#INSTRUMENT" OSCLI "INSTRUMENT "+A$:PROCshow("*INSTRUMENT "+A$)
+1700 ENDPROC
+1710 :
+1720 DEF PROCnew
+1730   OSCLI "SONG NEW "+STR$TEMPO+" 8"
+1740   OSCLI "SONG TITLE "+T$
+1750   *SONG RECORD
+1760   PROCshow("*SONG NEW "+STR$TEMPO+" 8: *SONG RECORD")
+1770 ENDPROC
+1780 :
+1800 REM All notes of the block, voice by voice (each voice has its own
+1810 REM place in the song); voices that have played get rests to the end
+1820 DEF PROCmerge
+1830   LOCAL V%,E
+1840   FOR V%=0 TO 23
+1850     IF V$(V%)<>"" PROCvoice(V%)
+1860   NEXT
+1870   FOR V%=0 TO 23
+1880     IF T%(V%)>E% E%=T%(V%)
+1890   NEXT
+1900   FOR V%=0 TO 23
+1910     IF U%(V%) AND T%(V%)<E% PROCsound(V%,0,0,E%-T%(V%),0)
+1920   NEXT
 1930 ENDPROC
 1940 :
+1950 DEF PROCvoice(V%)
+1960   REPEAT
+1970     PROCnote(V%)
+1980   UNTIL V$(V%)=""
+1990 ENDPROC
+1995 :
 2000 DATA greenslv Greensleeves (trad.)
 2010 DATA scarboro Scarborough Fair (trad.)
 2020 DATA entertnr The Entertainer (Joplin)
@@ -170,13 +173,13 @@
 2080 :
 3000 REM One note (or rest) of voice V%, after any commands before it
 3010 DEF PROCnote(V%)
-3020   LOCAL C$,N%,D,S%,T%
+3020   LOCAL C$,N%,D%,S%,T%
 3030   REPEAT
 3040     C$=FNch(V%)
 3050     IF C$="O" O%(V%)=FNnum(V%,4)
 3060     IF C$="<" O%(V%)=O%(V%)-1
 3070     IF C$=">" O%(V%)=O%(V%)+1
-3080     IF C$="L" L(V%)=FNnum(V%,4)
+3080     IF C$="L" L%(V%)=FNnum(V%,4)
 3090     IF C$="I" I%(V%)=FNnum(V%,1):A%(V%)=0
 3100     IF C$="V" A%(V%)=FNnum(V%,15)
 3110     N%=INSTR("C D EF G A BR",C$)
@@ -186,27 +189,26 @@
 3150   C$=MID$(V$(V%),P%(V%),1)
 3160   IF C$="#" OR C$="+" S%=1:P%(V%)=P%(V%)+1
 3170   IF C$="-" S%=-1:P%(V%)=P%(V%)+1
-3180   D=W/FNnum(V%,L(V%))
-3190   IF MID$(V$(V%),P%(V%),1)="." D=D*1.5:P%(V%)=P%(V%)+1
-3200   T%=0
-3210   IF MID$(V$(V%),P%(V%),1)="&" T%=&4000:P%(V%)=P%(V%)+1
-3220   IF N%=13 PROCsound(V%,0,0,D,0):ENDPROC
-3230   PROCsound(V%,FNamp(V%),53+4*(12*(O%(V%)-4)+N%-1+S%),D,T%)
+3180   D%=32 DIV FNnum(V%,L%(V%))
+3190   IF MID$(V$(V%),P%(V%),1)="." D%=D%*3 DIV 2:P%(V%)=P%(V%)+1
+3200   T%=K%(V%):K%(V%)=FALSE
+3210   IF MID$(V$(V%),P%(V%),1)="&" P%(V%)=P%(V%)+1:K%(V%)=TRUE
+3220   IF N%=13 PROCsound(V%,0,0,D%,0):ENDPROC
+3230   PROCsound(V%,FNamp(V%),53+4*(12*(O%(V%)-4)+N%-1+S%),D%,T%)
 3240 ENDPROC
 3250 :
-3300 REM Queue a note: time rounded so voices never drift apart
-3310 DEF PROCsound(V%,A%,P%,D,F%)
-3320   LOCAL D%,K%
-3330   D%=INT(T(V%)+D+.5)-INT(T(V%)+.5)
-3340   IF D%>0 SOUND V%+F%,A%,P%,D%
-3350   K%=K%(V%):R1(V%,K%)=T(V%):R2(V%,K%)=T(V%)+D:R3%(V%,K%)=P%*-(A%<>0)
-3355   R4%(V%,K%)=I%(V%)
-3360   K%(V%)=(K%+1) AND 3
-3370   T(V%)=T(V%)+D
-3380 ENDPROC
-3390 :
+3300 REM One SOUND: with *SONG RECORD it goes into the song at the voice's
+3310 REM place, D% rows long (&4000: tied to the note before it)
+3320 DEF PROCsound(V%,A%,P%,D%,F%)
+3330   IF D%<1 ENDPROC
+3340   SOUND V%-(F%<>0)*&4000,A%,P%,D%
+3350   T%(V%)=T%(V%)+D%
+3360   IF RND(16)=1 PROCshow("SOUND "+STR$V%+","+STR$A%+","+STR$P%+","+STR$D%)
+3370 ENDPROC
+3380 :
+3390 REM Amplitude in SID mode: instrument + 256 * level (V1-V15)
 3400 DEF FNamp(V%)
-3410   IF A%(V%) THEN =-A%(V%)
+3410   IF A%(V%) THEN =I%(V%)+256*A%(V%)
 3420 =I%(V%)
 3430 :
 3500 REM Next non-space character of voice V%'s text ("" at the end)
@@ -219,11 +221,11 @@
 3570   IF C$="" V$(V%)="":P%(V%)=1
 3580 =C$
 3590 :
-3600 REM A number from voice V%'s text, or D if there is none
-3610 DEF FNnum(V%,D)
+3600 REM A number from voice V%'s text, or D% if there is none
+3610 DEF FNnum(V%,D%)
 3620   LOCAL N%,C%
 3630   C%=ASC(MID$(V$(V%),P%(V%),1)+" ")
-3640   IF C%<48 OR C%>57 THEN =D
+3640   IF C%<48 OR C%>57 THEN =D%
 3650   REPEAT
 3660     N%=N%*10+C%-48
 3670     P%(V%)=P%(V%)+1
@@ -231,19 +233,32 @@
 3690   UNTIL C%<48 OR C%>57
 3700 =N%
 3710 :
-4000 REM A bar chart: one bar per voice, as high as its pitch while a
-4010 REM note sounds, in eighths of a row (characters made with VDU 23,
-4015 REM as PETSCII's partial blocks). UltiSID 1's SIDs (0, 2, 4, 6) on
-4017 REM the left in cyan: the left speaker; UltiSID 2's on the right.
+3800 REM Play the song: *SONG PLAY, then draw the voices until it ends
+3810 REM (E% rows of 6000/(TEMPO*8) centiseconds) or a key is pressed
+3820 DEF PROCplay
+3830   LOCAL T0%,D%,K%
+3840   *SONG PLAY
+3850   PROCshow("*SONG PLAY")
+3860   COLOUR 3:PRINT TAB(3,23);"Playing: any key stops, Q quits   ";
+3870   T0%=TIME:D%=E%*6000/(TEMPO*8)+60:K%=-1
+3880   REPEAT
+3890     PROCdraw
+3900     K%=INKEY(0)
+3910   UNTIL TIME-T0%>D% OR K%>=0
+3920   *SONG STOP
+3930   IF K%=ASC"Q" OR K%=ASC"q" Q%=TRUE
+3940 ENDPROC
+3950 :
+4000 REM A bar chart: one bar per voice, as high as the note it plays
+4010 REM (ADVAL(-29-v): the song's note, 49 = middle C), in eighths of a
+4015 REM row (characters made with VDU 23, as PETSCII's partial blocks).
+4017 REM UltiSID 1's SIDs (0, 2, 4, 6) on the left in cyan: the left
+4018 REM speaker; UltiSID 2's on the right.
 4020 DEF PROCdraw
-4030   LOCAL V%,H%,N,K%
-4040   N=(TIME-T0%)/5
+4030   LOCAL V%,H%
 4050   FOR V%=0 TO 23
-4060     H%=0
-4070     FOR K%=0 TO 3
-4080       IF R1(V%,K%)<=N AND N<R2(V%,K%) H%=R3%(V%,K%)
-4090     NEXT
-4100     IF H% H%=(H%+70)/2:IF H%<1 H%=1
+4060     H%=ADVAL(-29-V%)
+4100     IF H% H%=(H%-16)*2:IF H%<1 H%=1
 4105     IF H%>136 H%=136
 4110     IF H%<>H%(V%) PROCbar(V%,H%)
 4120   NEXT
@@ -268,14 +283,7 @@
 4337 REM 5, 7; three voices side by side, a space between SIDs
 4338 DEF FNcol(V%)
 4339   =3+((V% DIV 3) MOD 2)*18+((V% DIV 3) DIV 2)*4+V% MOD 3
-4340 REM Note name of BBC pitch P% (53 = middle C, C4)
-4350 DEF FNnote(P%)
-4360   LOCAL S%,A$
-4370   S%=(P%-53) DIV 4+48
-4375   A$=MID$("C C#D D#E F F#G G#A A#B ",(S% MOD 12)*2+1,2)
-4380   IF RIGHT$(A$,1)=" " A$=LEFT$(A$,1)
-4385   =A$+STR$(S% DIV 12)
-4390 :
+4340 :
 4400 DEF FNempty
 4410   LOCAL V%,E%
 4420   E%=TRUE
@@ -284,32 +292,20 @@
 4450   NEXT
 4460 =E%
 4470 :
-4500 DEF FNquiet
-4510   LOCAL V%,Q%
-4520   Q%=TRUE
-4530   FOR V%=0 TO 23
-4540     IF ADVAL(-5-V%)<15 Q%=FALSE
-4550   NEXT
-4560 =Q%
-4570 :
 4600 DEF PROCerror
 4610   *SOUND STOP
+4612   *SONG RECORD OFF
 4615   *FONT DEFAULT
 4620   CLS
 4630   REPORT:PRINT " at line ";ERL
 4640   END
 4650 ENDPROC
 4660 :
-4900 REM The default instruments' names (1-16)
-4910 DEF PROCnames
-4920   LOCAL I%
-4930   RESTORE 4970
-4940   FOR I%=1 TO 16:READ N$(I%):NEXT
-4950   N$(0)=N$(16)
-4960 ENDPROC
-4970 DATA SQUARE,PIANO,ORGAN,STRINGS,BRASS,LEAD,BASS,FLUTE
-4980 DATA PLUCK,BELL,KICK,SNARE,HIHAT,PAD,ARP,SYNC
-4990 :
+4800 REM The command just given, on the line under the chart
+4810 DEF PROCshow(A$)
+4820   COLOUR 6:PRINT TAB(0,20);LEFT$(" "+A$+STRING$(39," "),39);
+4830 ENDPROC
+4840 :
 5000 REM Eight characters as PETSCII's bottom blocks, 1/8 to 8/8 high
 5010 REM (6 pixels wide: a gap between bars); B$ holds them in order
 5020 DEF PROCblocks
@@ -324,7 +320,7 @@
 5110 ENDPROC
 5120 DATA 96,92,94,95,123,124,125,126
 5130 :
-5200 REM The chart's frame: title row, SID numbers, the stereo sides
+5200 REM The chart's frame: SID numbers, the stereo sides
 5210 DEF PROCframe
 5220   LOCAL S%
 5230   FOR S%=0 TO 7
@@ -333,7 +329,6 @@
 5260   NEXT
 5270   COLOUR 13:PRINT TAB(3,21);"UltiSID 1: left";
 5280   COLOUR 6:PRINT TAB(21,21);"UltiSID 2: right";
-5290   COLOUR 3:PRINT TAB(3,23);"24 voices on 8 SIDs";
 5300 ENDPROC
 5310 :
 5400 REM Header as in the author's other programs: a dark green bar with

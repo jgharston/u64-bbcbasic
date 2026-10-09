@@ -41,7 +41,7 @@ FA_CREATE   = $0A               ; write + create always (overwrite). Not
                                 ; answers "File exists" for existing files
 
 CHAN_BASE   = $11               ; channel numbers &11, &12
-LOAD_LOW    = OSHWM             ; LOAD destination range (not the sound engine)
+; the LOAD destination range starts at lo_page (not the sound engine)
 MEM_HIGH    = $8000             ; LOAD/SAVE end limit (BASIC starts here)
 
 ; ----------------------------------------------------------------------------
@@ -740,10 +740,10 @@ fl_addr:
     iny
     lda (fsBLK),y
     sta fsADDR+1
-    lda fsADDR                  ; destination >= LOAD_LOW
-    cmp #<LOAD_LOW
+    jsr lo_page                 ; destination >= the lowest PAGE
+    sta fsCNT
     lda fsADDR+1
-    sbc #>LOAD_LOW
+    cmp fsCNT
     bcs fl_open
 fl_range:
     brk
@@ -1030,3 +1030,17 @@ fl_udel:
     lda #1
 fd_ret:
     jmp fl_retA
+
+; ----------------------------------------------------------------------------
+; lo_page
+;   Summary: A = the high byte of the lowest address programs may use
+;            (OSHWM: &1D, or &09 under *SOUND NONE).
+;   Uses:    A.
+lo_page:
+    lda snd_on
+    beq lop_none
+    lda #>OSHWM
+    rts
+lop_none:
+    lda #>OSHWM_NONE
+    rts

@@ -54,7 +54,7 @@ DBG_CONTINUE, DBG_STEP, DBG_STOP = 1, 2, 3
 MB_PROMPT, MB_ERRNUM, MB_ERRCNT, MB_LINE, MB_RING = 17, 18, 19, 20, 110
 MB_SIZE, MB_LINEMAX, RING = 238, 74, 128
 REQ_LINE, REQ_CAPTURE, REQ_PROGRAM = 1, 3, 4
-PAGE, HIMEM = 0x1900, 0x8000            # defaults; read from BASIC when needed
+PAGE, HIMEM = 0x1D00, 0x8000            # defaults; read from BASIC when needed
 ESCFLG = 0x00FF
 SCREEN = 0xC000
 

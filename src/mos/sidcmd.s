@@ -43,11 +43,11 @@ cs_set:
 
 ; *SID: "8 SIDs: &D400 &D420 ..."
 cs_list:
-    lda snd.s_nsid
+    lda s_nsid
     jsr st_dec8
     jsr st_text
     dta ' SID', 0
-    lda snd.s_nsid
+    lda s_nsid
     cmp #2
     bcc cs_one
     lda #'s'
@@ -57,15 +57,15 @@ cs_one:
     jsr OSWRCH
     ldx #0
 cs_addr:
-    cpx snd.s_nsid
+    cpx s_nsid
     beq sl_end
     stx fsSX
     jsr st_text
     dta ' &', 0
     ldx fsSX
-    lda snd.s_sidhi,x
+    lda s_sidhi,x
     pha
-    lda snd.s_sidlo,x
+    lda s_sidlo,x
     tax
     pla
     jsr st_hex16
@@ -198,6 +198,7 @@ sm_vval:
 sm_vnum:
     jsr sm_signed
     bcs sm_syntax
+    jsr sm_vstep                ; to the firmware's nearest step
     ldx fsSX
     lda mosNUM
     bne sm_vsign
@@ -275,6 +276,40 @@ sm_save:
     jmp uci_error
 sm_done:
     rts
+
+; sm_vstep: mosNUM (dB, sign in mosNUM+1) to the nearest volume the
+; firmware has: -42 -36 -30 -27 -24 -18 .. +6 (above +6: +6)
+sm_vstep:
+    lda mosNUM+1
+    bne smv_neg
+    lda mosNUM
+    cmp #7
+    bcc smv_rts
+    lda #6
+    sta mosNUM
+smv_rts:
+    rts
+smv_neg:
+    lda mosNUM                  ; -1..-18: every dB
+    cmp #19
+    bcc smv_rts
+    ldx #0
+smv_find:
+    lda mosNUM
+    cmp smv_upto,x              ; magnitude <= the step's upper limit?
+    bcc smv_set
+    beq smv_set
+    inx
+    cpx #5
+    bne smv_find
+smv_set:
+    lda smv_step,x
+    sta mosNUM
+    rts
+smv_upto:
+    dta 21, 25, 28, 33, 39
+smv_step:
+    dta 18, 24, 27, 30, 36, 42
 
 ; sm_chr: MOSBUF+X = A, X + 1 (bounded: 255; the firmware's status
 ; lands in errbuf, so the text cannot be built there)

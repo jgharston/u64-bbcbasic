@@ -1,6 +1,6 @@
 # Design: the song tracker
 
-Status: decided 2026-10-09 (owner); to be built after sound step (b2).
+Status: decided 2026-10-09 (owner); built 2026-10-09 (section 7).
 
 ## 1. Why, and why our own
 
@@ -118,3 +118,31 @@ meters from `ADVAL(-29-v)` while it plays.
 2. The tracker: song format, playback, `*SONG` commands, SAVE/LOAD.
 3. Recording (section 5), `ADVAL(-29-v)`.
 4. The demo on it; arrange.py with per-piece instruments.
+
+## 7. As built (2026-10-09)
+
+- Patterns at `$020000` + n * `$1200` in REU banks 2 and 3: at most 28
+  patterns (1792 rows), so the song stays clear of programs' data
+  (`$040000` on) and the RAM disk. Header, order list and row counts in
+  bank 1 (`$010000`-`$0102FF`); the header also keeps the 24 recording
+  cursors.
+- Playback (`s_song` in the SID image, about 400 bytes with its 72-byte
+  row buffer): the row clock in centiseconds * 256 from TIME (row length
+  1536000 / (tempo * rows per beat), worked out by `*SONG PLAY`); a row
+  is one DMA, its notes start through `s_note` with duration "until the
+  next note" (255); key off releases them. At the end the song's notes
+  are released (or it goes on at the loop point).
+- Cells: note 1-96 (49 = middle C), 254 = the note goes on (a tie), 255
+  = key off; instrument 0 = the voice's own; effect `&1v` = sustain level
+  v. Other effects are not used yet.
+- Recording (`sg_record`, from OSWORD 7 while `*SONG RECORD` is on in SID
+  mode): the cell at the voice's cursor, the cursor moves on by the
+  duration in rows, a key off goes after the note; `*SONG RECORD OFF`
+  sets the length from the furthest cursor. Durations up to 255 rows per
+  SOUND.
+- `ADVAL(-29-v)`: the voice's note from its target pitch while it plays
+  (the image had no room for a note table).
+- `*SONG SAVE/LOAD`: 3 pages of header, order list and row counts, then
+  the patterns up to the highest one the order list uses.
+- Not yet: other effects (slides, tempo changes), `*SONG PLAY` from a
+  pattern number, an OSBYTE for the position.

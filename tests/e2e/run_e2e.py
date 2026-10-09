@@ -196,14 +196,25 @@ def test_help(t):
     run_line(t, "*HELP FROB", "No help on FROB")
 
 
+def help_pages(t, last_text):
+    # SPACE at each "SPACE: more" until the topic's last text and the prompt
+    for _ in range(10):
+        screen.type_text(t.bridge, " ")
+        time.sleep(0.5)
+        rows = screen.wait_for(t.bridge, lambda r: any("SPACE: more" in x for x in r)
+                               or any(x.startswith(">") for x in r))
+        if not any("SPACE: more" in x for x in rows):
+            assert any(last_text in r for r in rows), rows
+            return
+    raise AssertionError("no end of the topic: " + last_text)
+
+
 def test_help_paging(t):
     # MEMORY is longer than one page: the prompt, then SPACE for more
     run_line(t, "*HELP MEMORY", "SPACE: more")
-    screen.type_text(t.bridge, " ")
-    screen.wait_text(t.bridge, "even in turbo mode")
+    help_pages(t, "MODE 7.")
     run_line(t, "*HELP KEYWORDS", "SPACE: more")
-    screen.type_text(t.bridge, " ")
-    screen.wait_text(t.bridge, "WIDTH")
+    help_pages(t, "WIDTH")
 
 
 def test_bad_number(t):
@@ -403,7 +414,7 @@ def test_status(t):
     # must not look like an REU); on the Ultimates REU, machine, drives
     r = u64remote.Remote(mem=t.bridge).run_lines(["*STATUS"])
     out = r["output"]
-    assert "PAGE       &1900" in out and "HIMEM      &8000" in out, out
+    assert "PAGE       &1D00" in out and "HIMEM      &8000" in out, out
     if t.is_vice:
         assert "REU        none" in out and "Machine" not in out, out
     else:
@@ -840,7 +851,100 @@ def test_sid_mode(t):
                 'PRINT "R=";?&D41C', "R=170")
     run_line(t, 'SOUND &1002,-5,53,40:T%=TIME:REPEAT UNTIL TIME>T%+30:'
                 'PRINT "R=";?&D41C', "R=85")
+    # instrument + 256 * level: the level scales the instrument's sustain
+    # (ORGAN: 15 -> 5; PLUCK, sustain 0, stays percussive)
+    run_line(t, 'SOUND &1002,&0503,53,40:T%=TIME:REPEAT UNTIL TIME>T%+30:'
+                'PRINT "R=";?&D41C', "R=85")
+    run_line(t, 'SOUND &1002,&0F09,53,40:T%=TIME:REPEAT UNTIL TIME>T%+60:'
+                'PRINT "R=";?&D41C', "R=0")
     run_line(t, "*SOUND STOP", ">")
+
+
+def test_inst_mods(t):
+    # step b2: the modulation parts of *INSTRUMENT (sweeps, vibrato,
+    # portamento, finetune, hard restart, tables) are kept and listed; notes
+    # with them play (on the U64: SID 1 voice 3's envelope reads back)
+    if not ult(t):
+        run_line(t, "*INSTRUMENT 31", "Instruments need an REU")
+        return
+    for line in ("*INSTRUMENT 31 COPY 1 PW 800 6 14 2",
+                 "*INSTRUMENT 31 VIB 20 2 6 PORTA 16 FINE -3 RESTART",
+                 "*INSTRUMENT 31 FILTER CUT 40 2 200 30 STOP",
+                 "*INSTRUMENT 31 WAVES 65 65 255 0 ARP 0 4 7 SPEED 2"):
+        run_line(t, line, ">")
+    rows = run_line(t, "*INSTRUMENT 31", "SPEED")
+    text = "".join(rows)                    # (40-column rows run on)
+    for part in ("PW 800 6 14 2", "CUT 40 2 200 30", "STOP", "VIB 20 2 6",
+                 "PORTA 16", "FINE -3", "RESTART", "WAVES 65 65 255",
+                 "ARP 0 4 7", "SPEED 2"):
+        assert part in text, (part, text)
+    run_line(t, 'SOUND 2,31,53,40:SOUND 2,31,69,40:T%=TIME:'
+                'REPEAT UNTIL TIME>T%+30:PRINT "R=";?&D41C', "R=")
+    run_line(t, 'SOUND 2,15,53,20:T%=TIME:REPEAT UNTIL TIME>T%+20:'
+                'PRINT "R=";?&D41C>0', "R=-1")      # ARP: tables
+    run_line(t, "*SOUND STOP", ">")
+    run_line(t, "*INSTRUMENT 31 COPY 1", ">")
+    run_line(t, "*INSTRUMENT 31", "SQUARE")
+
+
+def test_song(t):
+    # *SONG: a song built with SOUND while recording, played in the
+    # background (ADVAL(-29-v): the note of voice v), saved and loaded
+    if not ult(t):
+        run_line(t, "*SONG", "Songs need an REU")
+        return
+    run_line(t, "*SONG NEW 60", ">")
+    run_line(t, "*SONG", "60 bpm, 4 rows per beat, 0 patterns")
+    run_line(t, "*SONG RECORD", ">")
+    run_line(t, "SOUND 0,1,53,4:SOUND 0,1,57,4:SOUND 0,1,61,4", ">")
+    run_line(t, "SOUND 2,2,29,12", ">")
+    run_line(t, 'PRINT "R=";ADVAL(-6)', "R=15")      # nothing queued
+    run_line(t, "*SONG RECORD OFF", ">")
+    run_line(t, "*SONG", "1 patterns")
+    run_line(t, "*SONG TITLE TEST SONG", ">")
+    run_line(t, "*SONG PLAY", ">")              # rows of 0.25 s
+    run_line(t, 'PRINT "N=";ADVAL(-29);",";ADVAL(-31)', "N=49,43")
+    run_line(t, "*SONG", "Playing")
+    run_line(t, "T%=TIME:REPEAT UNTIL TIME>T%+350", ">")
+    rows = run_line(t, "*SONG", "patterns")
+    assert not any("Playing" in r for r in rows), rows   # it ended
+    run_line(t, "*SONG SAVE TSONG", ">")
+    run_line(t, "*SONG NEW", ">")
+    run_line(t, "*SONG LOAD TSONG", ">")
+    run_line(t, "*SONG", "TEST SONG")
+    run_line(t, "*DELETE TSONG", ">")
+    run_line(t, "*SOUND BBC", ">")
+    run_line(t, "*SONG PLAY", "Songs play in SID mode")
+    run_line(t, "*SOUND SID", ">")
+
+
+def test_sound_none(t):
+    # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
+    # SID / BBC refuse while PAGE is lower than &1D00, then work again
+    # (SIDs found again, SOUND queues)
+    run_line(t, "*SOUND NONE", ">")
+    run_line(t, "*SOUND", "None")
+    run_line(t, 'A%=&83:H%=(USR&C7F4 AND &FF0000) DIV &10000:PRINT "H=";~H%', "H=9")
+    run_line(t, 'SOUND 1,1,53,10:PRINT "R=";ADVAL(-6)', "R=15")
+    run_line(t, "PAGE=&900", ">")
+    run_line(t, "NEW", ">")
+    run_line(t, '10 PRINT "LOW PAGE"', ">")
+    run_line(t, "RUN", "LOW PAGE")
+    run_line(t, "*SOUND SID", "PAGE is below &1D00")
+    run_line(t, "PAGE=&1D00", ">")
+    run_line(t, "NEW", ">")
+    run_line(t, "*SOUND SID", ">")
+    run_line(t, "*SOUND", "SID mode, on")
+    run_line(t, 'A%=&83:H%=(USR&C7F4 AND &FF0000) DIV &10000:PRINT "H=";~H%', "H=1D")
+    rows = run_line(t, 'SOUND 1,1,53,100:SOUND 1,1,55,100:PRINT "R=";ADVAL(-6)', "R=")
+    assert any(r.startswith("R=11") or r.startswith("R=7") for r in rows), rows
+    # (7: the first not started by an interrupt yet)
+    run_line(t, "*SOUND STOP", ">")
+    run_line(t, "*SOUND BBC", ">")
+    run_line(t, "*SOUND", "BBC mode, on")
+    run_line(t, "*SOUND SID", ">")
+    rows = run_line(t, "*SID", "&D400")
+    assert any("&D400" in r for r in rows), rows
 
 
 def test_sid(t):
@@ -858,7 +962,8 @@ def test_sid(t):
         assert not any("rror" in r or "errors" in r for r in rows), rows
     run_line(t, "*TYPE /Temp/bbcmix.cfg", "Pan UltiSID 2=Right 3")
     run_line(t, "*SID PAN 1 9", "Syntax")
-    run_line(t, "*SID VOL 1 -41", "had errors")    # not one of its steps
+    run_line(t, "*SID VOL 1 -41", ">")     # rounded to the firmware's -42
+    run_line(t, "*SID VOL 1 -6", ">")
 
 
 def test_text_colours(t):
@@ -1227,7 +1332,8 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
-         test_palette, test_memory, test_sound, test_sid_mode,
+         test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
+         test_inst_mods, test_song,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

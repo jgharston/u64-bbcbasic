@@ -203,7 +203,10 @@ irq_tstep:
     stx timefrac
 
 irq_keys:                       ; (Upic Lite's frame interrupt joins here)
-    jsr SOUNDRAM+3              ; sound (sound.s): durations, envelopes
+    lda snd_on                  ; sound (sound.s): durations, envelopes
+    beq irq_nosnd               ; (none under *SOUND NONE)
+    jsr SNDV_IRQ
+irq_nosnd:
     lda STKEY               ; $7F while RUN/STOP is held (last UDTIM)
     cmp #$7F
     bne irq_nostop
@@ -395,6 +398,7 @@ reu_saveS   dta 0
 rd_ok       dta 0               ; there is an REU RAM disk (reudisk.s)
 reu_cwd     dta 0               ; /REU is the current directory
 rd_chent    dta 0, 0            ; per channel on /REU: its entry
+snd_on      dta 0               ; a sound engine image is in RAM (not NONE)
 iec_dev     dta 0               ; serial-bus device for the IEC helpers
 softiec_dev dta 0               ; SoftIEC drive's device number (0: unknown)
 osfblk      dta 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  ; OSFILE block for *LOAD/*SAVE

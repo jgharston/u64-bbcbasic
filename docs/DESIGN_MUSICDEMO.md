@@ -1,6 +1,7 @@
 # Design: music demo (24 voices, instruments)
 
-Status: decided 2026-10-09 (section 6). The BASIC player (sections 3, 7)
+Status: decided 2026-10-09 (section 6). Section 8: the player as it is now
+(songs). The BASIC player (sections 3, 7)
 is replaced by the song tracker (DESIGN_TRACKER.md): the demo builds
 each piece from BASIC with SOUND in record mode, then plays it. Roadmap: PLAN.md
 section 24. Depends on sound step (b2) (sweeps, vibrato, tables: the
@@ -107,3 +108,33 @@ BBC. Decided (owner): **MODE 5** on Upic Lite: the same 160 x 256
 picture with 4 colours and HIMEM &5800 (16K). The 24 voice bars are
 grouped by SID, UltiSID 1's SIDs left in cyan, UltiSID 2's right in
 magenta (as heard in stereo), the title in white.
+
+## 8. The demo on the tracker (2026-10-09)
+
+`MUSIC` no longer plays in real time. For each piece it reads the note
+file and builds a song from BASIC: `#TEMPO` gives `*SONG NEW tempo 8`
+(8 rows per beat: a 32nd note is one row) and `*SONG RECORD`, each note
+is a `SOUND` (duration in rows) that goes into the song, `#INSTRUMENT`
+lines define the piece's own instruments with `*INSTRUMENT`; then `*SONG
+PLAY` and the bar chart from `ADVAL(-29-v)` while it plays. The screen
+shows the commands as they go by. Building takes 10-30 seconds (the
+Canon, 24 voices: 28 s); playback has no gaps, in every screen mode.
+
+Instruments 17-30 (`arrange.py` CUSTOM: violin, cello, harpsichord,
+choir, ragtime piano, banjo, clarinet, trumpet, church organ,
+glockenspiel, slide lead, tuba, string bass, swelling strings) use the
+engine's modulation; each piece maps some of its parts onto them
+(`PIECE_INSTR`). `arrange.py --instruments` applies that to the existing
+`.mml` files without the MIDI sources. Loudness `V` now goes with the
+instrument (SOUND amplitude instrument + 256 * level).
+
+Endings (owner: the songs stopped at unnatural places): the pieces from
+MIDI files were cut after a fixed number of bars. Now each ends on a
+cadence, its last bar the downbeat's chord held (`Piece(hold_end=True)`):
+The Entertainer at bar 36 (the A strain's C), Nachtmusik at bar 18
+(back in G, 18 bars instead of 28), the Toccata at bar 12 (D minor);
+Maple Leaf Rag gets a bar of its A-flat chord after bar 32. The
+Mutopia download addresses are in `arrange.py`'s docstring (the files
+go to `build/mutopia`). The CHURCH organ (an octave arpeggio every
+interrupt: a buzz) became ORGAN with a slow pulse sweep and slight
+vibrato.

@@ -28,3 +28,6 @@
 
     org $8000, $C000            ; bank 5 (the REU RAM disk)
     icl 'rdbank.s'
+
+    org $8000, $C000            ; bank 6 (sound)
+    icl 'sndbank.s'

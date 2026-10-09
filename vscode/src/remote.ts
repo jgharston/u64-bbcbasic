@@ -17,7 +17,7 @@ const MB = {
 const MB_SIZE = 238, MB_LINEMAX = 74, RING = 128;
 const REQ_LINE = 1, REQ_DEBUG = 2, REQ_CAPTURE = 3, REQ_PROGRAM = 4;
 export const DBG_CONTINUE = 1, DBG_STEP = 2, DBG_STOP = 3;
-const PAGE = 0x1900, HIMEM = 0x8000, ESCFLG = 0x00ff, SCREEN = 0xc000;
+const PAGE = 0x1d00, HIMEM = 0x8000, ESCFLG = 0x00ff, SCREEN = 0xc000;
 
 export type State = 'prompt' | 'input' | 'running' | 'paused' | 'idle' | 'timeout';
 

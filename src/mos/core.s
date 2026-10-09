@@ -289,7 +289,10 @@ vdu_colour:                     ; VDU 17,n: COLOUR n (text mode; bank 3)
     jmp wr_done
 
 vdu_bell:                       ; VDU 7: the BBC's bell (sound.s)
-    jsr SOUNDRAM+15
+    lda snd_on                  ; (no engine under *SOUND NONE)
+    beq vb_none
+    jsr SNDV_BELL
+vb_none:
     jmp wr_done
 
 vdu_23:                         ; VDU 23: bank 3 (bk_vdu23)

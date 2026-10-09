@@ -31,7 +31,8 @@ BANK_FS     = 2                 ; UCI driver, filing system, Ultimate commands
 BANK_GFX    = 3                 ; graphics: modes, palettes, Upic Lite (gxbank.s)
 BANK_UL     = 4                 ; Upic Lite RAM images (ulbank.s)
 BANK_RD     = 5                 ; the REU RAM disk (reudisk.s)
-BANK_HELP   = 6                 ; first help bank: index + texts (tools/genhelp.py)
+BANK_SND    = 6                 ; sound: engine images, commands (sndbank.s)
+BANK_HELP   = 7                 ; first help bank: index + texts (tools/genhelp.py)
 BANK_RAM    = $FF               ; cartridge off: BASIC runs from its RAM
                                 ; copy at $8000-$BFFF. The Ultimate 64 runs
                                 ; cartridge ROM fetches at 1 MHz, RAM at
@@ -50,9 +51,11 @@ CORE        = $C800             ; VDU core in RAM, 2K (core.s)
 ENGINE      = $D000             ; drawing engine, 4K under I/O (gfx.s)
 BITMAP      = $E000             ; VIC-II bitmap in the bitmap modes
 TTXBUF      = $7C00             ; MODE 7 screen memory (teletext codes)
-SOUNDRAM    = $0800             ; sound engine, queues, voice state
-OSHWM       = $1900             ; PAGE: above the sound engine (DESIGN_SOUND.md 4)
-MOSBUF      = $1800             ; 256: scratch for * commands (below PAGE)
+MOSBUF      = $0800             ; 256: scratch for * commands (below PAGE)
+SOUNDRAM    = $0900             ; sound engine image: code, queues, voice state
+SNDSHR      = $1C60             ; 160: what both sound images share
+OSHWM       = $1D00             ; PAGE: above the sound engine (DESIGN_SOUND.md 4)
+OSHWM_NONE  = $0900             ; lowest PAGE with *SOUND NONE
 gzp         = $FB               ; engine pointer (C64 user zero page)
 GX_MODE     = 0                 ; engine entries (gfx.s jump table)
 GX_VDU      = 3
@@ -101,6 +104,14 @@ REU_FONT_BANK = 0               ; REU system area (DESIGN_GRAPHICS.md 6)
 REU_FONT    = $0000             ; 2K: font in ASCII order (bitmap modes)
 REU_VICFONT = $0800             ; 2K: the text-mode font, for MODE changes
 REU_DEFFONT = $1000             ; 2K: the start-up text font (*FONT DEFAULT)
+REU_INST    = $2000             ; 4K: 64 instruments x 64 bytes (sound)
+REU_ENV     = $3000             ; 208: the 16 BBC envelopes (ENVELOPE)
+REU_SONGBANK = 1                ; the song (DESIGN_TRACKER.md): header,
+REU_HEAD    = $0000             ; 256: header
+REU_ORDER   = $0100             ; 256: order list (pattern numbers)
+REU_ROWS    = $0200             ; 256: rows per pattern (1-64)
+REU_PATBANK = 2                 ; patterns from $020000, $1200 each:
+PAT_MAX     = 28                ; up to $03F7FF (banks 2 and 3)
 
 LANGROM     = $8000             ; language ROM entry (A=1: start)
 
@@ -318,3 +329,46 @@ REQ_LINE    = 1
 REQ_DEBUG   = 2                 ; data: 1 continue, 2 step, 3 stop
 REQ_CAPTURE = 3
 REQ_PROGRAM = 4
+
+; ----------------------------------------------------------------------------
+; Sound (sound.s, DESIGN_SOUND.md): engine entry points in RAM, the data
+; both images share, constants for the engine and its commands.
+
+zpTXTP      = $18               ; BASIC's PAGE (high byte)
+
+SNDV_INIT    = SOUNDRAM+0        ; reset the voices
+SNDV_IRQ     = SOUNDRAM+3        ; from the interrupt
+SNDV_PUT     = SOUNDRAM+6        ; queue s_qbuf on voice X (C = 1: full)
+SNDV_ADVAL   = SOUNDRAM+9        ; X = voice: X = free queue bytes
+SNDV_STOP    = SOUNDRAM+12       ; silence, empty the queues
+SNDV_BELL    = SOUNDRAM+15       ; VDU 7
+SNDV_FLUSH   = SOUNDRAM+18       ; voice X: queue emptied, sound off
+SNDV_IMG     = SOUNDRAM+21       ; which image: 0 BBC, 1 SID
+
+NV          = 24                ; voices (8 SIDs x 3)
+QLEN        = 3                 ; queued notes per voice (MOS 1.20: 15 bytes)
+IHDR        = 53                ; instrument bytes copied at note-on (to the
+                                ; table speed; the tables stay in the REU)
+QF_SYNC     = $0F               ; queue flags: start with S other voices,
+QF_HOLD     = $10               ; hold,
+QF_TIE      = $20               ; change the playing note (SID mode)
+
+s_mode      = SNDSHR+0          ; 0 SID mode, 1 BBC mode
+s_off       = SNDSHR+1          ; *SOUND OFF
+s_nsid      = SNDSHR+2          ; SIDs found
+s_sidlo     = SNDSHR+3          ; 8: SID base addresses
+s_sidhi     = SNDSHR+11         ; 8
+s_f17       = SNDSHR+19         ; 8: filter routing / resonance per SID
+s_f18       = SNDSHR+27         ; 8: filter mode / volume per SID
+s_qbuf      = SNDSHR+35         ; 5: the note to queue (SNDV_PUT)
+ftab_lo     = SNDSHR+40         ; 48: the octave of middle C in quarter
+ftab_hi     = SNDSHR+88         ; 48: semitones (PAL or NTSC)
+ntab_lo     = SNDSHR+136        ; 6: BBC noise frequencies
+ntab_hi     = SNDSHR+142        ; 6
+t_rec       = SNDSHR+148        ; *SONG RECORD on (sndcmd.s)
+s_qlvl      = SNDSHR+149        ; SID mode: the queued note's level (0: the
+                                ; instrument's own; SND_PUT)
+SNDSHR_END  = SNDSHR+150
+    .if SNDSHR_END > OSHWM
+    .error "Shared sound data overflows PAGE"
+    .endif

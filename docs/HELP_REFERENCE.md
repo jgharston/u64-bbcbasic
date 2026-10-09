@@ -97,10 +97,11 @@ VDU          VPOS         WIDTH
 *MKDIR       *MOUNT       *PALETTE
 *PARTITION   *PARTITIONS  *PWD
 *RENAME      *SAVE        *SETTIME
-*SHADOW      *SID         *SOUND
-*SRREAD      *SRWRITE     *STATUS
-*SWAP        *TIME        *TURBO
-*TYPE        *UNMOUNT     *UVER
+*SHADOW      *SID         *SONG
+*SOUND       *SRREAD      *SRWRITE
+*STATUS      *SWAP        *TIME
+*TURBO       *TYPE        *UNMOUNT
+*UVER
 ```
 
 ## BBC
@@ -169,8 +170,9 @@ Memory map while BASIC runs:
   &02A7-&02FF  MOS error buffer
   &033C-&03FB  MOS variables
   &0400-&07FF  BASIC workspace
-  &0800-&18FF  sound engine
-  &1900-&7FFF  program (PAGE-HIMEM)
+  &0800-&08FF  MOS command buffer
+  &0900-&1CFF  sound engine
+  &1D00-&7FFF  program (PAGE-HIMEM)
   &8000-&BFFF  BBC BASIC (RAM copy)
   &C000-&C3FF  screen / colours
   &C400-&C7FF  resident MOS
@@ -178,10 +180,12 @@ Memory map while BASIC runs:
   &D000-&DFFF  I/O, graphics below
   &E000-&FFFF  KERNAL, bitmap below
 
-PAGE is &1900 (as on a BBC Micro with
-discs) and HIMEM &8000: 26.75K for
-programs. Some modes need RAM below
-HIMEM: MODE 7 keeps its screen at
+PAGE is &1D00 (as on a BBC Micro with
+ADFS) and HIMEM &8000: 25.75K for
+programs. *SOUND NONE takes the sound
+engine out: a program may then set
+PAGE=&900 (31K). Some modes need RAM
+below HIMEM: MODE 7 keeps its screen at
 &7C00, the Upic Lite modes their
 picture at &5800 (MODE 0, 3, 4, 5, 6)
 or &3000 (MODE 1, 2); HIMEM is lowered
@@ -386,7 +390,7 @@ OSBYTE calls (*FX a,x,y) available:
   &7F   EOF# of channel X
   &81   INKEY
   &82   high address (&FFFF)
-  &83   OSHWM / PAGE (&1900)
+  &83   OSHWM / PAGE (&1D00)
   &84   HIMEM of the mode
   &85   HIMEM for a mode
   &86   POS (X) and VPOS (Y)
@@ -519,9 +523,10 @@ triangles, rectangles, parallelograms,
 circles, ellipses, pattern fills, flood
 fill, arcs, segments, sectors. Sound:
 SOUND and ENVELOPE as on a BBC Micro.
-LOAD and SAVE work between &1900 and
-&7FFF. Two files open at a time. *KEY,
-*EXEC and *SPOOL are not there yet.
+LOAD and SAVE work between PAGE (&1D00,
+or &900 with *SOUND NONE) and &7FFF.
+Two files open at a time. *KEY, *EXEC
+and *SPOOL are not there yet.
 ```
 
 ## REMOTE
@@ -781,8 +786,8 @@ Renames a file.
   *LOAD <name> <address>
 
 Loads a file into memory at an address
-(decimal or &hex), between &0800 and
-&7FFF.
+(decimal or &hex), between &1D00 (&900
+with *SOUND NONE) and &7FFF.
 
   *LOAD screen &3000
 ```
@@ -975,11 +980,12 @@ unit: 1 or 2 (UltiSID 1 or 2; with the
 .cfg the 1st, 3rd, 5th and 7th SID are
 UltiSID 1's) or S1, S2 (the SID
 sockets). p: -5 (left) to 5 (right), 0
-centre. dB: -42 to 6 (the Ultimate's
-steps), or OFF. The setting takes
-effect at once and lasts until the
-Ultimate is reset. Needs firmware
-3.15a.
+centre. dB: -42 to 6, or OFF; rounded
+to the Ultimate's steps (-42 -36 -30
+-27 -24, then -18 to 6 in single dB).
+The setting takes effect at once and
+lasts until the Ultimate is reset.
+Needs firmware 3.15a.
 ```
 
 ## *SOUND
@@ -988,6 +994,7 @@ Ultimate is reset. Needs firmware
   *SOUND         show the mode
   *SOUND SID     SID mode (start-up)
   *SOUND BBC     BBC Micro mode
+  *SOUND NONE    no engine: more memory
   *SOUND OFF     sound off
   *SOUND ON      sound on again
   *SOUND STOP    silence, queues empty
@@ -996,7 +1003,15 @@ SID mode: SOUND plays all voices of up
 to 8 SIDs with instruments (see SOUND,
 *INSTRUMENT). BBC mode: SOUND and
 ENVELOPE as on a BBC Micro, channels
-0-3. Changing the mode stops all sound.
+0-3. Changing the mode stops all sound;
+envelopes are kept (with an REU).
+
+NONE takes the sound engine out of
+memory: &0900-&1CFF is free, and a
+program may set PAGE=&900 for 31K.
+SOUND is then ignored. *SOUND SID or
+BBC brings the engine back, but only
+while PAGE is &1D00 or above.
 ```
 
 ## *INSTRUMENT
@@ -1015,14 +1030,90 @@ Also: `INSTRUMENT`
 64 instruments for SID mode; 1-16 are
 ready-made: SQUARE PIANO ORGAN STRINGS
 BRASS LEAD BASS FLUTE PLUCK BELL KICK
-SNARE HIHAT PAD ARP SYNC. Parts: TRI
-SAW PULSE NOISE RING SYNC (the
-waveform; several mix), ADSR a d s r
-(0-15 each), PW w (pulse width 0-4095),
+SNARE HIHAT PAD ARP SYNC. Needs an REU.
+Parts:
+
+TRI SAW PULSE NOISE RING SYNC: the
+waveform (several mix). ADSR a d s r:
+the envelope (0-15 each). PW w [rate
+top bottom]: pulse width 0-4095; with a
+sweep, the width moves by rate (-128 to
+127) each interrupt, turning at top and
+bottom (the width's high part, 0-15).
+
 FILTER [LOW] [BAND] [HIGH] [RES r] [CUT
-c] (c 0-255), NOFILTER, FINE f.
-Example: *INSTRUMENT 20 COPY 2 SAW ADSR
-0 8 0 9. Needs an REU.
+c [rate top bottom]]: through the
+filter; c the cutoff (0-255), a sweep
+as for PW (top, bottom 0-255); STOP:
+the sweep stops at its end, BOUNCE: it
+turns. NOFILTER.
+
+VIB delay width rate: vibrato after
+delay interrupts, width in 1/8
+semitones, rate 1-63. PORTA speed:
+slides to each new note (speed/64
+semitone per interrupt). FINE f: tuning
+in 1/64 semitones (-128 to 127).
+RESTART / NORESTART: hard restart (a
+clean new attack).
+
+WAVES w ...: up to 16 waveform steps
+(255 n: go on at step n; 0: end); ARP a
+...: semitone offsets for the same
+steps (chords, drums); SPEED n:
+interrupts per step.
+
+  *INSTRUMENT 20 COPY 2 SAW
+  *INSTRUMENT 20 ADSR 0 8 0 9
+  *INSTRUMENT 21 PULSE PW 800 6 14 2
+  *INSTRUMENT 21 VIB 20 2 6
+  *INSTRUMENT 22 WAVES 65 65 255 0
+  *INSTRUMENT 22 ARP 0 4 7 SPEED 2
+```
+
+## *SONG
+
+Also: `SONG`, `TRACKER`
+
+```
+  *SONG                show it
+  *SONG NEW [bpm [rpb]]
+  *SONG RECORD [OFF]
+  *SONG PLAY [position]
+  *SONG STOP
+  *SONG TEMPO bpm
+  *SONG TITLE text
+  *SONG COMPOSER text
+  *SONG SAVE <file>
+  *SONG LOAD <file>
+
+A song of up to 24 voices kept in the
+REU, played in the background by the
+SID engine (*SOUND SID), in every
+screen mode. Build it from BASIC: after
+*SONG RECORD, SOUND writes notes into
+the song instead of playing them; the
+duration counts in rows (a beat has rpb
+rows, default 4; tempo bpm, default
+120). Each voice keeps its own place,
+so voices can be written one after
+another. *SONG RECORD OFF ends the song
+after the furthest note.
+
+  *SONG NEW 100
+  *SONG RECORD
+  SOUND 0,4,53,4:SOUND 0,4,61,4
+  SOUND 1,7,25,8
+  *SONG RECORD OFF
+  *SONG PLAY
+
+Pitch as SOUND, rounded to semitones;
+amplitude 1-64 an instrument, -15 to -1
+the voice's instrument at that level, 0
+a rest. Up to 28 patterns of 64 rows
+(1792 rows). ADVAL(-29-v) gives the
+note voice v plays (49 = middle C), to
+draw meters while it plays.
 ```
 
 ## *SRWRITE
@@ -1151,8 +1242,12 @@ ADVAL(-5) to ADVAL(-8): free room in
 the sound queue of channel 0 to 3, as
 on a BBC Micro: 15 when empty, 4 bytes
 per note waiting. In SID mode ADVAL(-5)
-to ADVAL(-28) for voices 0-23. Other
-values return 0 (no analogue port).
+to ADVAL(-28) for voices 0-23, and
+ADVAL(-29) to ADVAL(-52) the note voice
+0-23 plays now (1-96, 49 = middle C; 0:
+none), for meters while a song plays
+(*SONG). Other values return 0 (no
+analogue port).
 ```
 
 ## AND
@@ -1935,7 +2030,9 @@ can contain variables.
 ```
   PAGE
 
-The start of the program (&1900).
+The start of the program (&1D00). With
+*SOUND NONE it may be set as low as
+&900.
 ```
 
 ## PI
@@ -2215,10 +2312,13 @@ SID mode (the start-up mode): c =
 SID v DIV 3), S sync with S other
 voices (0-15), F: 1 flush, 2 hold, 4
 tie (new pitch, no new attack). a:
-instrument 1-64, or -15..-1 the voice's
-instrument at that loudness, 0 a rest.
-p: as BBC mode, also below 0 for low
-notes.
+instrument 1-64; instrument + 256 *
+loudness (1-15, scales the instrument's
+own sustain: &0A08 is instrument 8 at
+10/15; drums stay drums); -15..-1 the
+voice's instrument at that loudness; 0
+a rest. p: as BBC mode, also below 0
+for low notes.
 
 Three notes wait per voice; see ADVAL.
 ```

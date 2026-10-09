@@ -297,7 +297,7 @@ rl_next:
 ;   Summary: OSFILE &FF on /REU: the file to C64 memory.
 ;   Input:   RD_NAME; fsADDR = address, or fsMODE <> 0: its own load
 ;            address.  Output: fsLEN = length.  Raises: not found, too
-;            long for memory (LOAD_LOW-$7FFF).
+;            long for memory (the lowest PAGE to $7FFF).
 ;   Uses:    A, X, Y, fs*.
 rd_load:
     jsr rd_lookup
@@ -318,9 +318,15 @@ rld_addr:
     sta fsLEN
     lda RDE_LEN+1
     sta fsLEN+1
-    lda fsADDR+1                ; LOAD_LOW <= address, end <= $8000
-    cmp #>LOAD_LOW
-    bcc rld_big
+    lda #>OSHWM                 ; the lowest PAGE <= address, end <= $8000
+    ldx snd_on
+    bne rld_low
+    lda #>OSHWM_NONE
+rld_low:
+    cmp fsADDR+1
+    beq rld_lowok
+    bcs rld_big
+rld_lowok:
     lda fsADDR
     clc
     adc fsLEN

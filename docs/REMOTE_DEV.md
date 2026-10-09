@@ -29,7 +29,7 @@ It sees plain RAM `$0000-$7FFF` and `$C000-$CFFF`. At `$8000-$BFFF` it
 sees neither BASIC's RAM copy nor the cartridge, and at `$E000` it sees
 the KERNAL ROM. So:
 
-- program, variables and BASIC's stacks (`&1900-&7FFF`, PAGE to HIMEM) and the resident
+- program, variables and BASIC's stacks (`&1D00-&7FFF`, PAGE to HIMEM) and the resident
   MOS page (`$C400-$C7FF`) are reachable;
 - the mailbox lives in the resident page;
 - while a UCI file transfer runs, an Ultimate 64-II can refuse a REST
@@ -105,7 +105,7 @@ default; costs nothing then. The screen (`$C000`) can be read as well.
 
 | Action | How |
 |---|---|
-| Send program | Tokenise on the PC (BBC BASIC tokeniser in TypeScript, checked against the interpreter's token table), write it to PAGE (`&0800`) by DMA, then post the line `END`. END runs at the prompt and recomputes TOP, as in Ivo van Poorten's Atari port. Alternatively: upload to `/Temp` by FTP and post `CHAIN "/Temp/prog"`. |
+| Send program | Tokenise on the PC (BBC BASIC tokeniser in TypeScript, checked against the interpreter's token table), write it to PAGE (`&1D00`) by DMA, then post the line `END`. END runs at the prompt and recomputes TOP, as in Ivo van Poorten's Atari port. Alternatively: upload to `/Temp` by FTP and post `CHAIN "/Temp/prog"`. |
 | Run | post `RUN` (with output capture on) |
 | Stop | set ESCFLG (`$FF` = `$80`) |
 | Immediate line / REPL | post the line; output via the ring |
