@@ -72,7 +72,8 @@ Memory map while BASIC runs:
   &02A7-&02FF  MOS error buffer
   &033C-&03FB  MOS variables
   &0400-&07FF  BASIC workspace
-  &0800-&7FFF  program (PAGE-HIMEM)
+  &0800-&18FF  sound engine
+  &1900-&7FFF  program (PAGE-HIMEM)
   &8000-&BFFF  BBC BASIC (RAM copy)
   &C000-&C3FF  screen / colours
   &C400-&C7FF  resident MOS
@@ -80,7 +81,7 @@ Memory map while BASIC runs:
   &D000-&DFFF  I/O, graphics below
   &E000-&FFFF  KERNAL, bitmap below
 
-PAGE is &0800 and HIMEM &8000: 30K for programs. Some modes need RAM below HIMEM: MODE 7 keeps its screen at &7C00, the Upic Lite modes their picture at &5800 (MODE 0, 3, 4, 5, 6) or &3000 (MODE 1, 2); HIMEM is lowered to match, as on a BBC Micro. Under the I/O area is the drawing engine, under the KERNAL the bitmap (&E000) and the text font (&F000). The area &70-&8F is free for your own machine code, as on a BBC Micro.
+PAGE is &1900 (as on a BBC Micro with discs) and HIMEM &8000: 26.75K for programs. Some modes need RAM below HIMEM: MODE 7 keeps its screen at &7C00, the Upic Lite modes their picture at &5800 (MODE 0, 3, 4, 5, 6) or &3000 (MODE 1, 2); HIMEM is lowered to match, as on a BBC Micro. Under the I/O area is the drawing engine, under the KERNAL the bitmap (&E000) and the text font (&F000). The area &70-&8F is free for your own machine code, as on a BBC Micro.
 
 BASIC runs from RAM because the Ultimate 64 reads cartridge ROM at 1 MHz even in turbo mode.
 
@@ -196,7 +197,7 @@ OSBYTE calls (*FX a,x,y) available:
   &7F   EOF# of channel X
   &81   INKEY
   &82   high address (&FFFF)
-  &83   OSHWM / PAGE (&0800)
+  &83   OSHWM / PAGE (&1900)
   &84   HIMEM of the mode
   &85   HIMEM for a mode
   &86   POS (X) and VPOS (Y)
@@ -266,7 +267,7 @@ TIME stays in real time at every speed. *TURBO shows or changes the speed. On an
 @@ LIMITS
 Things that differ from a BBC Micro in this version:
 
-Typed lines: 78 characters (C64 screen editor); programs sent from a PC (see REMOTE) may have lines up to 251 characters. Graphics: points, lines, triangles, rectangles, parallelograms, circles, ellipses, pattern fills, flood fill, arcs, segments, sectors; no sound yet. LOAD and SAVE work between &0800 and &7FFF. Two files open at a time. *KEY, *EXEC and *SPOOL are not there yet.
+Typed lines: 78 characters (C64 screen editor); programs sent from a PC (see REMOTE) may have lines up to 251 characters. Graphics: points, lines, triangles, rectangles, parallelograms, circles, ellipses, pattern fills, flood fill, arcs, segments, sectors; no sound yet. LOAD and SAVE work between &1900 and &7FFF. Two files open at a time. *KEY, *EXEC and *SPOOL are not there yet.
 
 @@ REMOTE
 Programs can be written on a PC and run here: the MOS has a mailbox that a PC (or an AI coding agent) reaches through the Ultimate's network API. At the > prompt the MOS accepts lines and programs from it as if typed, and copies the output back.
@@ -934,7 +935,7 @@ Runs a * command from a string, so it can contain variables.
 @@ PAGE
   PAGE
 
-The start of the program (&0800).
+The start of the program (&1900).
 
 @@ PI
   PI

@@ -39,7 +39,8 @@ flash.
   `` ` `` = Shift+@.
 - RUN/STOP is ESCAPE.
 - Input lines can be up to 78 characters (the C64 screen editor's limit).
-- `PAGE` = &0800, `HIMEM` = &8000: 30K for programs.
+- `PAGE` = &1900 (as a BBC Micro with discs), `HIMEM` = &8000: 26.75K for
+  programs; &0800-&18FF holds the sound engine.
 - MOS entry points: `OSWRCH` = &C7EE, `OSBYTE` = &C7F4, `OSWORD` = &C7F1,
   `OSCLI` = &C7F7, … (BBC low bytes, page &C7). The RAM vectors are at
   &0200, as on the BBC.

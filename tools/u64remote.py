@@ -54,7 +54,7 @@ DBG_CONTINUE, DBG_STEP, DBG_STOP = 1, 2, 3
 MB_PROMPT, MB_ERRNUM, MB_ERRCNT, MB_LINE, MB_RING = 17, 18, 19, 20, 110
 MB_SIZE, MB_LINEMAX, RING = 238, 74, 128
 REQ_LINE, REQ_CAPTURE, REQ_PROGRAM = 1, 3, 4
-PAGE, HIMEM = 0x0800, 0x8000
+PAGE, HIMEM = 0x1900, 0x8000            # defaults; read from BASIC when needed
 ESCFLG = 0x00FF
 SCREEN = 0xC000
 
@@ -273,15 +273,24 @@ class Remote:
             result["ok"] = False
         return result
 
+    def page_himem(self):
+        """BASIC's PAGE and HIMEM (zero page &18, &06/&07)."""
+        zp = self.read(0x0000, 0x19)
+        page, himem = zp[0x18] << 8, zp[0x06] | zp[0x07] << 8
+        if not (0x0800 <= page < himem <= 0x8000):
+            return PAGE, HIMEM
+        return page, himem
+
     def send_program(self, text, run=False, timeout=30.0):
         image = bbctok.tokenise_program(text)
-        if PAGE + len(image) > HIMEM - 1024:
+        page, himem = self.page_himem()
+        if page + len(image) > himem - 1024:
             raise ValueError("program too big (%d bytes)" % len(image))
         st = self.ensure_prompt()
         errors_before = st["error_count"]
         self.capture(True)
         self.drain()
-        self.write(PAGE, image)
+        self.write(page, image)
         self.post(REQ_PROGRAM, bytes([1 if run else 0]))
         self.errors_before = errors_before
         r = self.run_lines([], timeout=timeout, prepared=True)
@@ -388,7 +397,8 @@ class Remote:
 
     def program_text(self):
         """The program in memory, detokenised on the host."""
-        image = b"".join(self.read(PAGE + i, 0x1000) for i in range(0, 0x4000, 0x1000))
+        page = self.page_himem()[0]
+        image = b"".join(self.read(page + i, 0x1000) for i in range(0, 0x4000, 0x1000))
         end = image.find(b"\r\xff")
         if image[0] != 0x0D or end < 0:
             raise RemoteError("no program at PAGE")

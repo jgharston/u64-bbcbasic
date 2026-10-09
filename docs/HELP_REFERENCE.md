@@ -168,7 +168,8 @@ Memory map while BASIC runs:
   &02A7-&02FF  MOS error buffer
   &033C-&03FB  MOS variables
   &0400-&07FF  BASIC workspace
-  &0800-&7FFF  program (PAGE-HIMEM)
+  &0800-&18FF  sound engine
+  &1900-&7FFF  program (PAGE-HIMEM)
   &8000-&BFFF  BBC BASIC (RAM copy)
   &C000-&C3FF  screen / colours
   &C400-&C7FF  resident MOS
@@ -176,7 +177,8 @@ Memory map while BASIC runs:
   &D000-&DFFF  I/O, graphics below
   &E000-&FFFF  KERNAL, bitmap below
 
-PAGE is &0800 and HIMEM &8000: 30K for
+PAGE is &1900 (as on a BBC Micro with
+discs) and HIMEM &8000: 26.75K for
 programs. Some modes need RAM below
 HIMEM: MODE 7 keeps its screen at
 &7C00, the Upic Lite modes their
@@ -383,7 +385,7 @@ OSBYTE calls (*FX a,x,y) available:
   &7F   EOF# of channel X
   &81   INKEY
   &82   high address (&FFFF)
-  &83   OSHWM / PAGE (&0800)
+  &83   OSHWM / PAGE (&1900)
   &84   HIMEM of the mode
   &85   HIMEM for a mode
   &86   POS (X) and VPOS (Y)
@@ -509,7 +511,7 @@ characters. Graphics: points, lines,
 triangles, rectangles, parallelograms,
 circles, ellipses, pattern fills, flood
 fill, arcs, segments, sectors; no sound
-yet. LOAD and SAVE work between &0800
+yet. LOAD and SAVE work between &1900
 and &7FFF. Two files open at a time.
 *KEY, *EXEC and *SPOOL are not there
 yet.
@@ -1773,7 +1775,7 @@ can contain variables.
 ```
   PAGE
 
-The start of the program (&0800).
+The start of the program (&1900).
 ```
 
 ## PI

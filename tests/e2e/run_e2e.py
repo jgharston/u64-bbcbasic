@@ -403,7 +403,7 @@ def test_status(t):
     # must not look like an REU); on the Ultimates REU, machine, drives
     r = u64remote.Remote(mem=t.bridge).run_lines(["*STATUS"])
     out = r["output"]
-    assert "PAGE       &0800" in out and "HIMEM      &8000" in out, out
+    assert "PAGE       &1900" in out and "HIMEM      &8000" in out, out
     if t.is_vice:
         assert "REU        none" in out and "Machine" not in out, out
     else:
@@ -991,7 +991,8 @@ def test_remote_tokeniser(t):
     # same lines are typed in
     rm = remote(t)
     rm.run_lines(["NEW"] + TOKENISER_LINES)
-    image = b"".join(rm.read(0x0800 + i, 0x400) for i in range(0, 0x800, 0x400))
+    page = rm.page_himem()[0]
+    image = b"".join(rm.read(page + i, 0x400) for i in range(0, 0x800, 0x400))
     want = bbctok.tokenise_program("\n".join(TOKENISER_LINES))
     got = image[:len(want)]
     assert got == want, "differs at offset %d: BASIC %s, host %s" % (

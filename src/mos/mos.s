@@ -1003,9 +1003,9 @@ by_high:                        ; &82: no second processor
     ldx #$FF
     ldy #$FF
     bne by_ret
-by_oshwm:                       ; &83: PAGE = &0800
-    ldx #0
-    ldy #$08
+by_oshwm:                       ; &83: PAGE = &1900 (as a BBC with discs:
+    ldx #0                      ; &0800-&18FF is the sound engine's)
+    ldy #>OSHWM
     bne by_ret
 by_himem:                       ; &84: HIMEM of the current mode
     ldx #0

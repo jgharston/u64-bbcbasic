@@ -17,7 +17,7 @@ const MB = {
 const MB_SIZE = 238, MB_LINEMAX = 74, RING = 128;
 const REQ_LINE = 1, REQ_DEBUG = 2, REQ_CAPTURE = 3, REQ_PROGRAM = 4;
 export const DBG_CONTINUE = 1, DBG_STEP = 2, DBG_STOP = 3;
-const PAGE = 0x0800, HIMEM = 0x8000, ESCFLG = 0x00ff, SCREEN = 0xc000;
+const PAGE = 0x1900, HIMEM = 0x8000, ESCFLG = 0x00ff, SCREEN = 0xc000;
 
 export type State = 'prompt' | 'input' | 'running' | 'paused' | 'idle' | 'timeout';
 
@@ -234,13 +234,14 @@ export class Remote {
     async sendProgram(text: string, run: boolean, timeout = 30000,
                       onOutput?: (text: string) => void): Promise<RunResult> {
         const { image } = tokeniseProgram(text);
-        if (PAGE + image.length > HIMEM - 1024) {
+        const [page, himem] = await this.pageHimem();
+        if (page + image.length > himem - 1024) {
             throw new RemoteError(`program too big (${image.length} bytes)`);
         }
         const st = await this.ensurePrompt();
         await this.post(REQ_CAPTURE, [1]);
         await this.drain();
-        await this.write(PAGE, image);
+        await this.write(page, image);
         await this.post(REQ_PROGRAM, [run ? 1 : 0]);
         const r = await this.runLines([], timeout, onOutput, { errorsBefore: st.errorCount });
         r.programBytes = image.length;
@@ -330,9 +331,17 @@ export class Remote {
         return rows;
     }
 
+    /** BASIC's PAGE and HIMEM (zero page &18, &06/&07); the defaults if unset. */
+    async pageHimem(): Promise<[number, number]> {
+        const zp = await this.read(0, 0x19);
+        const page = zp[0x18] << 8, himem = zp[0x06] | (zp[0x07] << 8);
+        return page >= 0x0800 && page < himem && himem <= 0x8000 ? [page, himem] : [PAGE, HIMEM];
+    }
+
     async programText(): Promise<string> {
         const parts: Buffer[] = [];
-        for (let i = 0; i < 0x4000; i += 0x1000) { parts.push(await this.read(PAGE + i, 0x1000)); }
+        const [page] = await this.pageHimem();
+        for (let i = 0; i < 0x4000; i += 0x1000) { parts.push(await this.read(page + i, 0x1000)); }
         const image = Buffer.concat(parts);
         const end = image.indexOf(Buffer.from([0x0d, 0xff]));
         if (image[0] !== 0x0d || end < 0) { throw new RemoteError('no program at PAGE'); }

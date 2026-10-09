@@ -60,7 +60,7 @@ ESCFLG directly and notes it.
 | fs_save_load | SAVE, NEW, LOAD, RUN, CHAIN, `*CAT` |
 | fs_channels | OPENOUT, BPUT#, PRINT#, OPENIN, EXT#, PTR# seek, BGET#, INPUT#, EOF#, OPENIN of a missing file gives 0 |
 | fs_type | `*TYPE` of a file written with BPUT# |
-| fs_errors | missing file (error 214), missing directory, `*LOAD` below &0800 |
+| fs_errors | missing file (error 214), missing directory, `*LOAD` below &1900 |
 | fs_rename_delete | `*RENAME`, `*DELETE` (also cleans up) |
 | turbo_cmd | `*TURBO`, `*TURBO 0`, `*TURBO MAX` |
 

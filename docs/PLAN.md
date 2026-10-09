@@ -183,7 +183,8 @@ fewer extensions, and is useful for VICE and for quick turnaround.
 | `$0100–$01FF` | 6502 stack |
 | `$0200–$03FF` | KERNAL variables and vectors (`$0316` BRK → MOS) |
 | `$0400–$07FF` | **BBC BASIC workspace**, as on the BBC (variable heads, stacks, string buffer, input buffer `$0700`) |
-| `$0800–$7FFF` | **PAGE=&0800 … HIMEM=&8000: 30K for programs** (a BBC Model B in MODE 7 has about 25K) |
+| `$0800–$18FF` | Sound engine (from 2026-10-09, DESIGN_SOUND.md 4) |
+| `$1900–$7FFF` | **PAGE=&1900 … HIMEM=&8000: 26.75K for programs**, PAGE as on a BBC with discs (a BBC Model B with discs in MODE 7 has about 25K); 30K with PAGE &0800 until 2026-10-09 |
 | `$8000–$BFFF` | Cartridge window: bank 1 (BASIC) normally, other banks during MOS calls |
 | `$C000–$C3FF` | Text screen (VIC bank 3) / bitmap colour matrix |
 | `$C400–$C7FF` | Resident MOS: jump table at `$C7CE–$C7F7` (BBC low bytes kept), bank trampolines, OSWRCH/OSRDCH fast path, IRQ/NMI/BRK handlers |
@@ -753,6 +754,7 @@ when the RAM map for graphics is fixed.
 | BBC font (2026-10-07) | The MOS 1.20 glyphs in the cartridge behind `*FONT BBC`, good faith as for the interpreter (NOTICE.md) |
 | Font files | Explicit format word: `*FONT LOAD/SAVE file [C64|BBC|ASCII]` |
 | Palette files | Both: 48-byte RGB binary (C64 colour order) as the native format, plus VICE `.vpl` text files; `VDU 19,l,16,r,g,b` sets one RGB colour |
+| Sound (2026-10-09) | SID mode (all 24 voices of up to 8 SIDs, Heartbeat-style instruments, `SOUND &FSVV`) as default, `*SOUND BBC` sounding like a BBC; engine in RAM with PAGE &1900; BBC mode first (DESIGN_SOUND.md) |
 | Memory modes (2026-10-08) | Both: BBC Master shadow modes (`MODE 128+n`, `*SHADOW`, OSBYTE &72/&75) choose the VIC-II version of MODE 0-6 with HIMEM &8000; `*MEMORY UPIC ON|OFF|AUTO` as an alias; `*MEMORY` shows the map (DESIGN_GRAPHICS.md 9.5) |
 | SoftIEC | Partition support (add partition, `CP`) is needed to reach anything outside `/Temp` from the SoftIEC drive (owner note) |
 
@@ -822,3 +824,31 @@ as close to the original as possible, so they show compatibility.
 
 To do: a converter for BB4W's tokenised .bbc format (tools/), then
 porting and testing per program once triangles, circles and fills exist.
+
+## 23. Bigger programs with the REU (owner, 2026-10-09)
+
+Owner question: can BASIC code and variables live in a reserved part of
+the REU, for much bigger programs? Not directly: the interpreter reads
+program lines and variables from C64 RAM with its own pointers, and
+patching it is ruled out (section 14, and section 17's note). Chosen
+instead (owner, 2026-10-09), after the sound phase:
+
+1. **REU data storage**, as the BBC Master's sideways RAM: `*SRWRITE`
+   and `*SRREAD` (`*SRWRITE <start> <end>|+<length> <REU address>`) and
+   OSWORD `&42` from programs copy a DIM'd block or an array to and from
+   the REU at DMA speed. Megabytes of data for a program that keeps only
+   its code in RAM. A REU area for programs is reserved next to the RAM
+   disk (DESIGN_GRAPHICS.md 6).
+2. **REU RAM disk and CHAIN** (section 17 proposal 1, section 18): a
+   `/REU` drive with LOAD/SAVE/CHAIN/OPENIN at DMA speed, so a big
+   program can be split into parts that CHAIN each other at once,
+   passing values in A%-Z% and @% (which survive CHAIN).
+3. **Procedure libraries** (to investigate first): a MOS command that
+   puts a library of `DEF PROC`/`DEF FN` from the REU above the program
+   (`*LIB <file>`), as BBC BASIC IV/V's `INSTALL` does, so the main
+   program stays small. BASIC 3.10 finds procedures by searching from
+   PAGE, so the library has to look like part of the program to it; how
+   to do that without patching (e.g. the library placed in front of the
+   program with PAGE moved, or appended after TOP) is the first question.
+
+Not chosen: a patched interpreter with more memory (as HIBASIC).

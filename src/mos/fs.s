@@ -41,7 +41,7 @@ FA_CREATE   = $0A               ; write + create always (overwrite). Not
                                 ; answers "File exists" for existing files
 
 CHAN_BASE   = $11               ; channel numbers &11, &12
-LOAD_LOW    = $0800             ; LOAD destination range
+LOAD_LOW    = OSHWM             ; LOAD destination range (not the sound engine)
 MEM_HIGH    = $8000             ; LOAD/SAVE end limit (BASIC starts here)
 
 ; ----------------------------------------------------------------------------

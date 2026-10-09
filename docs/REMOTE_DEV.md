@@ -29,7 +29,7 @@ It sees plain RAM `$0000-$7FFF` and `$C000-$CFFF`. At `$8000-$BFFF` it
 sees neither BASIC's RAM copy nor the cartridge, and at `$E000` it sees
 the KERNAL ROM. So:
 
-- program, variables and BASIC's stacks (`&0800-&7FFF`) and the resident
+- program, variables and BASIC's stacks (`&1900-&7FFF`, PAGE to HIMEM) and the resident
   MOS page (`$C400-$C7FF`) are reachable;
 - the mailbox lives in the resident page;
 - while a UCI file transfer runs, an Ultimate 64-II can refuse a REST
