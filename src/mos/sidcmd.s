@@ -16,7 +16,8 @@ CTRL_LOADCFG = $50
 ; ----------------------------------------------------------------------------
 ; cmd_sid
 ;   Summary: *SID: list the SIDs; *SID PAN <unit> <p>: stereo position;
-;            *SID VOL <unit> <dB>|OFF: volume.
+;            *SID VOL <unit> <dB>|OFF: volume; *SID SETUP: 8 SIDs in
+;            stereo (sid_setup).
 ;   Function: unit 1 or 2 = UltiSID 1 or 2 (with the shipped .cfg the
 ;            SIDs at even positions in the list are UltiSID 1's, the odd
 ;            ones UltiSID 2's), S1 or S2 = the SID sockets. p = -5 (left)
@@ -25,6 +26,17 @@ CTRL_LOADCFG = $50
 ;   Input:   mosPTR/Y.  Output: text or the setting; raises on errors.
 ;   Uses:    A, X, Y, fs*, errbuf, MOSBUF, mosNUM.
 cmd_sid:
+    lda #0                      ; PAN, VOL, SETUP: errors raised
+    sta sm_quiet
+    lda #<sw_setup
+    ldx #>sw_setup
+    jsr arg_word
+    bcc cs_pan
+    jsr ff_end
+    jsr uci_need
+    lda #0                      ; (errors raised)
+    jmp sid_setup
+cs_pan:
     lda #<sw_pan
     ldx #>sw_pan
     jsr arg_word
@@ -77,8 +89,80 @@ sl_end:
 
 sw_pan      dta 'PAN', 0
 sw_vol      dta 'VOL', 0
+sw_setup    dta 'SETUP', 0
 sw_s1       dta 'S1', 0
 sw_s2       dta 'S2', 0
+
+; ----------------------------------------------------------------------------
+; sid_setup
+;   Summary: the 8SID layout the cartridge's .cfg sets (two UltiSIDs at
+;            $D400 and $D420, each split in four on A7 and A8, mirroring
+;            off) and its stereo mixer (UltiSID 1 left, 2 right, -6 dB),
+;            then the sound engine restarts in its mode with the SID list
+;            of that layout: snd_8sid makes snd_setup set the list instead
+;            of probing (now and whenever the engine comes back after
+;            *SOUND NONE), because a split UltiSID's four parts share one
+;            oscillator read-back (that of the first), so the probe cannot
+;            see the other three. If the firmware refuses the file (other
+;            firmware), the SIDs are probed as before.
+;   Function: as *SID PAN/VOL: a configuration file on the RAM disk, the
+;            firmware's "load config". The U64 applies the .cfg itself
+;            only when the cartridge is started from its file browser.
+;   Input:   A = 0: errors raised (*SID SETUP); 1: ignored (start-up).
+;   Output:  s_nsid and the list.  Uses: A, X, Y, fs*, MOSBUF.
+sid_setup:
+    sta sm_quiet
+    ldx #0
+    lda #<sm_setup
+    ldy #>sm_setup
+    jsr sm_str
+    jsr sm_save                 ; (adds the last line's CR LF; C = 1:
+    lda #0                      ; refused, start-up only)
+    sta sm_quiet
+    bcs ss_setup                ; (refused: probed as before)
+    lda #1
+    sta snd_8sid
+ss_setup:
+    lda s_mode                  ; the SID list again, the engine in its
+    pha                         ; mode
+    lda s_off
+    pha
+    php
+    sei
+    lda s_mode
+    farcall snd_setup, BANK_SND
+    plp
+    pla
+    sta s_off
+    pla
+    rts
+
+; sid_auto: at start-up (the Ultimate found): fewer than 8 SIDs and a
+; command interface: sid_setup, errors ignored (owner, 2026-10-09)
+sid_auto:
+    lda uci_ok
+    beq sau_rts
+    lda s_nsid
+    cmp #8
+    bcs sau_rts
+    lda #1
+    jmp sid_setup
+sau_rts:
+    rts
+
+sm_setup:
+    dta '[SID Addressing]', 13, 10
+    dta 'UltiSID 1 Address=$D400', 13, 10
+    dta 'UltiSID 2 Address=$D420', 13, 10
+    dta 'UltiSID Range Split=1/4 (A7,A8)', 13, 10
+    dta 'Auto Address Mirroring=Disabled', 13, 10
+    dta '[Audio Mixer]', 13, 10
+    dta 'Vol UltiSid 1=-6 dB', 13, 10
+    dta 'Vol UltiSid 2=-6 dB', 13, 10
+    dta 'Pan UltiSID 1=Left 3', 13, 10
+    dta 'Pan UltiSID 2=Right 3', 0
+sm_quiet    = MOSBUF+255        ; 1: sm_save ignores the firmware's error
+                                ; (sm_chr writes up to MOSBUF+254)
 
 ; ----------------------------------------------------------------------------
 ; sid_mixer
@@ -273,6 +357,8 @@ sm_save:
     jsr uci_send
     jsr uci_finish
     bcc sm_done
+    lda sm_quiet                ; (at start-up: a C64 Ultimate or older
+    bne sm_done                 ; firmware without these items: no error)
     jmp uci_error
 sm_done:
     rts

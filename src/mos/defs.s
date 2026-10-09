@@ -263,6 +263,9 @@ mode_shadow = shadow+1          ; 1: the current mode is a shadow mode
 tbgon       = mode_shadow+1     ; text mode: COLOUR 128+n set (reverse video)
 ttfg        = tbgon+1           ; text mode: C64 colour of COLOUR n
 ramvars_end = ttfg+1
+snd_8sid    = $03FD             ; the 8SID layout was loaded (*SID SETUP):
+                                ; the SID list is set, not probed ($03FC-
+                                ; $03FF: free on the C64; RAMTAS clears it)
     .if ramvars_end > $03FC
     .error "MOS RAM variables overflow the cassette buffer"
     .endif

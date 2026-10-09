@@ -968,6 +968,7 @@ Also: `SID`
   *SID               list the SIDs
   *SID PAN <unit> <p>     stereo
   *SID VOL <unit> <dB>    volume
+  *SID SETUP              8 SIDs
 
 The SIDs found at start-up: up to 8, at
 &D400-&D7E0. The cartridge's .cfg sets
@@ -975,6 +976,17 @@ up 8 UltiSIDs (two UltiSIDs split four
 ways, as Heartbeat Soundtracker does)
 and switches them on, UltiSID 1 left
 and UltiSID 2 right.
+
+*SID SETUP sets up the 8 SIDs as the
+cartridge's .cfg does (two UltiSIDs
+split four ways, UltiSID 1 left,
+UltiSID 2 right) and finds them again.
+The Ultimate applies the .cfg only when
+the cartridge is started from its file
+browser, so BBC BASIC does this at
+start-up by itself when it finds fewer
+than 8 SIDs. Lasts until the Ultimate
+is reset.
 
 unit: 1 or 2 (UltiSID 1 or 2; with the
 .cfg the 1st, 3rd, 5th and 7th SID are

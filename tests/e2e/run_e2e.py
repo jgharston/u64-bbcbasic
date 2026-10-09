@@ -955,7 +955,14 @@ def test_sid(t):
     assert any("SID" in r and "&D400" in r for r in rows), rows
     if not ult(t):
         run_line(t, "*SID PAN 1 -3", "No Ultimate command interface")
+        run_line(t, "*SID SETUP", "No Ultimate command interface")
         return
+    # the cartridge started over REST gets no .cfg: start-up set up the
+    # 8 SIDs itself; *SID SETUP does it again
+    run_line(t, "*SID", "8 SIDs")
+    run_line(t, "*SID SETUP", ">")
+    run_line(t, "*SID", "8 SIDs")
+    run_line(t, "*TYPE /Temp/bbcmix.cfg", "Range Split=1/4")
     for line in ("*SID VOL 1 -6", "*SID VOL 2 -6", "*SID PAN 1 -3",
                  "*SID PAN 2 3"):
         rows = run_line(t, line + ':PRINT "R=OK"', ">")

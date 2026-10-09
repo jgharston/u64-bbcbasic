@@ -47,7 +47,7 @@ CUSTOM = {
     17: ["COPY 1 SAW ADSR 3 4 12 6", "VIB 18 2 6 FILTER LOW RES 2 CUT 150 NAME VIOLIN"],
     18: ["COPY 1 SAW ADSR 4 6 11 7", "VIB 20 2 5 FILTER LOW RES 4 CUT 90 NAME CELLO"],
     19: ["COPY 1 PULSE PW 500 10 12 2 ADSR 0 9 0 9 NAME HARPSI"],
-    20: ["COPY 1 PULSE PW 2048 30 14 2 ADSR 9 6 11 8", "VIB 30 1 4 NAME CHOIR"],
+    20: ["COPY 1 PULSE PW 2048 6 12 4 ADSR 9 6 11 8", "VIB 30 1 4 NAME CHOIR"],
     21: ["COPY 1 PULSE PW 1000 6 12 4 ADSR 0 10 3 8 FINE 6 NAME RAGPIANO"],
     22: ["COPY 1 PULSE PW 300 ADSR 0 7 0 6 NAME BANJO"],
     23: ["COPY 1 PULSE PW 1900 ADSR 2 4 12 5", "FILTER LOW RES 3 CUT 110 NAME CLARINET"],
@@ -58,19 +58,28 @@ CUSTOM = {
     28: ["COPY 1 PULSE PW 1024 ADSR 2 6 12 5", "FILTER LOW RES 6 CUT 40 NAME TUBA"],
     29: ["COPY 1 TRI ADSR 0 8 0 8 NAME STRBASS"],
     30: ["COPY 1 SAW ADSR 8 8 12 9 VIB 30 1 4", "FILTER LOW RES 4 CUT 60 1 140 60 NAME STRINGS2"],
+    # lighter drums: a SID envelope always peaks at full volume, so a
+    # drum is made softer by a shorter decay, not by its level
+    31: ["COPY 11 ADSR 0 7 0 0 NAME KICK2"],
+    32: ["COPY 12 ADSR 0 6 0 0 NAME SNARE2"],
+    33: ["COPY 13 ADSR 0 3 0 0 NAME HAT2"],
 }
 
 # per piece: instruments 1-16 replaced (old: new), and voices that get
-# their own (voice: new) whatever the plan gave them
+# their own (voice: new) whatever the plan gave them. BELL (ring
+# modulation) and SYNC (hard sync) take part of their sound from the
+# neighbouring voice on their SID: with all 24 voices busy that is some
+# other part, and they sound off key (owner), so pieces use GLOCK and LEAD
+DRUMS = {11: 31, 12: 32, 13: 33}
 PIECE_INSTR = {
     "greenslv": ({9: 19, 4: 20, 7: 18}, {3: 23}),
-    "scarboro": ({10: 26, 14: 20, 7: 18}, {}),
-    "entertnr": ({2: 21, 9: 22, 6: 27}, {}),
+    "scarboro": ({10: 26, 14: 20, 7: 18, 15: 19}, {}),   # (no ARP: owner)
+    "entertnr": ({2: 21, 9: 22, 6: 27} | DRUMS, {}),
     "nachtmus": ({4: 17, 7: 18, 9: 19}, {}),
-    "canon": ({4: 17, 7: 29, 14: 30, 3: 25}, {3: 18}),
+    "canon": ({4: 17, 7: 29, 14: 30, 3: 25, 10: 26, 16: 6}, {3: 18}),
     "toccata": ({3: 25, 5: 24}, {}),
-    "odetojoy": ({3: 25, 5: 24, 4: 17, 15: 26}, {}),
-    "maplelf": ({2: 21, 9: 22, 7: 28}, {}),
+    "odetojoy": ({3: 25, 5: 24, 4: 17, 15: 26, 10: 26, 16: 6} | DRUMS, {}),
+    "maplelf": ({2: 21, 9: 22, 7: 28} | DRUMS, {}),
 }
 
 
@@ -250,14 +259,15 @@ def first_octave(texts, octave):
 
 
 def drums(piece, start, count, kick, snare, hat):
-    """A beat: kick on the beats, snare on the off-beats, hi-hat eighths
-    (2/4 or 4/4 bars)."""
+    """A light beat, as a rag's left hand goes (boom-chick): kick on the
+    odd beats, snare on the even ones, hi-hat on the off-beat eighths only
+    (2/4 or 4/4 bars; owner: the first, heavier beat sounded clumsy)."""
     beats = piece.bar // 8
     k, s, h = [], [], []
     for _ in range(count):
-        k.append(" ".join(["O2 C8 R8"] * beats))
+        k.append(" ".join(["O2 C8 R8" if b % 2 == 0 else "R4" for b in range(beats)]))
         s.append(" ".join(["R4" if b % 2 == 0 else "O3 C8 R8" for b in range(beats)]))
-        h.append(" ".join(["O6 C8"] * (beats * 2)))
+        h.append(" ".join(["R8 O6 C8"] * beats))
     piece.add(kick, k, KICK, 10, start=start)
     piece.add(snare, s, SNARE, 8, start=start)
     piece.add(hat, h, HIHAT, 4, start=start)
@@ -414,10 +424,10 @@ def canon(_src):
 def toccata(src):
     f = os.path.join(src, "toccata.mid")
     p = Piece("toccata", "Toccata in D minor", "J. S. Bach, BWV 565", 66, 32,
-              hold_end=True)              # bar 12: the D minor arrival
-    rh = midi_lines(f, 1, 2, 0, 12)
-    lh = midi_lines(f, 2, 2, 0, 12)
-    ped = midi_lines(f, 3, 1, 0, 12)[0]
+              hold_end=True)              # bar 30: the toccata's D minor end
+    rh = midi_lines(f, 1, 2, 0, 30)       # (before the fugue; owner: longer)
+    lh = midi_lines(f, 2, 2, 0, 30)
+    ped = midi_lines(f, 3, 1, 0, 30)[0]
     plan = [(0, rh[0], 0, ORGAN, MEL), (3, rh[0], 0, ORGAN, MEL),
             (6, rh[0], 1, ORGAN, 10), (9, rh[0], -1, ORGAN, 10),
             (1, rh[1], 0, ORGAN, 10), (4, rh[1], 0, ORGAN, 10),

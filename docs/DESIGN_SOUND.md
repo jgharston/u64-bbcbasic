@@ -359,3 +359,28 @@ still sets the voice's sustain level directly, as before. Before this, a
 note with a level (amplitude -15..-1) could only use the voice's
 previous instrument, so programs that gave every note a level (the
 music demo) played the default instrument on every voice.
+
+## 12. Making sure there are 8 SIDs (owner, 2026-10-09)
+
+The U64 applies the cartridge's `.cfg` (8SID layout, stereo mixer) only
+when the cartridge is started from its file browser; after a power cycle
+and a start over the network the layout is the default one and the probe
+found 3 SIDs: voices 9-23 were silent (the demo's drums, the Toccata's
+pedal). Decided (owner: both): `*SID SETUP` loads the layout (the `.cfg`'s
+`[SID Addressing]` and `[Audio Mixer]` lines through "load config", as
+`*SID PAN`), and start-up does the same when it finds fewer than 8 SIDs
+and the command interface is there (errors ignored then). After a
+successful load the list is set to the 8 known addresses (`$D400 $D420
+$D480 $D4A0 $D500 $D520 $D580 $D5A0`) instead of probed: a split
+UltiSID's four parts all read back the first part's oscillator, so the
+probe cannot see the other three. Lasts until the Ultimate is reset.
+
+The probe does find all eight at start-up (before the engine has run),
+but not later: after `*SOUND NONE`, `*SOUND SID` found 3. So `snd_8sid`
+($03FD, cleared by the KERNAL's RAMTAS at a cold start) remembers the
+layout, set by `*SID SETUP` or by a probe that finds exactly its eight
+addresses; every later setup then uses the eight addresses.
+
+Ring modulation and hard sync (BELL, SYNC) take part of their sound from
+the neighbouring voice of the same SID; with every voice busy that is an
+unrelated part and they sound off key, so the demo does not use them.

@@ -26,8 +26,41 @@ sst_clr:                        ; than 128 bytes: counted up)
     bne sst_clr
     jsr snd_tables
     jsr snd_probe
+    lda s_nsid                  ; the probe found the 8SID layout itself
+    cmp #8                      ; (it can, at start-up): remembered too
+    bne sst_known
+    ldx #7
+sst_cmp:
+    lda s_sidlo,x
+    cmp sst_lo,x
+    bne sst_known
+    lda s_sidhi,x
+    cmp sst_hi,x
+    bne sst_known
+    dex
+    bpl sst_cmp
+    lda #1
+    sta snd_8sid
+sst_known:
+    lda snd_8sid                ; the 8SID layout: its addresses (a later
+    beq sst_load                ; probe may see only one per UltiSID)
+    ldx #7
+sst_list:
+    lda sst_lo,x
+    sta s_sidlo,x
+    lda sst_hi,x
+    sta s_sidhi,x
+    dex
+    bpl sst_list
+    lda #8
+    sta s_nsid
+sst_load:
     pla
     jmp snd_load
+; the 8SID layout's addresses (*SID SETUP), in the probe's order
+; (UltiSID 1, 2, 1, 2, ...: even SIDs left, odd right)
+sst_lo      dta $00, $20, $80, $A0, $00, $20, $80, $A0
+sst_hi      dta $D4, $D4, $D4, $D4, $D5, $D5, $D5, $D5
 
 ; snd_instinit: after the REU is known: the 16 default instruments to the
 ; REU, 17-64 as copies of instrument 1 (no REU: the engine's built-in one)

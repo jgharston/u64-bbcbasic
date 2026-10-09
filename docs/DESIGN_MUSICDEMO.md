@@ -132,9 +132,19 @@ Endings (owner: the songs stopped at unnatural places): the pieces from
 MIDI files were cut after a fixed number of bars. Now each ends on a
 cadence, its last bar the downbeat's chord held (`Piece(hold_end=True)`):
 The Entertainer at bar 36 (the A strain's C), Nachtmusik at bar 18
-(back in G, 18 bars instead of 28), the Toccata at bar 12 (D minor);
+(back in G, 18 bars instead of 28), the Toccata at bar 30 (its D minor end before the fugue; first bar 12,
+owner: longer);
 Maple Leaf Rag gets a bar of its A-flat chord after bar 32. The
 Mutopia download addresses are in `arrange.py`'s docstring (the files
 go to `build/mutopia`). The CHURCH organ (an octave arpeggio every
 interrupt: a buzz) became ORGAN with a slow pulse sweep and slight
 vibrato.
+
+Listening notes (owner, 2026-10-09): BELL and SYNC sounded off key in the
+Canon and Ode to Joy (they depend on the neighbouring voice: GLOCK and
+LEAD instead); the ARP arpeggio in Scarborough Fair was irritating
+(harpsichord instead, CHOIR's pulse sweep slower); the drums were first
+clumsy (a beat on every eighth), then too soft: now KICK2, SNARE2, HAT2
+(the default drums with decays 7, 6, 3; a SID envelope always peaks at
+full volume, so a drum's loudness is its decay) in a rag's boom-chick:
+kick on 1 and 3, snare on 2 and 4, hi-hat on the off-beat eighths.

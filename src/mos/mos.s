@@ -70,6 +70,7 @@ cold:
     jsr workspace_init
     cli
     farcall fs_init, BANK_FS    ; find the Ultimate (up to 0.5 s)
+    farcall sid_auto, BANK_FS   ; fewer than 8 SIDs: the 8SID layout
     jsr font_to_reu             ; fonts for MODE changes and bitmap text
     farcall font_keepdef, BANK_FS ; and the start-up font for *FONT DEFAULT
     farcall snd_instinit, BANK_SND ; default instruments to the REU
