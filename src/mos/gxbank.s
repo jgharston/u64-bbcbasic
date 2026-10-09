@@ -163,8 +163,10 @@ vm_nottx:
     lda #0
     sta $D021
     sta BLNSW
+    sta tbgon
     lda #1
     sta COLOR
+    sta ttfg
     lda #$93
     jsr putpet
     rts
@@ -254,6 +256,42 @@ iop_done:
     rts
 
 ; ----------------------------------------------------------------------------
+; bk_colour (VDU 17,n: COLOUR n, text mode)
+;   Summary: COLOUR n sets the text colour; COLOUR 128+n the text
+;            background for the characters printed after it, as on the
+;            BBC: on the C64 text screen in reverse video in colour n (so
+;            the text shows in the screen colour, black text on a bar);
+;            COLOUR 128 (black) ends it.
+;   Function: ttfg keeps the text colour while a background is set; putpet
+;            sets the KERNAL's reverse flag from tbgon for each character.
+;            The screen background itself is VDU 19,0,n.
+;   Input:   vdubuf.  Uses: A, X.
+bk_colour:
+    lda vdubuf
+    bmi bc_bg
+    and #15
+    tax
+    lda bbc2c64,x
+    sta ttfg
+    ldx tbgon
+    bne bc_rts                  ; (a background is shown: kept)
+bc_set:
+    sta COLOR
+bc_rts:
+    rts
+bc_bg:
+    and #15
+    tax
+    beq bc_off
+    lda bbc2c64,x
+    stx tbgon
+    jmp bc_set
+bc_off:
+    stx tbgon
+    lda ttfg
+    jmp bc_set
+
+; ----------------------------------------------------------------------------
 ; bk_pal (VDU 19,l,p,r,g,b)
 ;   Summary: logical colour l shows physical colour p: a BBC colour 0-15
 ;            in BBC modes, a C64 colour in the C64 modes. Bitmap modes
@@ -277,7 +315,17 @@ bkp_rts:
     rts
 vp_phys:
     lda vtype
-    beq vp_done
+    bne vp_gfx
+    lda vdubuf                  ; text mode: VDU 19,0,p sets the screen
+    beq vp_txbg                 ; background (and the border)
+    rts
+vp_txbg:
+    ldx vdubuf+1
+    lda bbc2c64,x
+    sta $D021
+    sta $D020
+    rts
+vp_gfx:
     lda vmode_ul
     beq vp_vic
     lda vdubuf                  ; Upic Lite: pal[] holds BBC colours

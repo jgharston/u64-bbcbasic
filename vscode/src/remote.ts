@@ -245,6 +245,11 @@ export class Remote {
         await this.post(REQ_PROGRAM, [run ? 1 : 0]);
         const r = await this.runLines([], timeout, onOutput, { errorsBefore: st.errorCount });
         r.programBytes = image.length;
+        // capture off when BASIC is back at the prompt (only then does the
+        // MOS take requests): nobody reads the ring any more, and a program
+        // started later with RUN would wait for the host on a full ring,
+        // 2.5-5 s, before the MOS gives up on it
+        if (r.state === 'prompt') { await this.post(REQ_CAPTURE, [0]); }
         return r;
     }
 

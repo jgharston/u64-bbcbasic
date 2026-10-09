@@ -279,3 +279,29 @@ Defaults 1-16 (in the cartridge, copied to the REU at start-up and by
 Commands: `*INSTRUMENT n <fields>` (as section 2.2), `*INSTRUMENT n` lists
 it with its name, `*INSTRUMENT n NAME <text>`, `*INSTRUMENT n COPY m`,
 `*INSTRUMENT DEFAULT`, `*INSTRUMENT SAVE/LOAD <file>` (64 x 64 bytes).
+
+## 10. Implementation notes, step (b1) (2026-10-09)
+
+- SID mode is the start-up mode; `*SOUND BBC`/`SID` switch (all voices
+  reset), `OFF`/`ON`/`STOP`. 24 voices; the interrupt only spends time on
+  voices that play or have queued notes.
+- Split: the interrupt engine stays in RAM (`sound.s`, about 2.3K code,
+  variables to about `&162C`); probing, OSWORD 7/8 parsing, ADVAL,
+  `*SOUND` and `*INSTRUMENT` moved to bank 2 (`sndcmd.s`).
+- Pitch: one octave of 48 quarter-semitone frequencies (middle C's,
+  PAL or NTSC) shifted per octave instead of a 256-entry table; SID-mode
+  P is signed (Q = P + 235 >= 0, so down to P = -235), P >= 1024 a raw
+  frequency x 16.
+- Instruments: 64 records of 64 bytes at REU `$2000` (bank 0); 1-16 the
+  defaults from `tools/gensound.py` (data in bank 2, since the REU DMA
+  reads the bus with that bank mapped), 17-64 copies of 1. A note copies
+  the header (20 bytes) into the voice: waveform, ADSR, pulse width,
+  filter routing, resonance and cutoff (set on the SID when the note
+  starts). Without an REU every voice plays the built-in SQUARE and
+  `*INSTRUMENT` reports that it needs one.
+- Not yet (step b2): pulse and cutoff sweeps, vibrato, portamento, the
+  wave/arpeggio tables (KICK, SNARE, ARP sound plain until then), hard
+  restart, finetune. ENVELOPE only acts in BBC mode.
+- Read-back: on the split UltiSIDs the voice-3 read-back registers
+  appear to be shared by an UltiSID's four instances, so they cannot
+  tell the instances apart; tests read back only SID 0.

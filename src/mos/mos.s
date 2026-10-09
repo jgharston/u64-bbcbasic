@@ -58,7 +58,8 @@ cold:
     sta CART_CTRL
     jsr resident_init
     farcall snd_install, BANK_UL ; sound engine (the interrupt calls it:
-    jsr core_init               ; before anything may let one in)
+    farcall snd_setup, BANK_FS  ; before anything may let one in), SIDs
+    jsr core_init
     jsr engine_init
     jsr state_init
     jsr copy_basic
@@ -71,6 +72,7 @@ cold:
     farcall fs_init, BANK_FS    ; find the Ultimate (up to 0.5 s)
     jsr font_to_reu             ; fonts for MODE changes and bitmap text
     farcall font_keepdef, BANK_FS ; and the start-up font for *FONT DEFAULT
+    farcall snd_instinit, BANK_FS ; default instruments to the REU
     jsr ul_detect               ; Upic Lite possible?
     jsr banner
     jmp enter_lang
@@ -533,6 +535,7 @@ vid_regs:
     sta $D021
     lda #1
     sta COLOR
+    sta ttfg                     ; (the colour COLOUR 128 goes back to)
     lda #$93
     jmp putpet
 
@@ -996,18 +999,13 @@ by_ackesc:                      ; &7E: X = $FF if ESCAPE was pending
     sta NDX                     ; drop the RUN/STOP code and type-ahead
     ldx #$FF
     bne by_ret
-by_adval:                       ; &80: X = &F8-&FB: sound queues 3-0
-    ldy #0                      ; (free bytes, sound.s); others 0 (no
-    cpx #$F8                    ; ADC, no other buffers)
+by_adval:                       ; &80: X = &E4-&FB: sound queues of
+    ldy #0                      ; voices 23-0 (free bytes, sndcmd.s);
+    cpx #$E4                    ; others 0 (no ADC, no other buffers)
     bcc bad_zero
     cpx #$FC
     bcs bad_zero
-    txa
-    eor #$FF                    ; &FB -> 4 ... &F8 -> 7
-    sec
-    sbc #4                      ; channel 0-3
-    tax
-    jsr SOUNDRAM+12
+    farcall snd_adval, BANK_FS
     ldy #0
     jmp by_ret
 bad_zero:
@@ -1213,11 +1211,13 @@ mw_not1:
 mw_not2:
     cmp #7
     bne mw_not7
-    jmp SOUNDRAM+6              ; SOUND (sound.s)
+    farcall snd_word7, BANK_FS  ; SOUND (sndcmd.s)
+    rts
 mw_not7:
     cmp #8
     bne mw_not8
-    jmp SOUNDRAM+9              ; ENVELOPE
+    farcall snd_word8, BANK_FS  ; ENVELOPE
+    rts
 mw_not8:
     cmp #9
     bne mw_not9
@@ -1714,6 +1714,7 @@ cmd_table:
     dta 'DELETE', 0, a(cmd_delete), BANK_FS
     dta 'DRIVE', 0, a(cmd_drive), BANK_FS
     dta 'FONT', 0, a(cmd_font), BANK_FS
+    dta 'INSTRUMENT', 0, a(cmd_instrument), BANK_FS
     dta 'FX', 0, a(cmd_fx), BANK_MOS
     dta 'HELP', 0, a(cmd_help), BANK_MOS
     dta 'LOAD', 0, a(cmd_load), BANK_FS
@@ -1729,6 +1730,7 @@ cmd_table:
     dta 'SAVE', 0, a(cmd_save), BANK_FS
     dta 'SETTIME', 0, a(cmd_settime), BANK_FS
     dta 'SHADOW', 0, a(cmd_shadow), BANK_MOS
+    dta 'SOUND', 0, a(cmd_sound), BANK_FS
     dta 'SID', 0, a(cmd_sid), BANK_FS
     dta 'STATUS', 0, a(cmd_status), BANK_FS
     dta 'SWAP', 0, a(cmd_swap), BANK_FS

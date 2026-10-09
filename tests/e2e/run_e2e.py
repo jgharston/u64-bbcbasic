@@ -787,6 +787,7 @@ def test_sound(t):
     # 4 bytes per waiting note), flush, sync, an envelope note that
     # ends; on the U64 also the chip itself: channel 3 is SID 1 voice 3,
     # whose envelope reads back at &D41C (255 at -15).
+    run_line(t, "*SOUND BBC", ">")
     run_line(t, 'PRINT "R=";ADVAL(-5);ADVAL(-6);ADVAL(-8)', "R=151515")
     run_line(t, "SOUND 1,-15,53,100:SOUND 1,-15,57,100:SOUND 1,-15,61,100", ">")
     run_line(t, 'PRINT "R=";ADVAL(-6)', "R=7")      # one plays, two wait
@@ -808,6 +809,38 @@ def test_sound(t):
     if not t.is_vice:                                # VICE's ENV3 differs
         run_line(t, 'SOUND 3,-15,89,40:T%=TIME:REPEAT UNTIL TIME>T%+20:'
                     'PRINT "R=";?&D41C', "R=255")
+    run_line(t, "*SOUND SID", ">")
+
+
+def test_sid_mode(t):
+    # SID mode (the default): voices 0-23, instruments; ADVAL(-5-v); the
+    # default instruments; *INSTRUMENT changes, SAVE/LOAD; on the U64 the
+    # chip: voice 2 is SID 1's voice 3, ENV3 at &D41C (instrument 1 =
+    # SQUARE, sustain 10 = 170; -5 = 85)
+    run_line(t, "*SOUND", "SID mode")
+    run_line(t, "SOUND 2,1,53,100:SOUND 2,1,55,100:SOUND 2,1,57,100", ">")
+    run_line(t, 'PRINT "R=";ADVAL(-7);ADVAL(-5)', "R=715")   # one plays, two wait
+    run_line(t, "*SOUND STOP", ">")
+    run_line(t, 'PRINT "R=";ADVAL(-7)', "R=15")
+    if not ult(t):
+        run_line(t, "*INSTRUMENT 2", "Instruments need an REU")
+        return
+    run_line(t, "*INSTRUMENT 2", "PIANO")
+    run_line(t, "*INSTRUMENT 16", "SYNC")
+    run_line(t, "*INSTRUMENT 30 COPY 7 PULSE PW 1000 NAME TEST", ">")
+    run_line(t, "*INSTRUMENT 30", "TEST       PULSE ADSR 0 8 4 8 PW 1000")
+    run_line(t, "*INSTRUMENT SAVE INSTT", ">")
+    run_line(t, "*INSTRUMENT DEFAULT", ">")
+    run_line(t, "*INSTRUMENT 30", "SQUARE")
+    run_line(t, "*INSTRUMENT LOAD INSTT", ">")
+    run_line(t, "*INSTRUMENT 30", "TEST")
+    run_line(t, "*INSTRUMENT DEFAULT", ">")
+    run_line(t, "*DELETE INSTT", ">")
+    run_line(t, 'SOUND 2,1,53,40:T%=TIME:REPEAT UNTIL TIME>T%+30:'
+                'PRINT "R=";?&D41C', "R=170")
+    run_line(t, 'SOUND &1002,-5,53,40:T%=TIME:REPEAT UNTIL TIME>T%+30:'
+                'PRINT "R=";?&D41C', "R=85")
+    run_line(t, "*SOUND STOP", ">")
 
 
 def test_sid(t):
@@ -826,6 +859,23 @@ def test_sid(t):
     run_line(t, "*TYPE /Temp/bbcmix.cfg", "Pan UltiSID 2=Right 3")
     run_line(t, "*SID PAN 1 9", "Syntax")
     run_line(t, "*SID VOL 1 -41", "had errors")    # not one of its steps
+
+
+def test_text_colours(t):
+    # text screen: COLOUR 128+n = reverse video in colour n (screen codes
+    # with bit 7, colour RAM = n's C64 colour); COLOUR 128 ends it; VDU
+    # 19,0,n sets the screen background ($D021)
+    run_line(t, 'COLOUR 130:PRINT "AB";:COLOUR 128:PRINT "C"', "ABC")
+    rows = screen.read_screen(t.bridge)
+    row = next(i for i, r in enumerate(rows) if r.startswith("ABC"))
+    codes = bytes(t.bridge.read(0xC000 + 40 * row, 3))
+    assert codes[0] & 0x80 and codes[1] & 0x80 and not codes[2] & 0x80, codes.hex()
+    if not t.is_vice:
+        col = bytes(t.bridge.read(0xD800 + 40 * row, 2))
+        assert col[0] & 15 == 5, col.hex()            # BBC green = C64 5
+    run_line(t, "VDU 19,0,4,0,0,0", ">")
+    assert bytes(t.bridge.read(0xD021, 1))[0] & 15 == 6   # BBC blue = C64 6
+    run_line(t, "VDU 19,0,0,0,0,0", ">")
 
 
 def test_gfx_patterns(t):
@@ -1099,7 +1149,8 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
-         test_palette, test_memory, test_sound, test_sid,
+         test_palette, test_memory, test_sound, test_sid_mode,
+         test_sid, test_text_colours,
          test_gfx_vdu5,
          test_gfx_mode3,
          test_gfx_teletext,

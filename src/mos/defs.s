@@ -172,6 +172,7 @@ K_KEYTAB_C  = $EC03             ; Commodore-key table
 K_KEYTAB_CT = $EC78             ; Ctrl table
 
 KBUF        = $0277             ; keyboard buffer (10 bytes)
+RVS         = $C7               ; KERNAL: reverse video on (cleared at CR)
 NDX         = $C6               ; keys in buffer
 STKEY       = $91               ; $7F while RUN/STOP is held
 BLNSW       = $CC               ; 0: cursor blinks
@@ -247,7 +248,9 @@ eng_kind    = uf_end+1          ; engine at $D000: 0 VIC-II, 1 Upic Lite, 2 tele
 pal_ok      = eng_kind+1        ; 1: the Ultimate takes palette commands
 shadow      = pal_ok+1          ; 1: the next MODE is a shadow mode (*SHADOW)
 mode_shadow = shadow+1          ; 1: the current mode is a shadow mode
-ramvars_end = mode_shadow+1
+tbgon       = mode_shadow+1     ; text mode: COLOUR 128+n set (reverse video)
+ttfg        = tbgon+1           ; text mode: C64 colour of COLOUR n
+ramvars_end = ttfg+1
     .if ramvars_end > $03FC
     .error "MOS RAM variables overflow the cassette buffer"
     .endif

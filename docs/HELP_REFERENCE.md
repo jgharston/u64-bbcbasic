@@ -93,13 +93,14 @@ VDU          VPOS         WIDTH
 *CAT         *COPY        *CP
 *DELETE      *DIR         *DRIVE
 *FONT        *FX          *HELP
-*LOAD        *MEMORY      *MKDIR
-*MOUNT       *PALETTE     *PARTITION
-*PARTITIONS  *PWD         *RENAME
-*SAVE        *SETTIME     *SHADOW
-*SID         *STATUS      *SWAP
-*TIME        *TURBO       *TYPE
-*UNMOUNT     *UVER
+*INSTRUMENT  *LOAD        *MEMORY
+*MKDIR       *MOUNT       *PALETTE
+*PARTITION   *PARTITIONS  *PWD
+*RENAME      *SAVE        *SETTIME
+*SHADOW      *SID         *SOUND
+*STATUS      *SWAP        *TIME
+*TURBO       *TYPE        *UNMOUNT
+*UVER
 ```
 
 ## BBC
@@ -975,6 +976,49 @@ Ultimate is reset. Needs firmware
 3.15a.
 ```
 
+## *SOUND
+
+```
+  *SOUND         show the mode
+  *SOUND SID     SID mode (start-up)
+  *SOUND BBC     BBC Micro mode
+  *SOUND OFF     sound off
+  *SOUND ON      sound on again
+  *SOUND STOP    silence, queues empty
+
+SID mode: SOUND plays all voices of up
+to 8 SIDs with instruments (see SOUND,
+*INSTRUMENT). BBC mode: SOUND and
+ENVELOPE as on a BBC Micro, channels
+0-3. Changing the mode stops all sound.
+```
+
+## *INSTRUMENT
+
+Also: `INSTRUMENT`
+
+```
+  *INSTRUMENT n         list it
+  *INSTRUMENT n parts   change it
+  *INSTRUMENT n NAME text
+  *INSTRUMENT n COPY m
+  *INSTRUMENT DEFAULT
+  *INSTRUMENT SAVE <file>
+  *INSTRUMENT LOAD <file>
+
+64 instruments for SID mode; 1-16 are
+ready-made: SQUARE PIANO ORGAN STRINGS
+BRASS LEAD BASS FLUTE PLUCK BELL KICK
+SNARE HIHAT PAD ARP SYNC. Parts: TRI
+SAW PULSE NOISE RING SYNC (the
+waveform; several mix), ADSR a d s r
+(0-15 each), PW w (pulse width 0-4095),
+FILTER [LOW] [BAND] [HIGH] [RES r] [CUT
+c] (c 0-255), NOFILTER, FINE f.
+Example: *INSTRUMENT 20 COPY 2 SAW ADSR
+0 8 0 9. Needs an REU.
+```
+
 ## *STATUS
 
 Also: `STATUS`, `*SYS`, `SYS`
@@ -1037,8 +1081,9 @@ Arc cosine of n, in radians.
 ADVAL(-5) to ADVAL(-8): free room in
 the sound queue of channel 0 to 3, as
 on a BBC Micro: 15 when empty, 4 bytes
-per note waiting. Other values return 0
-(no analogue port).
+per note waiting. In SID mode ADVAL(-5)
+to ADVAL(-28) for voices 0-23. Other
+values return 0 (no analogue port).
 ```
 
 ## AND
@@ -1181,6 +1226,13 @@ Also: `COLOR`
 
 Sets the text colour (n) or background
 (128+n). See COLOURS.
+
+On the text screen COLOUR 128+n prints
+the following characters in reverse
+video in colour n (black text on a
+coloured bar); COLOUR 128 ends it. The
+whole screen's background is VDU
+19,0,n,0,0,0.
 ```
 
 ## COS
@@ -2084,12 +2136,22 @@ white noise (high to low), 3 and 7 at
 channel 1's pitch. d: 1/20 s, 255 or -1
 for ever.
 
-Plays on the SIDs: channels 1-3 on SID
-1, channel 0 on the second SID (or with
-one SID, on channel 3's voice while it
-plays). Three notes wait per channel;
-see ADVAL. The extended SID mode with
-all voices of up to 8 SIDs comes next.
+This is BBC mode (*SOUND BBC): channels
+1-3 on SID 1, channel 0 on the second
+SID (or with one SID, on channel 3's
+voice while it plays).
+
+SID mode (the start-up mode): c =
+&FSVV: VV voice 0-23 (voice v MOD 3 of
+SID v DIV 3), S sync with S other
+voices (0-15), F: 1 flush, 2 hold, 4
+tie (new pitch, no new attack). a:
+instrument 1-64, or -15..-1 the voice's
+instrument at that loudness, 0 a rest.
+p: as BBC mode, also below 0 for low
+notes.
+
+Three notes wait per voice; see ADVAL.
 ```
 
 ## SPC

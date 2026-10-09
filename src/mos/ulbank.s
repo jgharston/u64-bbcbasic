@@ -250,8 +250,8 @@ snd_len = snd.s_vars - SOUNDRAM
 ; snd_install
 ;   Summary: at start-up, before interrupts are on: the sound engine to
 ;            SOUNDRAM, its variables cleared, the pitch and noise tables
-;            for the machine's clock (PAL or NTSC, KERNAL flag $02A6),
-;            then the SIDs found and the engine reset.
+;            for the machine's clock (PAL or NTSC, KERNAL flag $02A6).
+;            snd_setup (bank 2) then finds the SIDs and resets it.
 ;   Uses:    A, X, Y, mosPTR, mosPTR2.
 snd_install:
     lda #<snd_load              ; image
@@ -298,16 +298,16 @@ sni_z:
     inc mosPTR2+1
     dex
     bne sni_z
-    ldx #0                      ; pitch table for the clock
+    ldx #47                     ; the octave of middle C, for the clock
     lda $02A6
     beq sni_ntsc
 sni_pal:
-    lda snd_ppal_lo,x
-    sta snd.ptab_lo,x
-    lda snd_ppal_hi,x
-    sta snd.ptab_hi,x
-    inx
-    bne sni_pal
+    lda snd_fpal_lo,x
+    sta snd.ftab_lo,x
+    lda snd_fpal_hi,x
+    sta snd.ftab_hi,x
+    dex
+    bpl sni_pal
     ldx #5
 sni_npal:
     lda snd_npal_lo,x
@@ -316,14 +316,14 @@ sni_npal:
     sta snd.ntab_hi,x
     dex
     bpl sni_npal
-    bmi sni_go
+    rts
 sni_ntsc:
-    lda snd_pntsc_lo,x
-    sta snd.ptab_lo,x
-    lda snd_pntsc_hi,x
-    sta snd.ptab_hi,x
-    inx
-    bne sni_ntsc
+    lda snd_fntsc_lo,x
+    sta snd.ftab_lo,x
+    lda snd_fntsc_hi,x
+    sta snd.ftab_hi,x
+    dex
+    bpl sni_ntsc
     ldx #5
 sni_nn:
     lda snd_nntsc_lo,x
@@ -332,9 +332,7 @@ sni_nn:
     sta snd.ntab_hi,x
     dex
     bpl sni_nn
-sni_go:
-    jsr SOUNDRAM+18             ; find the SIDs
-    jmp SOUNDRAM+0              ; reset the engine
+    rts
 
 bank4_end:
     .if bank4_end > $C000

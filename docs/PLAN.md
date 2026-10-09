@@ -852,3 +852,14 @@ instead (owner, 2026-10-09), after the sound phase:
    program with PAGE moved, or appended after TOP) is the first question.
 
 Not chosen: a patched interpreter with more memory (as HIBASIC).
+
+## 24. Music demo (owner, 2026-10-09)
+
+A music demo that shows off the instruments and all 24 voices, with
+public-domain music in our own arrangements (licensed with the project):
+classical (Bach, Mozart, Beethoven's *Ode to Joy*, Pachelbel's *Canon*),
+folk (*Greensleeves*, *Scarborough Fair*, the *Londonderry Air*), and as
+"pop" the public-domain ragtime and early popular songs (Joplin's *The
+Entertainer* and *Maple Leaf Rag*, *Take Me Out to the Ball Game*, 1908);
+later pop songs are under copyright. After sound step (b2) and `*PLAY`
+(DESIGN_SOUND.md), so the music is written as note strings.

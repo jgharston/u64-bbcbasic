@@ -26,6 +26,8 @@ putpet:
     lda #0
     sta QTSW
     sta INSRT
+    lda tbgon                   ; text background (COLOUR 128+n): reverse
+    sta RVS                     ; (the KERNAL clears it at each new line)
     pla
     jmp K_CHROUT
 pp_bitmap:                      ; bitmap modes: the engine's cursor codes,
@@ -282,23 +284,12 @@ vcr_text:
     jsr K_PLOT
     jmp wr_done
 
-vdu_colour:                     ; VDU 17,n: COLOUR n (128+n: background)
-    lda vdubuf
-    bmi vdu_bg
-    and #15
-    tax
-    lda bbc2c64,x
-    sta COLOR
-    jmp wr_done
-vdu_bg:
-    and #15
-    tax
-    lda bbc2c64,x
-    sta $D021
+vdu_colour:                     ; VDU 17,n: COLOUR n (text mode; bank 3)
+    farcall bk_colour, BANK_GFX
     jmp wr_done
 
 vdu_bell:                       ; VDU 7: the BBC's bell (sound.s)
-    jsr SOUNDRAM+21
+    jsr SOUNDRAM+15
     jmp wr_done
 
 vdu_23:                         ; VDU 23: bank 3 (bk_vdu23)
