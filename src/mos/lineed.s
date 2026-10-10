@@ -763,7 +763,8 @@ era_col:
 ; ----------------------------------------------------------------------------
 ; History in the REU (see the file header). Without an REU there is none.
 
-; ed_hmeta: read head and count.  Output: C = 1 without an REU.
+; ed_hmeta: read head and count; values out of range (an REU never
+; written) count as an empty history.  Output: C = 1 without an REU.
 ; Uses: A.
 ed_hmeta:
     lda reu_banks
@@ -777,6 +778,17 @@ ehm_reu:
     jsr ed_meta
     lda #REU_TO_C64
     sta REU_CMD
+    lda ed_head                 ; not written yet (a new REU's contents):
+    cmp #HIST_SLOTS             ; an empty history
+    bcs ehm_reset
+    lda ed_count
+    cmp #HIST_SLOTS+1
+    bcc ehm_ok
+ehm_reset:
+    lda #0
+    sta ed_head
+    sta ed_count
+ehm_ok:
     clc
     rts
 
