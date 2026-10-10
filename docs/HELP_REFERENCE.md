@@ -132,8 +132,13 @@ those in *HELP OSBYTE, *HELP OSWORD and
 
 ```
 Letters type in capitals, as with CAPS
-LOCK on a BBC Micro. Shift gives lower
-case.
+LOCK on a BBC Micro; Shift gives lower
+case. Shift+C= switches CAPS LOCK off
+and on again: off, letters type in
+lower case and Shift gives capitals
+(BASIC's keywords are capitals). OSBYTE
+&CA reads and sets it (bit 4 = 1: off),
+as on the BBC.
 
 The ASCII characters the C64 keyboard
 lacks:
@@ -416,6 +421,7 @@ OSBYTE calls (*FX a,x,y) available:
   &85   HIMEM for a mode
   &86   POS (X) and VPOS (Y)
   &87   character at cursor
+  &CA   keyboard status (CAPS LOCK)
   &DA   VDU queue length
   &E5   ESCAPE key off (X<>0)
 

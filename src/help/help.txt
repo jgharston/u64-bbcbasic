@@ -214,7 +214,7 @@ OSBYTE calls (*FX a,x,y) available:
   &85   HIMEM for a mode
   &86   POS (X) and VPOS (Y)
   &87   character at cursor
-  &CA   keyboard status (bit 4: CAPS LOCK off)
+  &CA   keyboard status (CAPS LOCK)
   &DA   VDU queue length
   &E5   ESCAPE key off (X<>0)
 
