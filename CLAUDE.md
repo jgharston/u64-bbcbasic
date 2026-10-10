@@ -30,6 +30,9 @@ what this BASIC can and cannot do.
   Uses. Match the style in `src/mos/mos.s`.
 - Bound every buffer; interrupt handlers never use the MOS zero page
   (`$52-$6F`); `$70-$8F` stays free for users; no dynamic allocation.
+- Interrupt code that uses the REU keeps its registers (`$DF02-$DF0A`,
+  saved and restored as `s_irq` does): foreground transfers are set up in
+  several steps and must not see them change (crash of 2026-10-10).
 - MADS labels are case-insensitive: don't name a routine like a KERNAL
   equate (`keylog`/`KEYLOG`).
 - Code in cartridge banks runs at bus speed (1 MHz) and cannot modify

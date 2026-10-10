@@ -78,7 +78,9 @@ HIST_SLOTS  = 127               ; slot 127: the line being typed
 ;            caller's buffer key by key (see the file header) until
 ;            RETURN or ESCAPE. A line typed at BASIC's prompt (buffer
 ;            page &07) goes into the history. Ends in w0_end, which adds
-;            the CR, echoes the newline and returns.
+;            the CR, echoes the newline and returns. A remote host's
+;            request drops the line typed so far and is handled as at
+;            the start of a line.
 ;   Input:   mosPTR2 buffer, mosMAX, mosMIN, mosHIGH (word0); a key is
 ;            waiting.
 ;   Output:  as word0: buffer, Y = length, C = 1 on ESCAPE.
@@ -125,6 +127,9 @@ le_win:
 
 le_loop:
     jsr ed_getkey
+    bcc le_key
+    jmp le_remote
+le_key:
     cmp #0
     bne le_k
     jmp le_esc
@@ -287,6 +292,18 @@ ek_copy:                        ; COPY: the character under the copy cursor
     jsr ed_mark
 ekc_none:
     jmp le_loop
+
+le_remote:                      ; a remote request: the line typed so far
+    jsr ed_cend                 ; goes (taken off the screen), the
+    lda #0                      ; request is handled as at the start of
+    sta mosCNT                  ; the line (w0_waitkey)
+    sta ed_pos
+    jsr ed_redraw
+    jsr w0_waitkey
+    bcc le_again                ; a key after all: edit a new line
+    jmp w0_end
+le_again:
+    jmp le_line
 
 le_esc:                         ; ESCAPE: the line ends as it is
     lda #0
@@ -534,9 +551,11 @@ eg_bitmap:
 ;   Function: the text screen blinks the KERNAL cursor, the other modes
 ;            show the engine's cursor. While waiting, CTRL with a cursor
 ;            key (which the KERNAL does not decode) gives the copy cursor
-;            codes, repeating while held (ed_poll).
+;            codes, repeating while held (ed_poll). A request from a
+;            remote host (docs/REMOTE_DEV.md) ends the wait too.
 ;   Input:   none.
-;   Output:  A = PETSCII code, or 0 when ESCAPE is pending.
+;   Output:  C = 0: A = PETSCII code, or 0 when ESCAPE is pending;
+;            C = 1: a remote request is waiting.
 ;   Uses:    A, X, Y.
 ed_getkey:
     lda vtype
@@ -553,16 +572,26 @@ egk_wait:
     bmi egk_esc
     jsr ed_poll
     bne egk_got
+    lda MB_HSEQ
+    cmp MB_CSEQ
+    bne egk_remote
     lda NDX
     beq egk_wait
     jsr egk_hide
-    jmp K_GETIN
+    jsr K_GETIN
+    clc
+    rts
 egk_esc:
     lda #0
 egk_got:
     pha
     jsr egk_hide
     pla
+    clc
+    rts
+egk_remote:
+    jsr egk_hide
+    sec
     rts
 egk_hide:
     lda vtype
@@ -886,7 +915,8 @@ ehw_slot:
 ehw_len:
     sta mosCNT
     sta ed_pos
-    beq ehw_show
+    cmp #0                      ; (an empty line: no transfer; a length
+    beq ehw_show                ; of 0 would copy 64K over everything)
     jsr ed_text
     lda #REU_TO_C64
     sta REU_CMD

@@ -384,3 +384,18 @@ addresses; every later setup then uses the eight addresses.
 Ring modulation and hard sync (BELL, SYNC) take part of their sound from
 the neighbouring voice of the same SID; with every voice busy that is an
 unrelated part and they sound off key, so the demo does not use them.
+
+## 13. The REU from the interrupt (2026-10-10)
+
+SID mode reads instrument tables (`s_tget`) and song rows (`t_rowplay`)
+from the REU in the interrupt. Every other REU user (the line editor's
+history, fonts, palettes, the RAM disk, `*SRWRITE`/`*SRREAD`, OSWORD
+&42, the network buffers) sets the REU's registers from the foreground
+in several steps; an interrupt in between left its own address, length
+and target behind, and the foreground transfer then went elsewhere:
+314 of 483 test transfers came back wrong with eight ARP voices
+sounding, and pressing UP in the line editor crashed the machine.
+`s_irq` (SID image) now pushes `$DF02-$DF0A` on entry and restores them
+at its one exit (18 bytes; the image's ten work bytes `s_dirty`..`s_tmpx`
+moved to SNDSHR's spare bytes to make room). Test: `reu_irq`.
+

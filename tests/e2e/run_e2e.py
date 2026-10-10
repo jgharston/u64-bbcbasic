@@ -175,6 +175,9 @@ def test_line_editor(t):
         screen.wait_for(t.bridge, lambda r: any("        15" in x for x in r[1:]))
         screen.type_text(t.bridge, "PRINT 1{UP}{DOWN}0\r")
         screen.wait_for(t.bridge, lambda r: any("        10" in x for x in r[1:]))
+        # back to an empty line typed (a length-0 REU copy wiped all
+        # memory here once): the machine still answers
+        run_line(t, "{UP}{UP}{DOWN}{DOWN}{DOWN}PRINT 9*9", "        81")
     run_line(t, "PRINT 4321", "      4321")
     screen.type_text(t.bridge, "{CUP}{CUP}{CLEFT}{CRIGHT}" + "{F1}" * 10 + "0\r")
     screen.wait_for(t.bridge, lambda r: any("     43210" in x for x in r[1:]))
@@ -202,6 +205,14 @@ def test_line_editor(t):
     finally:
         screen.type_text(t.bridge, "MODE 100\r")
         time.sleep(1)
+    # a remote request while a line is half typed: the line goes, the
+    # request is handled
+    screen.type_text(t.bridge, "CLS\r")
+    screen.wait_for(t.bridge, lambda r: r[0].startswith(">"))
+    screen.type_text(t.bridge, "*CAT1")
+    screen.wait_for(t.bridge, lambda r: r[0].startswith(">*CAT1"))
+    out = remote(t).run_lines(["PRINT 6*7"])
+    assert "42" in out["output"], out
     run_line(t, "*EDIT C64", ">")
     run_line(t, "*EDIT", "C64")
     run_line(t, "*EDIT BBC", ">")
@@ -1098,6 +1109,34 @@ def test_classics(t):
     rm.run_lines(["MODE 100"])
 
 
+def test_reu_irq(t):
+    # REU transfers from BASIC while the SID engine's interrupt reads its
+    # instrument tables from the REU (eight ARP voices): the interrupt
+    # keeps the REU's registers, so no transfer goes wrong (before the
+    # fix, 314 of 483 did; a line editor history UP crashed the machine)
+    if t.is_vice:
+        return
+    prog = "\n".join([
+        "10 DIM B% 300,C% 300,K% 16",
+        "20 FOR I%=0 TO 255:B%?I%=I%:NEXT",
+        "30 FOR V%=1 TO 8:SOUND V%,15,60+V%*8,255:NEXT",
+        "40 E%=0:N%=0:T%=TIME",
+        "50 REPEAT",
+        "60   K%?0=&80:K%?1=B% MOD 256:K%?2=B% DIV 256:K%?5=0:K%?6=1:K%?7=4:K%?8=0:K%?9=N% MOD 256",
+        "70   A%=&42:X%=K% MOD 256:Y%=K% DIV 256:CALL &C7F1",
+        "80   FOR J%=0 TO 255:C%?J%=0:NEXT",
+        "90   K%?0=0:K%?1=C% MOD 256:K%?2=C% DIV 256",
+        "100  A%=&42:X%=K% MOD 256:Y%=K% DIV 256:CALL &C7F1",
+        "110  F%=0:FOR J%=0 TO 255:IF C%?J%<>J% F%=1",
+        "120  NEXT:E%=E%+F%:N%=N%+1",
+        "130 UNTIL TIME>T%+500",
+        "140 FOR V%=1 TO 8:SOUND &10+V%,0,0,1:NEXT",
+        '150 PRINT "E=";E%;" N=";N%', ""])
+    r = remote(t).send_program(prog, run=True, timeout=30)
+    assert "E=0 " in r["output"], r
+    run_line(t, "*SOUND SID", ">")
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -1518,7 +1557,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_net, test_json, test_netchan, test_classics,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_net, test_json, test_netchan, test_classics,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

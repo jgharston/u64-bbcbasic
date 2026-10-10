@@ -126,9 +126,21 @@ si_done:
 ;   Function: the centiseconds since the last call come from TIME (so
 ;            the 60 Hz system interrupt and Upic Lite's 50 Hz frame
 ;            interrupt both work); at most 10 per call. Idle voices with
-;            empty queues cost a few cycles each.
+;            empty queues cost a few cycles each. SID mode reads its
+;            tables and the song from the REU here, so it keeps the REU's
+;            registers ($DF02-$DF0A) on the stack meanwhile: a program's
+;            transfer being set up when the interrupt comes is then not
+;            changed under it.
 ;   Uses:    A, X, Y (the interrupt saved them), s_* variables.
 s_irq:
+    .if SIDIMG = 1
+    ldx #8
+sq_save:
+    lda REU_C64,x
+    pha
+    dex
+    bpl sq_save
+    .endif
     lda mostime
     sec
     sbc s_lastt
@@ -164,6 +176,14 @@ sq_skip:
     jsr s_song
     .endif
 sq_rts:
+    .if SIDIMG = 1
+    ldx #$F7                    ; the REU's registers back, $DF02 first
+sq_rest:
+    pla
+    sta REU_C64-$F7,x
+    inx
+    bne sq_rest
+    .endif
     rts
 
 ; s_chan: one voice (X): duration, envelope, next note
@@ -633,17 +653,8 @@ c_pitlo     = c_arp+NV          ; pitch now (1/64 semitones)
 c_pithi     = c_pitlo+NV
 c_tgtlo     = c_pithi+NV        ; pitch to reach (portamento), or raw
 c_tgthi     = c_tgtlo+NV        ; frequency
-s_dirty     = c_tgthi+NV        ; s_mod: the pitch moved
-s_vlo       = s_dirty+1         ; s_pitch: pitch with arpeggio, vibrato
-s_vhi       = s_vlo+1
-s_frac      = s_vhi+1
-s_qlo       = s_frac+1
-s_qhi       = s_qlo+1
-s_f0lo      = s_qhi+1
-s_f0hi      = s_f0lo+1
-s_vsign     = s_f0hi+1
-s_tmpx      = s_vsign+1
-t_on        = s_tmpx+1          ; the song plays
+                                ; (s_dirty .. s_tmpx: SNDSHR, defs.s)
+t_on        = c_tgthi+NV        ; the song plays
 t_acc       = t_on+1            ; 2: cs * 256 towards the next row
 t_rlen      = t_acc+2           ; 2: row length, cs * 256
 t_n         = t_rlen+2          ; rows left this interrupt

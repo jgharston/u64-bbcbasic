@@ -372,7 +372,17 @@ ntab_hi     = SNDSHR+142        ; 6
 t_rec       = SNDSHR+148        ; *SONG RECORD on (sndcmd.s)
 s_qlvl      = SNDSHR+149        ; SID mode: the queued note's level (0: the
                                 ; instrument's own; SND_PUT)
-SNDSHR_END  = SNDSHR+150
+s_dirty     = SNDSHR+150        ; SID image's work bytes (room in its own
+s_vlo       = SNDSHR+151        ; area is short): s_mod: the pitch moved;
+s_vhi       = SNDSHR+152        ; s_pitch: pitch with arpeggio, vibrato
+s_frac      = SNDSHR+153
+s_qlo       = SNDSHR+154
+s_qhi       = SNDSHR+155
+s_f0lo      = SNDSHR+156
+s_f0hi      = SNDSHR+157
+s_vsign     = SNDSHR+158
+s_tmpx      = SNDSHR+159
+SNDSHR_END  = SNDSHR+160
     .if SNDSHR_END > OSHWM
     .error "Shared sound data overflows PAGE"
     .endif
