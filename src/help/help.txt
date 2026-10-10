@@ -56,7 +56,18 @@ The ASCII characters the C64 keyboard lacks:
 
 RUN/STOP is ESCAPE: it stops a program or a listing. RESTORE also sets ESCAPE.
 
-Lines are edited with the C64 screen editor: move the cursor anywhere and press RETURN to enter a line again. A line can be up to 78 characters after the prompt.
+Lines are typed with the MOS line editor (*EDIT), in every screen mode, up to 238 characters:
+
+  LEFT, RIGHT     move in the line
+  CLR/HOME        start of the line
+  Shift+CLR/HOME  end of the line
+  DEL, INST       delete, insert space
+  UP, DOWN        earlier lines typed
+  CTRL+cursor     move the copy cursor
+  F1              COPY
+  RETURN          enter the line
+
+COPY editing as on a BBC Micro: CTRL with a cursor key starts a second cursor and moves it over the screen; F1 copies the character under it into the line and moves it on, so a listed line can be copied (in the text screens and MODE 7). UP and DOWN go through the last 127 lines typed at the prompt (kept in the REU). *EDIT C64 brings back the C64 screen editor (move the cursor anywhere and press RETURN; 78 characters after the prompt).
 
 GET and INKEY return the cursor keys as 136-139 (left, right, down, up), DEL as 127 and CLR as 12.
 
@@ -209,7 +220,7 @@ OSBYTE calls (*FX a,x,y) available:
 Other calls are ignored.
 
 @@ OSWORD
-OSWORD calls available: 0 reads a line (screen editor), 1 reads TIME, 2 sets TIME (5 bytes, centiseconds), 9 reads a pixel (POINT), 10 reads a character definition (block +0 = character; +1 to +8 = rows), 14 reads the Ultimate's clock, &42 copies between memory and the REU (block +0: &80 to the REU, 0 from it; +1/+2 address; +5/+6 length; +7 the REU's 64K bank (4-255); +8/+9 address in the bank; as the Master's sideways RAM transfer), &70 reads a value of the JSON reply *JSON GET keeps (see *JSON). Others are ignored.
+OSWORD calls available: 0 reads a line (the line editor, *EDIT), 1 reads TIME, 2 sets TIME (5 bytes, centiseconds), 9 reads a pixel (POINT), 10 reads a character definition (block +0 = character; +1 to +8 = rows), 14 reads the Ultimate's clock, &42 copies between memory and the REU (block +0: &80 to the REU, 0 from it; +1/+2 address; +5/+6 length; +7 the REU's 64K bank (4-255); +8/+9 address in the bank; as the Master's sideways RAM transfer), &70 reads a value of the JSON reply *JSON GET keeps (see *JSON). Others are ignored.
 
 OSWORD 14 as on a BBC Master: put 0 in the first byte of a 25-byte block for the text "Wed,07 Oct 2026.08:42:55" and a CR, or 1 for 7 BCD bytes: year (2 digits), month, day, day of week (1 = Sunday), hour, minute, second.
 
@@ -268,7 +279,7 @@ TIME stays in real time at every speed. *TURBO shows or changes the speed. On an
 @@ LIMITS
 Things that differ from a BBC Micro in this version:
 
-Typed lines: 78 characters (C64 screen editor); programs sent from a PC (see REMOTE) may have lines up to 251 characters. Graphics: points, lines, triangles, rectangles, parallelograms, circles, ellipses, pattern fills, flood fill, arcs, segments, sectors. Sound: SOUND and ENVELOPE as on a BBC Micro. LOAD and SAVE work between PAGE (&1D00, or &900 with *SOUND NONE) and &7FFF. Two files open at a time. *KEY, *EXEC and *SPOOL are not there yet.
+Typed lines: 238 characters (78 with *EDIT C64); programs sent from a PC (see REMOTE) may have lines up to 251 characters. Graphics: points, lines, triangles, rectangles, parallelograms, circles, ellipses, pattern fills, flood fill, arcs, segments, sectors. Sound: SOUND and ENVELOPE as on a BBC Micro. LOAD and SAVE work between PAGE (&1D00, or &900 with *SOUND NONE) and &7FFF. Two files open at a time. *KEY, *EXEC and *SPOOL are not there yet.
 
 @@ REMOTE
 Programs can be written on a PC and run here: the MOS has a mailbox that a PC (or an AI coding agent) reaches through the Ultimate's network API. At the > prompt the MOS accepts lines and programs from it as if typed, and copies the output back.
@@ -453,6 +464,15 @@ With an REU (the Ultimates) the font shows on the text screen and in the graphic
 Shows PAGE, TOP, LOMEM, VARTOP, HIMEM, free memory and where the screen is.
 
 On a 64 MHz Ultimate the BBC modes 0-6 use Upic Lite: exact 320x256 like a BBC Micro, with the picture below HIMEM (&5800 or &3000), as on the BBC. UPIC OFF makes the next MODE use the VIC-II version instead: 200 lines, but HIMEM stays &8000. The same as *SHADOW. MODE 7 always keeps its screen at &7C00.
+
+@@ *EDIT | EDIT
+  *EDIT BBC   the MOS line editor
+  *EDIT C64   the C64 screen editor
+  *EDIT       shows which one is used
+
+BBC (the default): lines up to 238 characters in every screen mode, edited in place, with the last 127 lines on UP and DOWN and BBC copy editing (CTRL+cursor keys, F1 is COPY). See KEYBOARD.
+
+C64: the KERNAL's full-screen editor in the text screen, as on a C64: move the cursor anywhere on the screen and press RETURN to enter that line; 78 characters after the prompt. In the graphics modes lines are typed without editing.
 
 @@ *SHADOW | SHADOW
   *SHADOW     shadow modes
@@ -1005,7 +1025,7 @@ Selects a screen mode and clears it.
   103  320x200  16  40x25 hires
   104  160x200  16  20x25 multicol.
 
-MODE 7 is teletext, as on the BBC: screen memory at &7C00 (HIMEM &7C00), colour codes 129-135 (text) and 145-151 (mosaic graphics), 141 double height, 154 separated graphics, 157 new background, 156 black background, 158 hold graphics, 136 flashing. Writing to &7C00 directly (?&7C00=...) shows within a few frames. The machine starts in the C64 text screen with its full-screen editor; MODE 100 returns to it.
+MODE 7 is teletext, as on the BBC: screen memory at &7C00 (HIMEM &7C00), colour codes 129-135 (text) and 145-151 (mosaic graphics), 141 double height, 154 separated graphics, 157 new background, 156 black background, 158 hold graphics, 136 flashing. Writing to &7C00 directly (?&7C00=...) shows within a few frames. The machine starts in the C64 text screen; MODE 100 returns to it.
 
 There are no 80-column modes: MODE 0 is MODE 4 and MODE 3 is MODE 6, their 40-column twins, so BBC programs run with a narrower text layout. MODE 6 uses rows of 10 lines (250 lines), as on the BBC; without Upic Lite they are the 40x25 text screen. MODE 103: 2 colours per 8x8 cell, MODE 104: 4 per 4x8 cell, as the VIC-II does.
 

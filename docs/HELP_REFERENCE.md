@@ -92,17 +92,17 @@ VDU          VPOS         WIDTH
 
 *CAT         *COPY        *CP
 *DELETE      *DIR         *DRIVE
-*FONT        *FX          *HELP
-*INSTRUMENT  *JSON        *LIST
-*LOAD        *MEMORY      *MKDIR
-*MOUNT       *NET         *PALETTE
-*PARTITION   *PARTITIONS  *PWD
-*RENAME      *SAVE        *SETTIME
-*SHADOW      *SID         *SONG
-*SOUND       *SRREAD      *SRWRITE
-*STATUS      *SWAP        *TIME
-*TURBO       *TYPE        *UNMOUNT
-*UVER
+*EDIT        *FONT        *FX
+*HELP        *INSTRUMENT  *JSON
+*LIST        *LOAD        *MEMORY
+*MKDIR       *MOUNT       *NET
+*PALETTE     *PARTITION   *PARTITIONS
+*PWD         *RENAME      *SAVE
+*SETTIME     *SHADOW      *SID
+*SONG        *SOUND       *SRREAD
+*SRWRITE     *STATUS      *SWAP
+*TIME        *TURBO       *TYPE
+*UNMOUNT     *UVER
 ```
 
 ## BBC
@@ -146,11 +146,31 @@ lacks:
 RUN/STOP is ESCAPE: it stops a program
 or a listing. RESTORE also sets ESCAPE.
 
-Lines are edited with the C64 screen
-editor: move the cursor anywhere and
-press RETURN to enter a line again. A
-line can be up to 78 characters after
-the prompt.
+Lines are typed with the MOS line
+editor (*EDIT), in every screen mode,
+up to 238 characters:
+
+  LEFT, RIGHT     move in the line
+  CLR/HOME        start of the line
+  Shift+CLR/HOME  end of the line
+  DEL, INST       delete, insert space
+  UP, DOWN        earlier lines typed
+  CTRL+cursor     move the copy cursor
+  F1              COPY
+  RETURN          enter the line
+
+COPY editing as on a BBC Micro: CTRL
+with a cursor key starts a second
+cursor and moves it over the screen; F1
+copies the character under it into the
+line and moves it on, so a listed line
+can be copied (in the text screens and
+MODE 7). UP and DOWN go through the
+last 127 lines typed at the prompt
+(kept in the REU). *EDIT C64 brings
+back the C64 screen editor (move the
+cursor anywhere and press RETURN; 78
+characters after the prompt).
 
 GET and INKEY return the cursor keys as
 136-139 (left, right, down, up), DEL as
@@ -406,19 +426,20 @@ Other calls are ignored.
 
 ```
 OSWORD calls available: 0 reads a line
-(screen editor), 1 reads TIME, 2 sets
-TIME (5 bytes, centiseconds), 9 reads a
-pixel (POINT), 10 reads a character
-definition (block +0 = character; +1 to
-+8 = rows), 14 reads the Ultimate's
-clock, &42 copies between memory and
-the REU (block +0: &80 to the REU, 0
-from it; +1/+2 address; +5/+6 length;
-+7 the REU's 64K bank (4-255); +8/+9
-address in the bank; as the Master's
-sideways RAM transfer), &70 reads a
-value of the JSON reply *JSON GET keeps
-(see *JSON). Others are ignored.
+(the line editor, *EDIT), 1 reads TIME,
+2 sets TIME (5 bytes, centiseconds), 9
+reads a pixel (POINT), 10 reads a
+character definition (block +0 =
+character; +1 to +8 = rows), 14 reads
+the Ultimate's clock, &42 copies
+between memory and the REU (block +0:
+&80 to the REU, 0 from it; +1/+2
+address; +5/+6 length; +7 the REU's 64K
+bank (4-255); +8/+9 address in the
+bank; as the Master's sideways RAM
+transfer), &70 reads a value of the
+JSON reply *JSON GET keeps (see *JSON).
+Others are ignored.
 
 OSWORD 14 as on a BBC Master: put 0 in
 the first byte of a 25-byte block for
@@ -517,9 +538,9 @@ speed is 1 MHz.
 Things that differ from a BBC Micro in
 this version:
 
-Typed lines: 78 characters (C64 screen
-editor); programs sent from a PC (see
-REMOTE) may have lines up to 251
+Typed lines: 238 characters (78 with
+*EDIT C64); programs sent from a PC
+(see REMOTE) may have lines up to 251
 characters. Graphics: points, lines,
 triangles, rectangles, parallelograms,
 circles, ellipses, pattern fills, flood
@@ -928,6 +949,31 @@ OFF makes the next MODE use the VIC-II
 version instead: 200 lines, but HIMEM
 stays &8000. The same as *SHADOW. MODE
 7 always keeps its screen at &7C00.
+```
+
+## *EDIT
+
+Also: `EDIT`
+
+```
+  *EDIT BBC   the MOS line editor
+  *EDIT C64   the C64 screen editor
+  *EDIT       shows which one is used
+
+BBC (the default): lines up to 238
+characters in every screen mode, edited
+in place, with the last 127 lines on UP
+and DOWN and BBC copy editing
+(CTRL+cursor keys, F1 is COPY). See
+KEYBOARD.
+
+C64: the KERNAL's full-screen editor in
+the text screen, as on a C64: move the
+cursor anywhere on the screen and press
+RETURN to enter that line; 78
+characters after the prompt. In the
+graphics modes lines are typed without
+editing.
 ```
 
 ## *SHADOW
@@ -2004,9 +2050,8 @@ background, 156 black background, 158
 hold graphics, 136 flashing. Writing to
 &7C00 directly (?&7C00=...) shows
 within a few frames. The machine starts
-in the C64 text screen with its
-full-screen editor; MODE 100 returns to
-it.
+in the C64 text screen; MODE 100
+returns to it.
 
 There are no 80-column modes: MODE 0 is
 MODE 4 and MODE 3 is MODE 6, their

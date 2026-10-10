@@ -70,3 +70,20 @@ refuse a REST memory access; the client retries those.
 
 If `npx` cannot fetch c64bridge (an npm registry error), point the harness
 at an installed copy: `C64BRIDGE_CMD="node <path>/c64bridge/scripts/cli.js"`.
+
+## Debugging a failure in VICE
+
+A failing test leaves the screen it saw in `build/e2e/<target>/<test>.txt`.
+To find the code behind it, start VICE with its text monitor next to the
+binary monitor the harness uses (port 6510), e.g.
+`-remotemonitor -remotemonitoraddress ip4://127.0.0.1:6520`, drive the
+machine with `screen.type_text` as the test does, and talk to port 6520
+over one socket that stays open (a second connection gets no answer
+while the machine is stopped):
+
+- `watch store 7c00 7c27` stops at the instruction that writes there;
+  `break <addr>` at an address from `build/mos-ef.lst` (the harness runs
+  the EasyFlash cartridge).
+- `chis 60` lists the last instructions executed, with registers: it
+  shows how the CPU got there, also through JMPs and fall-throughs,
+  which `bt` (JSR return addresses only) misses.

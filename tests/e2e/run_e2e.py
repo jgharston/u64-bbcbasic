@@ -160,6 +160,54 @@ def test_arith(t):
     run_line(t, "PRINT 1+1", "         2")
 
 
+def test_line_editor(t):
+    # the MOS line editor (lineed.s): editing inside the line, a line
+    # longer than the KERNAL's 80 columns, history (UP/DOWN), BBC copy
+    # editing (copy cursor, F1 = COPY) and *EDIT
+    run_line(t, "PRINT 1+3{LEFT}{LEFT}2", "        15")
+    run_line(t, "PRINT 99+1{LEFT}{LEFT}{DEL}", "        10")
+    run_line(t, "7*6{HOME}PRINT ", "        42")
+    run_line(t, "PRINT 3{LEFT}{INST}{INST}{HOME}{CLR}+4", "         7")
+    run_line(t, 'PRINT LEN("' + "AB" * 50 + '")', "       100")
+    if not t.is_vice:                   # (the history is in the REU)
+        run_line(t, "PRINT 5*5", "        25")
+        screen.type_text(t.bridge, "{UP}{DEL}3\r")
+        screen.wait_for(t.bridge, lambda r: any("        15" in x for x in r[1:]))
+        screen.type_text(t.bridge, "PRINT 1{UP}{DOWN}0\r")
+        screen.wait_for(t.bridge, lambda r: any("        10" in x for x in r[1:]))
+    run_line(t, "PRINT 4321", "      4321")
+    screen.type_text(t.bridge, "{CUP}{CUP}{CLEFT}{CRIGHT}" + "{F1}" * 10 + "0\r")
+    screen.wait_for(t.bridge, lambda r: any("     43210" in x for x in r[1:]))
+    # MODE 7: a line wrapping over two rows, copy from the screen memory
+    def ttx_wait(cond, what):
+        deadline = time.time() + 20
+        while True:
+            ttx = b"".join(bytes(t.bridge.read(0x7C00 + i, 200))
+                           for i in range(0, 1000, 200)).decode("latin-1")
+            rows = [ttx[i:i + 40].rstrip() for i in range(0, 1000, 40)]
+            if cond(rows):
+                return rows
+            assert time.time() < deadline, (what, rows)
+            time.sleep(0.5)
+    screen.type_text(t.bridge, "MODE 7\r")
+    try:
+        ttx_wait(lambda r: r[0] == ">" and not any(r[1:]), "MODE 7")
+        screen.type_text(t.bridge, 'PRINT LEN("' + "AB" * 30 + '")\r')
+        ttx_wait(lambda r: "        60" in r and r[3] == ">", "long line")
+        screen.type_text(t.bridge, "PRINT 4321\r")
+        ttx_wait(lambda r: r[5] == ">", "PRINT 4321")
+        screen.type_text(t.bridge, "{CUP}{CUP}{CLEFT}{CRIGHT}" + "{F1}" * 10 + "0\r")
+        rows = ttx_wait(lambda r: "     43210" in r, "copy")
+        assert rows[0].startswith('>PRINT LEN("ABAB') and rows[5] == ">PRINT 43210", rows
+    finally:
+        screen.type_text(t.bridge, "MODE 100\r")
+        time.sleep(1)
+    run_line(t, "*EDIT C64", ">")
+    run_line(t, "*EDIT", "C64")
+    run_line(t, "*EDIT BBC", ">")
+    run_line(t, "*EDIT", "BBC")
+
+
 def test_hex(t):
     run_line(t, "PRINT ~255", "FF")
 
@@ -288,11 +336,13 @@ def test_get(t):
 
 
 def test_long_line(t):
-    # 77 characters after the prompt: a wrapped (two-row) logical line.
-    # The KERNAL editor's limit is 80 columns including the prompt, and
-    # exactly 80 wraps onto an empty third row (docs/PLAN.md, risks).
-    s = "X" * 58
-    run_line(t, 'A$="%s":PRINT LEN(A$)' % s, "        58")
+    # the MOS line editor: 219 characters, six rows (BBC limit 238);
+    # with *EDIT C64 the KERNAL editor's 77 after the prompt
+    s = "X" * 200
+    run_line(t, 'A$="%s":PRINT LEN(A$)' % s, "       200")
+    run_line(t, "*EDIT C64", ">")
+    run_line(t, 'A$="%s":PRINT LEN(A$)' % s[:58], "        58")
+    run_line(t, "*EDIT BBC", ">")
 
 
 def test_speed(t):
@@ -928,7 +978,7 @@ def test_star_list(t):
                  '80 DEF FNc(X)=X', '90 REPEAT:UNTIL TRUE', '100 GOTO 30',
                  '110 REM FOR NEXT'):
         run_line(t, line, ">")
-    rows = run_line(t, "*LIST", "110 REM")
+    rows = run_line(t, "*LIST", "110 REM FOR NEXT")
     want = ["   10 DEF PROCa", "   20   FOR I%=1 TO 2", '   30     PRINT "FOR";I%',
             "   40   NEXT", "   50 ENDPROC", "   60 DEF FNb(X)", "   70 =X*2",
             "   80 DEF FNc(X)=X", "   90 REPEAT:UNTIL TRUE", "  100 GOTO 30",
@@ -1454,7 +1504,7 @@ def test_remote_debug(t):
         rm.debug_end()
 
 
-TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_program,
+TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test_ascii, test_program,
          test_error, test_mos_error, test_help, test_help_paging,
          test_bad_number,
          test_vdu_overflow, test_fx_escape, test_stop_key,

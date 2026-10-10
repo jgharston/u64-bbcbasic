@@ -51,6 +51,7 @@ what this BASIC can and cannot do.
 |---|---|
 | `src/mos/cart.s` | banks 0 and 2 in one assembly |
 | `src/mos/mos.s` | bank 0: boot, VDU, keyboard, OSBYTE/OSWORD, OSCLI, *HELP reader |
+| `src/mos/lineed.s` | bank 0: the line editor (OSWORD 0, history, copy cursor, `*EDIT`) |
 | `src/mos/resident.s` | RAM $C400-$C7FF: entry points, trampoline, IRQ/BRK/NMI, mailbox |
 | `src/mos/uci.s`, `fs.s`, `ucmds.s` | bank 2: UCI driver, filing system, Ultimate commands |
 | `src/mos/reudisk.s`, `rdglue.s` | bank 5: the /REU RAM disk; its routing (bank 2) |

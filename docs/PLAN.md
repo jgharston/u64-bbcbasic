@@ -915,3 +915,40 @@ folk (*Greensleeves*, *Scarborough Fair*, the *Londonderry Air*), and as
 Entertainer* and *Maple Leaf Rag*, *Take Me Out to the Ball Game*, 1908);
 later pop songs are under copyright. After sound step (b2) and `*PLAY`
 (DESIGN_SOUND.md), so the music is written as note strings.
+
+## 25. The MOS line editor (owner, 2026-10-10)
+
+Decisions (owner): the hybrid key layout, F1 as COPY, the new editor as
+the default with `*EDIT C64` to switch back to the KERNAL's full-screen
+editor (`*EDIT BBC` returns; `*EDIT` shows which).
+
+Built in `src/mos/lineed.s` (bank 0, about 1.5 KB), entered from OSWORD 0
+(`word0`) when `EDMODE` ($03FC) is 0:
+
+- One editor for every screen mode: it only moves the text cursor
+  (`K_PLOT` on the text screen, `tcx`/`tcy` elsewhere) and prints through
+  OSWRCH without the remote capture. The line's start is kept as a screen
+  position; after each redraw the cursor is read back, and a row less
+  than expected means the screen scrolled.
+- Lines up to the caller's maximum: 238 at BASIC's prompt (the KERNAL
+  editor allowed 78 after the prompt).
+- Keys: LEFT/RIGHT, CLR/HOME (start), SHIFT+CLR/HOME (end), DEL, INST,
+  UP/DOWN (history), CTRL+cursor keys (copy cursor), F1 (COPY), RETURN
+  from anywhere in the line. The C64 has two cursor keys with SHIFT for
+  up/left, so SHIFT+cursor could not be the copy cursor as on a BBC;
+  CTRL+cursor, which the KERNAL does not decode, is read while waiting
+  for a key (`SHFLAG`, the held key in `$CB`), repeating like a key.
+  A remote host types the copy cursor moves as `$80/$82/$84/$8F`.
+- Copy reads the text screen (screen codes) and MODE 7 (&7C00); the
+  bitmap modes keep no character codes, so COPY does nothing there
+  (the BBC matched glyphs for OSBYTE &87; possible later).
+- History: REU bank 0 `$8000-$FFFF`, 128 slots of 256 bytes; 127 lines
+  typed at BASIC's prompt (not INPUT answers, not empty lines, not the
+  same line twice in a row), slot 127 keeps the line being typed while
+  older ones are shown. Head and count at REU `$3500`. Without an REU
+  (VICE in the tests) there is no history.
+- State in `MOSBUF+$C0` (no * command runs while a line is typed);
+  RAM was full elsewhere (resident area, `$0200-$03FB`, the RAM core).
+
+Not yet: `*KEY` (function key strings), COPY in bitmap modes.
+
