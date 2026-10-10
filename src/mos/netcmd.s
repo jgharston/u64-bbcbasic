@@ -17,6 +17,7 @@ NET_GETIP   = $05
 NET_GETMAC  = $04
 HTTP_HCREATE = $11              ; header create: verb, url -> handle
 HTTP_HFREE  = $12
+HTTP_FALL   = $10              ; free all handles
 HTTP_RAW    = $32               ; exchange, raw reply (stream)
 HTTP_GET    = $01
 HTTP_NOBODY = $FF
@@ -205,27 +206,7 @@ ng_close:
 ;   Output:  nt_len.  Raises: the firmware's or the server's status.
 ;   Uses:    A, X, Y, fs*, MOSBUF.
 http_fetch:
-    lda #TARGET_HTTP            ; header: GET url
-    sta uciHDR
-    lda #HTTP_HCREATE
-    sta uciHDR+1
-    lda #HTTP_GET
-    sta uciHDR+2
-    lda #3
-    sta uciHLEN
-    jsr uci_send
-    lda #<nt_hdr
-    sta fsADDR
-    lda #>nt_hdr
-    sta fsADDR+1
-    lda #1
-    sta fsLEN
-    lda #0
-    sta fsLEN+1
-    jsr uci_read_to
-    jsr uci_finish
-    bcc hf_hdr
-    jmp uci_error
+    jsr hf_create               ; nt_hdr = a GET header for the URL
 hf_hdr:
     lda #TARGET_HTTP            ; raw exchange: header, no body
     sta uciHDR
@@ -244,6 +225,7 @@ hf_hdr:
     sta nt_len+1
     jsr uci_send
 hf_page:
+    jsr uci_chkesc              ; (ESCAPE ends a reply that does not)
     lda #<MOSBUF                ; 256 bytes at a time
     sta fsADDR
     lda #>MOSBUF
@@ -256,9 +238,13 @@ hf_page:
     lda fsCNT
     ora fsCNT+1
     beq hf_end
-    lda nt_len+1                ; room in the buffer?
-    cmp #NETBUF_PAGES
-    bcs hf_full
+    lda nt_len+1                ; room in the buffer? (none: the command
+    cmp #NETBUF_PAGES           ; aborted, what came is kept)
+    bcc hf_room
+    lda #$04
+    sta UCI_CTRL
+    jmp hf_end
+hf_room:
     lda #0                      ; MOSBUF -> the buffer's next page
     sta REU_ADDR
     sta REU_LEN+1
@@ -297,6 +283,88 @@ hf_end:
     jmp uci_error
 hf_rts:
     rts
+
+; hf_create
+;   Summary: a GET request header for the URL at fsPTR/fsLEN: nt_hdr.
+;   Function: when the firmware's 16 header slots are all taken ("507":
+;            handles left over, e.g. from an earlier program or a reset of
+;            the C64 alone), FREE_ALL and once more (a kept JSON reply is
+;            then gone too).
+;   Uses:    A, X, Y, fs*.
+hf_create:
+    lda fsPTR                   ; (kept for the second try)
+    sta hc_ptr
+    lda fsPTR+1
+    sta hc_ptr+1
+    lda fsLEN
+    sta hc_len
+    lda #2
+    sta hc_try
+hc_again:
+    lda hc_ptr
+    sta fsPTR
+    lda hc_ptr+1
+    sta fsPTR+1
+    lda hc_len
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    lda #TARGET_HTTP            ; header: GET url
+    sta uciHDR
+    lda #HTTP_HCREATE
+    sta uciHDR+1
+    lda #HTTP_GET
+    sta uciHDR+2
+    lda #3
+    sta uciHLEN
+    jsr uci_send
+    lda #<nt_hdr
+    sta fsADDR
+    lda #>nt_hdr
+    sta fsADDR+1
+    lda #1
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    jsr uci_read_to
+    jsr uci_finish
+    bcc hc_rts
+    dec hc_try
+    beq hc_err
+    lda errbuf+1                ; "507 NO HEADER SLOT": free all, again
+    cmp #'5'
+    bne hc_err
+    lda errbuf+3
+    cmp #'7'
+    bne hc_err
+    jsr http_freeall
+    jmp hc_again
+hc_err:
+    jmp uci_error
+hc_rts:
+    rts
+hc_ptr      = netvars           ; 2 (MOSBUF+$F0: not used by the create)
+hc_len      = netvars+2
+hc_try      = netvars+3
+
+; http_freeall: every header and body handle of the HTTP target freed
+; (FREE_ALL); the kept JSON reply is gone
+http_freeall:
+    lda #$FF
+    sta json_body
+    sta json_rhdr
+    lda #TARGET_HTTP
+    sta uciHDR
+    lda #HTTP_FALL
+    sta uciHDR+1
+    lda #2
+    sta uciHLEN
+    lda #0
+    sta fsLEN
+    sta fsLEN+1
+    jsr uci_send
+    ldx #ERRMAX-24
+    jmp uci_finish_x
 
 ; hf_free: free the request header (errors ignored; errbuf kept)
 hf_free:
@@ -365,6 +433,10 @@ net_init:
     lda #$FF
     sta json_body
     sta json_rhdr
+    lda uci_ok                  ; handles a previous session left: freed
+    beq ni_rts
+    jmp http_freeall
+ni_rts:
     rts
 
 ; ----------------------------------------------------------------------------
@@ -420,22 +492,7 @@ json_get:
     sta fsPTR+1
     pla
     sta fsPTR
-    lda #TARGET_HTTP            ; header: GET url
-    sta uciHDR
-    lda #HTTP_HCREATE
-    sta uciHDR+1
-    lda #HTTP_GET
-    sta uciHDR+2
-    lda #3
-    sta uciHLEN
-    jsr uci_send
-    lda #<nt_hdr
-    ldx #>nt_hdr
-    ldy #1
-    jsr jg_read
-    jsr uci_finish
-    bcc jg_hdr
-    jmp uci_error
+    jsr hf_create               ; nt_hdr = a GET header for the URL
 jg_hdr:
     lda #TARGET_HTTP            ; JSON exchange: header, no body
     sta uciHDR

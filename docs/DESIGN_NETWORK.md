@@ -179,3 +179,28 @@ bank 2's read payloads from the mapped bank); the help moved to banks
 - A BBC BASIC FOR loop runs at least once: `FOR I%=1 TO LEN A$` with an
   empty A$ sends `ASC ""` (-1, a byte 255) -- the first TCP test
   program's mistake, worth a line in the manual.
+
+U64TEXT on the U64 (2026-10-10): CNN's `edition.rss` still answers but
+stopped in 2023 (the newest items are from April 2023); the news page
+uses Ars Technica's feed instead (`http://feeds.arstechnica.com/arstechnica/index`,
+plain HTTP, current). Both feeds are larger than 16 KB: the firmware's
+HTTP target then returns an empty body (not the first 16 KB), so the
+page reads the feed over a TCP channel with a hand-written HTTP/1.0
+request, taking the titles as they stream in.
+
+More firmware 3.15a findings with U64TEXT (2026-10-10):
+
+- Raw exchange replies longer than one command-interface block (896
+  bytes) were unreliable: the geocoding reply (1.7 KB) hung the C64 in
+  one try and gave "400 BAD COMMAND" for the exchange in another (from
+  BASIC poking the registers); replies over 16 KB come back empty. Small
+  replies (weather CSV, ISS, example.com) work. U64TEXT reads anything
+  larger over a TCP channel with a hand-written HTTP/1.0 request. The
+  MOS now checks ESCAPE in its reply loop and aborts the command after
+  16 KB, so such a reply cannot hang the machine.
+- The 16 header slots can run out ("507 NO HEADER SLOT"; they survive a
+  reset of the C64 alone): start-up frees all handles (FREE_ALL), and a
+  507 on a header create is answered with FREE_ALL and a second try.
+- A bug of the MOS on the way: nc_open kept the channel index in the
+  byte where http_fetch keeps the header handle; OPENIN "http://..." then
+  used the handle as the channel (it worked while the handle was 0).

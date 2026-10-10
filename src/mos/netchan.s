@@ -28,7 +28,8 @@ NCF_CLOSED  = $01               ; ch_ext+2: the other side has closed
 NCF_UDP     = $04
 
 nc_port     = fsTMP             ; 2 (open)
-nc_ch       = fsTMP+2           ; the channel index
+nc_ch       = fsSY              ; the channel index (not fsTMP+2: that
+                                ; is http_fetch's header handle, nt_hdr)
 nc_byte     = fsTMP+3
 
 ; ----------------------------------------------------------------------------
