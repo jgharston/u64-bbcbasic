@@ -133,6 +133,25 @@ enter latitude and longitude directly; "auto" uses the IP's place
 is saved in a settings file next to the program (`U64TEXT.CFG`) and
 read at start-up.
 
+Revision (owner, 2026-10-10): one hundred per section, articles as
+pages with Ceefax subpages:
+
+| Page | Contents |
+|---|---|
+| 100 | index |
+| 200, 201 | weather; the weather's place (a name: Open-Meteo geocoding over TCP; AUTO: ip-api.com) |
+| 300, 301-305 | the blog's latest posts; a post: date, title, summary, address (the feed has summaries only: owner's choice) |
+| 400, 401-410 | Ars Technica's headlines (RSS over TCP); an article: the feed's text (`content:encoded`, the start of the article), HTML tags and entities removed, UTF-8 quotes and dashes as ASCII, word-wrapped into 38-column lines kept in the REU (`*SRWRITE`, &40000 + article * &1000 + line * 40, at most 56 lines), 14 lines a subpage: cursor right/left |
+| 500 | the ISS: a Natural Earth land map (public domain; `demos/net/mkworld.py` makes the DATA) in teletext mosaics, 36 x 16 cells of 10 x 10 degrees (2 x 3 blocks: 72 x 48 points); hold graphics (158) keep the map unbroken where a colour code takes a cell; the ISS a red block, the cells it was in a yellow trail (the last 12); the page reloads every 10 s |
+
+SPACE goes to the next section, inside the blog and the news to the
+next post or article. While a page loads, the bottom row says so and
+counts the kilobytes read (the TCP readers); `*JSON GET` is one call,
+so there only the line shows. The program is 19.7 KB (MODE 7 leaves
+24.3 KB from PAGE to HIMEM): the indentation is dropped when it is
+tokenised (`tools/bbctok.py`, as the VS Code extension does), and the
+comments are short; this section has the details.
+
 ## 8. Findings on the U64 (firmware 3.15a, 2026-10-10)
 
 - The HTTP target has no TLS (plain sockets in `http_request.cc`): https
