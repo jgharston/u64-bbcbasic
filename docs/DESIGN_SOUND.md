@@ -395,7 +395,10 @@ in several steps; an interrupt in between left its own address, length
 and target behind, and the foreground transfer then went elsewhere:
 314 of 483 test transfers came back wrong with eight ARP voices
 sounding, and pressing UP in the line editor crashed the machine.
-`s_irq` (SID image) now pushes `$DF02-$DF0A` on entry and restores them
-at its one exit (18 bytes; the image's ten work bytes `s_dirty`..`s_tmpx`
-moved to SNDSHR's spare bytes to make room). Test: `reu_irq`.
-
+A first fix had `s_irq` push `$DF02-$DF0A` and restore them; but the
+Ultimate's REU bank register reads back only its low 3 bits ($F8 + bank),
+so the restore moved interrupted transfers to bank $F8+: damaged glyphs
+and "Song full" in the music demo. Now every foreground transfer (39
+places in 14 files) sets the REU up with interrupts off (`php`/`sei` ...
+the command, `plp`); `s_irq` uses the REU freely. The SID image's ten
+work bytes `s_dirty`..`s_tmpx` stay in SNDSHR. Test: `reu_irq`.

@@ -527,14 +527,20 @@ fm_done:
 ;            REU_FONT_BANK).
 ;   Uses:    A, fsCNT.
 reu_get:
+    php                         ; (interrupts off while the REU is set up:
+    sei                         ; the sound interrupt uses it too)
     jsr ra_set
     lda #REU_TO_C64
     sta REU_CMD
+    plp
     rts
 reu_put:
+    php
+    sei
     jsr ra_set
     lda #REU_TO_REU
     sta REU_CMD
+    plp
     rts
 ra_set:
     stx fsCNT+1

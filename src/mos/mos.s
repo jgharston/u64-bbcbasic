@@ -1401,7 +1401,8 @@ w0b_cursor:
 ;   Function: shows the cursor and polls the keyboard buffer and the
 ;            remote mailbox (docs/REMOTE_DEV.md). A key (or the RETURN
 ;            that RUN/STOP types) returns C = 0: the screen editor reads
-;            the line. A remote request is handled and acknowledged:
+;            the line (with *EDIT BBC also CTRL with a cursor key, the
+;            copy cursor). A remote request is handled and acknowledged:
 ;            REQ_LINE and REQ_PROGRAM put a line in the buffer and return
 ;            C = 1; REQ_CAPTURE switches output capture and keeps waiting.
 ;   Input:   mosPTR2/mosMAX/mosMIN/mosHIGH (the OSWORD 0 block).
@@ -1415,6 +1416,17 @@ w0_waitkey:
 wk0_poll:
     lda NDX
     bne wk0_key
+    lda EDMODE                  ; the line editor: CTRL+cursor keys (the
+    bne wk0_nocopy              ; copy cursor) start a line too, though
+    lda SHFLAG                  ; they put nothing in the keyboard buffer
+    and #4                      ; (lineed.s, ed_poll)
+    beq wk0_nocopy
+    lda SFDX
+    cmp #2
+    beq wk0_key
+    cmp #7
+    beq wk0_key
+wk0_nocopy:
     lda MB_HSEQ
     cmp MB_CSEQ
     beq wk0_poll

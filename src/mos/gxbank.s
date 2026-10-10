@@ -679,10 +679,13 @@ v23_char:
     beq v23c_text
     lda vdubuf                  ; REU_FONT + c * 8
     jsr v23c_x8
+    php                         ; (interrupts off while the REU is set
+    sei                         ; up: the sound interrupt uses it too)
     sta REU_ADDR+1
     lda vm_t
     sta REU_ADDR
     jsr v23c_reu
+    plp
     lda vdubuf
     bmi v23c_done
     jsr v23c_scr                ; REU_VICFONT + screen code * 8
@@ -690,10 +693,13 @@ v23_char:
     jsr v23c_x8
     clc
     adc #>REU_VICFONT
+    php                         ; (interrupts off while the REU is set
+    sei                         ; up: the sound interrupt uses it too)
     sta REU_ADDR+1
     lda vm_t
     sta REU_ADDR
     jsr v23c_reu
+    plp
 v23c_text:
     lda vtype                   ; text screen only
     bne v23c_done

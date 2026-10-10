@@ -245,6 +245,8 @@ hf_page:
     sta UCI_CTRL
     jmp hf_end
 hf_room:
+    php                         ; (interrupts off while the REU is set up:
+    sei                         ; the sound interrupt uses it too)
     lda #0                      ; MOSBUF -> the buffer's next page
     sta REU_ADDR
     sta REU_LEN+1
@@ -265,6 +267,7 @@ hf_room:
     sta REU_LEN+1
     lda #REU_TO_REU
     sta REU_CMD
+    plp
     lda nt_len                  ; length += received
     clc
     adc fsCNT

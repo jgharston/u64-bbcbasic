@@ -171,6 +171,8 @@ src_cmp:
     cpx reu_banks
     bcs sr_bad
 src_go:
+    php                         ; (interrupts off while the REU is set up:
+    sei                         ; the sound interrupt uses it too)
     lda fsADDR
     sta REU_C64
     lda fsADDR+1
@@ -189,6 +191,7 @@ src_go:
     sta REU_CTRL
     lda fsMODE
     sta REU_CMD
+    plp
     rts
 sr_bad:
     brk

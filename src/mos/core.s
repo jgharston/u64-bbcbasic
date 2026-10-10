@@ -675,6 +675,8 @@ glyph_get:
     lda reu_banks
     ora reu_banks+1
     beq gg_rom
+    php                         ; (interrupts off while the REU is set up:
+    sei                         ; the sound interrupt uses it too)
     txa                         ; REU address = REU_FONT + code * 8
     asl
     sta REU_ADDR
@@ -698,6 +700,7 @@ glyph_get:
     sta REU_CTRL
     lda #REU_TO_C64
     sta REU_CMD
+    plp
     rts
 gg_rom:                         ; character ROM ($D800 set), by screen code
     lda #>$D800
@@ -789,6 +792,8 @@ font_restore:
     lda reu_banks
     ora reu_banks+1
     beq fr_rom
+    php                         ; (interrupts off: see glyph_get)
+    sei
     lda #<FONT
     sta REU_C64
     lda #>FONT
@@ -807,6 +812,7 @@ font_restore:
     sta REU_CTRL
     lda #REU_TO_C64
     sta REU_CMD
+    plp
     rts
 fr_rom:
     farcall font_init, BANK_MOS

@@ -51,9 +51,12 @@ rx_write:
 rxw_page:
     lda rx_n
     beq rxw_rts
+    php                         ; (interrupts off: the sound interrupt
+    sei                         ; uses the REU too)
     jsr rx_reu
     lda #REU_TO_C64
     sta REU_CMD
+    plp
     lda #<MOSBUF
     sta fsPTR
     lda #>MOSBUF
@@ -91,9 +94,12 @@ rx_wtail:
     stx fsTMP+3
     ldx #1
     jsr rx_set
+    php                         ; (interrupts off: the sound interrupt
+    sei                         ; uses the REU too)
     jsr rx_reu
     lda #REU_TO_C64
     sta REU_CMD
+    plp
     lda #<MOSBUF
     sta fsPTR
     lda #>MOSBUF
@@ -161,9 +167,12 @@ rxr_clr:
     jsr uci_finish
     pla
     beq rxr_done
+    php                         ; (interrupts off: the sound interrupt
+    sei                         ; uses the REU too)
     jsr rx_reu
     lda #REU_TO_REU
     sta REU_CMD
+    plp
     inc rx_got
     jsr rx_next
     jmp rxr_page

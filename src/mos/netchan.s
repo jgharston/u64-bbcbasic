@@ -318,6 +318,8 @@ nc_bget:
     bcc nb_http
     jmp nb_end
 nb_http:
+    php                         ; (interrupts off while the REU is set up:
+    sei                         ; the sound interrupt uses it too)
     lda ch_ptr,y                ; the byte at REU_NETBUF + PTR#
     sta REU_ADDR
     lda ch_ptr+1,y
@@ -325,6 +327,7 @@ nb_http:
     adc #>REU_NETBUF
     sta REU_ADDR+1
     jsr nc_get1
+    plp
     jmp nb_got
 nb_sock:
     jsr nc_flush                ; (what was written goes first)
@@ -345,6 +348,8 @@ nb_again:
     bmi nb_end
     jmp nb_again
 nb_buf:
+    php
+    sei
     lda ch_ext,y                ; the byte at REU_NETRX + ch * 256 + pos
     sta REU_ADDR
     lda nc_ch
@@ -352,6 +357,7 @@ nb_buf:
     adc #>REU_NETRX
     sta REU_ADDR+1
     jsr nc_get1
+    plp
     ldx nc_ch
     txa
     asl
@@ -462,6 +468,8 @@ nf_some:
     sta ch_ext+1,y              ; fill
     lda #0
     sta ch_ext,y                ; position
+    php
+    sei
     lda #<REU_NETRX             ; MOSBUF+2 -> the receive buffer
     sta REU_ADDR
     lda nc_ch
@@ -481,6 +489,7 @@ nf_some:
     sta REU_CTRL
     lda #REU_TO_REU
     sta REU_CMD
+    plp
 nf_none:
     rts
 nf_closed:
@@ -505,6 +514,8 @@ nc_bput:
     asl
     asl
     tay
+    php
+    sei
     lda ch_ext+3,y              ; the byte at REU_NETTX + ch * 256 + fill
     sta REU_ADDR
     lda nc_ch
@@ -524,6 +535,7 @@ nc_bput:
     sta REU_CTRL
     lda #REU_TO_REU
     sta REU_CMD
+    plp
     lda ch_ext+3,y
     clc
     adc #1
@@ -551,6 +563,8 @@ nc_flush:
     lda ch_ext+3,y
     beq nfl_rts
     sta fsLEN                   ; REU -> MOSBUF, then a write command
+    php
+    sei
     lda #0
     sta ch_ext+3,y
     sta fsLEN+1
@@ -573,6 +587,7 @@ nc_flush:
     sta fsPTR+1
     lda #REU_TO_C64
     sta REU_CMD
+    plp
     lda #TARGET_NET
     sta uciHDR
     lda #NET_WRITE

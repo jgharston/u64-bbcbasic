@@ -28,6 +28,8 @@ REU_TO_C64  = $91               ; execute now, REU -> C64
 ;   Output:  reu_tmp (REU_TO_C64).  Uses: A.
 
 reu_xfer1:
+    php                         ; (interrupts off while the REU is set up:
+    sei                         ; the sound interrupt uses it too)
     pha
     lda #<reu_tmp
     sta REU_C64
@@ -43,6 +45,7 @@ reu_xfer1:
     sta REU_LEN
     pla
     sta REU_CMD                 ; starts the transfer
+    plp
     rts
 
 ; reu_read / reu_write

@@ -646,15 +646,42 @@ egk_blink:
     jmp w0b_cursor
 
 ; ed_poll
-;   Summary: CTRL+cursor keys as copy cursor moves.
+;   Summary: CTRL+cursor keys as copy cursor moves; F1 (COPY) repeating.
 ;   Function: a cursor key (matrix 2 right, 7 down; with SHIFT left, up)
 ;            held with CTRL gives its code at once, after 20 jiffies again
-;            and then every 3, as the KERNAL repeats keys.
+;            and then every 3, as the KERNAL repeats keys. F1 (matrix 4,
+;            no SHIFT/C=/CTRL) held: its first press comes through the
+;            keyboard buffer, the repeats from here (the KERNAL does not
+;            repeat function keys).
 ;   Input:   SHFLAG, SFDX, JIFFY.
 ;   Output:  A = KEY_C* code (Z = 0), or A = 0 (Z = 1).
 ;   Uses:    A, X.
 ed_poll:
     lda SHFLAG
+    bne epl_ctrl
+    lda SFDX                    ; F1 held
+    cmp #4
+    bne epl_none
+    cmp ed_key
+    beq epl_f1held
+    sta ed_key                  ; just pressed: the buffer has it; repeat
+    lda JIFFY                   ; from 20 jiffies on
+    clc
+    adc #20
+    sta ed_rpt
+    jmp epl_no
+epl_f1held:
+    lda JIFFY
+    sec
+    sbc ed_rpt
+    bmi epl_no
+    lda JIFFY
+    clc
+    adc #3
+    sta ed_rpt
+    lda #KEY_COPY
+    rts
+epl_ctrl:
     and #4
     beq epl_none
     lda SFDX
@@ -847,11 +874,14 @@ ed_hmeta:
     sec
     rts
 ehm_reu:
+    php                         ; (interrupts off while the REU is set up:
+    sei                         ; the sound interrupt uses it too)
     lda #<ed_head
     ldx #>ed_head
     jsr ed_meta
     lda #REU_TO_C64
     sta REU_CMD
+    plp
     lda ed_head                 ; not written yet (a new REU's contents):
     cmp #HIST_SLOTS             ; an empty history
     bcs ehm_reset
@@ -917,6 +947,8 @@ ed_text:
 ;   Input:   A = slot; the line (mosPTR2, mosCNT).
 ;   Output:  the slot.  Uses: A, ed_tmp.
 ed_hsave:
+    php                         ; (interrupts off: see ed_hmeta)
+    sei
     jsr ed_slot
     lda mosCNT
     sta ed_tmp
@@ -928,6 +960,7 @@ ed_hsave:
     lda #REU_TO_REU
     sta REU_CMD
 ehs_done:
+    plp
     rts
 
 ; ed_hshow
@@ -938,6 +971,8 @@ ehs_done:
 ;   Input:   ed_hidx, ed_head (ed_hmeta read).
 ;   Output:  buffer, mosCNT, ed_pos, screen.  Uses: A, X, Y, ed_tmp.
 ed_hshow:
+    php                         ; (interrupts off: see ed_hmeta)
+    sei
     lda #HIST_SLOTS
     ldx ed_hidx
     beq ehw_slot
@@ -966,6 +1001,7 @@ ehw_len:
     lda #REU_TO_C64
     sta REU_CMD
 ehw_show:
+    plp
     lda #0
     jmp ed_redraw
 
@@ -977,9 +1013,11 @@ ehw_show:
 ;   Uses:    A, X, Y, ed_tmp.
 ed_hadd:
     lda mosCNT
-    beq eha_done
+    beq eha_rts
     jsr ed_hmeta
-    bcs eha_done
+    bcs eha_rts
+    php                         ; (interrupts off: see ed_hmeta)
+    sei
     lda ed_count
     beq eha_new
     ldx ed_head                 ; the last line: the same?
@@ -1011,7 +1049,9 @@ eha_cmp:
     cpy mosCNT
     bcc eha_cmp
 eha_done:
-    rts                         ; (the same: not again)
+    plp                         ; (the same: not again)
+eha_rts:
+    rts
 eha_new:
     lda ed_head
     jsr ed_hsave
@@ -1032,6 +1072,7 @@ eha_full:
     jsr ed_meta
     lda #REU_TO_REU
     sta REU_CMD
+    plp
     rts
 
 ; ----------------------------------------------------------------------------

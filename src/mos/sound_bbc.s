@@ -48,6 +48,8 @@ sii_env:
     lda reu_banks
     ora reu_banks+1
     beq sii_rts
+    php
+    sei
     lda #<REU_ENV
     sta REU_ADDR
     lda #>REU_ENV
@@ -65,6 +67,7 @@ sii_env:
     sta REU_CTRL
     lda #REU_TO_C64
     sta REU_CMD
+    plp
 sii_rts:
     rts
 

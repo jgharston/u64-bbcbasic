@@ -125,7 +125,8 @@ The cursor is on the empty prompt line. To make line 30 read `NEXT I%`:
    column where your cursor was. It is shown as an inverted character.
 2. Still with <kbd>CTRL</kbd>, press <kbd>CRSR ⇄</kbd> twice: the copy cursor
    is now on the `3` of `30`.
-3. Press <kbd>F1</kbd> (COPY) once for each character to copy. `30 NEXT `
+3. Press <kbd>F1</kbd> (COPY) once for each character to copy (or hold it:
+   it repeats). `30 NEXT `
    is eight presses (the leading spaces of the listing need not be copied:
    BASIC ignores them). Each press copies the character under the copy
    cursor into your line and moves the copy cursor one step right.
@@ -204,8 +205,8 @@ editing: characters, <kbd>INST/DEL</kbd> for the last one, <kbd>RETURN</kbd>.
 - **Function keys**: <kbd>F1</kbd> is COPY. The other function keys type
   nothing yet (`*KEY` is not there yet).
 - **Key repeat**: the cursor keys, space and <kbd>INST/DEL</kbd> repeat while
-  held; CTRL with a cursor key does too. <kbd>F1</kbd> does not repeat:
-  press it once per character.
+  held; CTRL with a cursor key and <kbd>F1</kbd> (COPY) do too, after the
+  same short delay: hold <kbd>F1</kbd> to copy the rest of a line.
 - **From a PC** (VS Code, `tools/u64remote.py`, the MCP server; see
   [Developing from a PC](14_REMOTE.md)): a line sent from the PC wins. A
   half-typed line on the machine is dropped from the screen, and the PC's

@@ -99,14 +99,20 @@ pb_fail:
 ; pal_toreu / pal_fromreu: PALBUF (48 bytes) to / from the REU at X/A
 ; (high/low). Uses: A, REU registers.
 pal_toreu:
+    php                         ; (interrupts off while the REU is set up:
+    sei                         ; the sound interrupt uses it too)
     jsr pr_set
     lda #REU_TO_REU
     sta REU_CMD
+    plp
     rts
 pal_fromreu:
+    php
+    sei
     jsr pr_set
     lda #REU_TO_C64
     sta REU_CMD
+    plp
     rts
 pr_set:
     sta REU_ADDR
@@ -265,9 +271,12 @@ usp_one:
     sta glyph+2
     lda #<glyph
     ldx #>glyph
+    php
+    sei
     jsr pr_dma3
     lda #REU_TO_REU
     sta REU_CMD
+    plp
     rts
 
 ; ul_setlog: logical colour A changed (VDU 19,l,p in Upic Lite): only its
@@ -289,9 +298,12 @@ ul_setrgb:
     tay
     lda #<[vdubuf+2]
     ldx #>[vdubuf+2]
+    php
+    sei
     jsr pr_dma3
     lda #REU_TO_REU
     sta REU_CMD
+    plp
     jmp ul_sendlrgb
 usr_done:
     rts
@@ -313,9 +325,12 @@ usl_loop:
     tay
     pla
     ldx #>PALBUF
+    php
+    sei
     jsr pr_dma3
     lda #REU_TO_C64
     sta REU_CMD
+    plp
     ldy fsSX
     iny
     cpy #16
@@ -357,6 +372,8 @@ pv_col:
     sta PALBUF+3
     jsr has_reu
     beq pv_send
+    php
+    sei
     tya                         ; REU_PAL64 + 3 * colour
     sta fsCNT
     asl
@@ -374,6 +391,7 @@ pv_col:
     jsr pr_len
     lda #REU_TO_REU
     sta REU_CMD
+    plp
 pv_send:
     lda #<PALBUF
     sta fsPTR
@@ -712,6 +730,8 @@ vp_token:
     lda fsSY
     cmp #3
     bcs vt_skip
+    php
+    sei
     lda fsSX                    ; REU_PALTMP + 3 * colour + field
     sta fsCNT
     asl
@@ -730,6 +750,7 @@ vp_token:
     jsr pr_len
     lda #REU_TO_REU
     sta REU_CMD
+    plp
 vt_skip:
     inc fsSY
 vt_none:

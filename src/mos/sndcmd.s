@@ -132,14 +132,20 @@ si_reu:
     sta REU_CTRL
     rts
 si_put:
+    php                         ; (interrupts off while the REU is set up:
+    sei                         ; the sound interrupt uses it too)
     jsr si_reu
     lda #REU_TO_REU
     sta REU_CMD
+    plp
     rts
 si_get:
+    php
+    sei
     jsr si_reu
     lda #REU_TO_C64
     sta REU_CMD
+    plp
     rts
 
 ; ----------------------------------------------------------------------------
@@ -450,6 +456,8 @@ snd_word8:
     sta fsCNT                   ; offset of envelope N
     jsr s6_hasreu
     beq sw8_ram
+    php
+    sei
     lda fsCNT                   ; the REU copy: 13 bytes from block+1
     clc
     adc #<REU_ENV
@@ -473,6 +481,7 @@ snd_word8:
     sta REU_CTRL
     lda #REU_TO_REU
     sta REU_CMD
+    plp
 sw8_ram:
     lda snd_on                  ; the BBC image in RAM?
     beq sw8_rts

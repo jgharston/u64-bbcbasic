@@ -104,6 +104,8 @@ sgh_go:
     sta fsLEN+1
     pla
 sg_dma:
+    php                         ; (interrupts off while the REU is set up:
+    sei                         ; the sound interrupt uses it too)
     pha
     lda fsADDR
     sta REU_C64
@@ -123,6 +125,7 @@ sg_dma:
     sta REU_CTRL
     pla
     sta REU_CMD
+    plp
     rts
 
 ; sg_valid: the header in MOSBUF; raises "No song" unless it is one
@@ -216,6 +219,8 @@ sgn_rows:
     ; (fall through)
 ; sg_zbank: REU bank A (64K) to 0 from MOSBUF+0 (= 0)
 sg_zbank:
+    php
+    sei
     sta REU_BANK
     lda #0
     sta REU_ADDR
@@ -232,6 +237,7 @@ sg_zbank:
     sta REU_CMD
     lda #0
     sta REU_CTRL
+    plp
     rts
 sgn_bad:
     jmp s6_syntax
@@ -965,6 +971,8 @@ sgv_close:
 
 ; sg_hdrlen: X = the song length (header byte, read from the REU)
 sg_hdrlen:
+    php
+    sei
     lda #SH_LEN
     sta REU_ADDR
     lda #>REU_HEAD
@@ -982,6 +990,7 @@ sg_hdrlen:
     sta REU_CTRL
     lda #REU_TO_C64
     sta REU_CMD
+    plp
     ldx fsCNT
     rts
 

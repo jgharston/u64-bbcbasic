@@ -117,6 +117,8 @@ rd_magic    dta 'U64RDISK'
 ; fsTMP (3 bytes), length fsLEN.
 
 rd_dma:
+    php                         ; (interrupts off while the REU is set up:
+    sei                         ; the sound interrupt uses it too)
     pha
     lda fsADDR
     sta REU_C64
@@ -136,6 +138,7 @@ rd_dma:
     sta REU_CTRL
     pla
     sta REU_CMD
+    plp
     rts
 
 ; rd_hdrget / rd_hdrput: the header <-> RD_HDR (not RD_BUF: rd_append

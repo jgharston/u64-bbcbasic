@@ -1104,7 +1104,10 @@ def test_classics(t):
         r = rm.send_program(open(os.path.join(d, name + ".bas")).read(),
                             run=True, timeout=12)
         if name == "animal":            # no animal; don't save: it ends
-            out = rm.run_lines(["N", "N"])
+            rm.wait_line_wanted(30)     # (reading the file takes a while)
+            rm.run_lines(["N"], timeout=30)
+            rm.wait_line_wanted(30)
+            out = rm.run_lines(["N"], timeout=30)
             assert out["state"] == "prompt" and "know are" in out["output"], out
             assert "gnat" in out["output"], out     # the file's animals
             run_line(t, "*DELETE ANIMAL.DAT", ">")
@@ -1600,7 +1603,7 @@ def run_target(t, only):
                 print("   ok    %s" % name, flush=True)
             except (AssertionError, TimeoutError, BridgeError) as e:
                 failures += 1
-                print("   FAIL  %s: %s" % (name, str(e).splitlines()[0]),
+                print("   FAIL  %s: %s" % (name, (str(e).splitlines() or [repr(e)])[0]),
                       flush=True)
                 try:
                     rows = screen.read_screen(t.bridge)
