@@ -134,16 +134,24 @@ e2e-vice: $(CRTS)
 e2e-u64: $(CRTS) checkcfg
 	$(PYTHON) tests/e2e/run_e2e.py --no-vice
 
-# --- Deploy to the Ultimates' RAM disk (gone after a power cycle)
+# --- Deploy to the Ultimates: /<drive>/idi8b/u64bbcbasic/ (cartridges,
+# .cfg) and its demos/ (tokenised programs and their files); the drive per
+# machine in .env (ULTDRV1, ULTDRV2: SD, USB0, ...; default USB0). The
+# second Ultimate only if it answers.
+
+ULTDRV1 ?= USB0
+ULTDRV2 ?= USB0
 
 check-deploy:
 	@curl -s --connect-timeout 3 ftp://$(ULTIP1)/ >/dev/null 2>&1 || \
 		(echo "ERROR: Cannot reach the Ultimate at $(ULTIP1) -- check ULTIP1 in .env" && false)
 
 deploy: check-deploy $(CRTS) $(CFGS)
-	curl -s -T "{$(subst $(space),$(comma),$(CRTS) $(CFGS))}" ftp://$(ULTIP1)$(ULTPATH)
+	$(PYTHON) tools/deploy.py --host $(ULTIP1) --drive $(ULTDRV1) $(CRTS) $(CFGS)
 ifdef ULTIP2
-	curl -s -T "{$(subst $(space),$(comma),$(CRTS) $(CFGS))}" ftp://$(ULTIP2)$(ULTPATH)
+	@if curl -s --connect-timeout 3 ftp://$(ULTIP2)/ >/dev/null 2>&1; then \
+		$(PYTHON) tools/deploy.py --host $(ULTIP2) --drive $(ULTDRV2) $(CRTS) $(CFGS); \
+	else echo "Skipped $(ULTIP2): not reachable"; fi
 endif
 
 # --- VS Code extension (vscode/): build/u64-bbcbasic.vsix

@@ -77,10 +77,16 @@ make                # build/u64bbc-tmb.crt, build/u64bbc-ef.crt and .cfg
 make compare-core   # BBC BASIC 3.10 still identical to the reference ROM
 make vice           # run in VICE
 make e2e            # end-to-end tests (tests/e2e/README.md)
+make deploy         # install on the Ultimate (below)
 ```
 
 Put the Ultimates' IP addresses in `.env` (`ULTIP1 = ...`, `ULTIP2 = ...`)
-for `make deploy` and the tests.
+for `make deploy` and the tests, and the drive to install on (`ULTDRV1 =
+SD`, `ULTDRV2 = ...`; default `USB0`). `make deploy` puts the cartridges
+and their `.cfg` files in `/<drive>/idi8b/u64bbcbasic/`, and the demos,
+tokenised as BBC BASIC programs, in its `demos/` folder (`music`, `net`,
+`sound`, `classics`): `*DIR /SD/idi8b/u64bbcbasic/demos/music` and
+`CHAIN "MUSIC"`. A second Ultimate is skipped when it does not answer.
 
 ## Credits and licences
 

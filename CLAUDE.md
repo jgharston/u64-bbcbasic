@@ -7,6 +7,8 @@ roadmap: `docs/PLAN.md`.
 ## Build and test
 
 - `make` builds `build/u64bbc-tmb.crt` and `build/u64bbc-ef.crt` (+ `.cfg`).
+- `make deploy` installs them with the demos (tokenised) on the Ultimate:
+  `/<ULTDRV1>/idi8b/u64bbcbasic/` (`tools/deploy.py`; `.148`: `SD`).
 - `make compare-core`: the interpreter must stay identical to Ivo van
   Poorten's reference ROM. Never patch `lib/bbc-basic`; the only change is
   `src/basic/u64-target.patch` (build target).
