@@ -332,22 +332,39 @@ nmi_done:
 
 ; ----------------------------------------------------------------------------
 ; irq_keylog (via $028F, from the KERNAL keyboard scan in the IRQ)
-;   Summary: choose the keyboard decode table.
-;   Function: the KERNAL's own logic ($EB48) without the Shift+C= charset
-;            switch, using the RAM tables with CAPS LOCK swapped in
-;            (keyboard_init) for unshifted and shifted keys.
-;   Input:   SHFLAG (1 Shift, 2 C=, 4 Ctrl).
-;   Output:  KTABPTR; continues in the KERNAL decoder.
+;   Summary: choose the keyboard decode table; Shift+C= is CAPS LOCK.
+;   Function: the KERNAL's own logic ($EB48), where Shift+C= switched the
+;            character set: here it switches CAPS LOCK when pressed (the
+;            shift keys differ from the last scan's, LSTSHF). CAPS LOCK on:
+;            the RAM tables with the letters swapped (keyboard_init) for
+;            unshifted and shifted keys; off: the KERNAL's own.
+;   Input:   SHFLAG (1 Shift, 2 C=, 4 Ctrl), LSTSHF, caps_ofs.
+;   Output:  KTABPTR; caps_ofs; continues in the KERNAL decoder.
 ;   Uses:    A, X (the KERNAL scan's own registers).
 
 irq_keylog:
     lda SHFLAG
+    cmp #3
+    bne irq_nocaps
+    cmp LSTSHF
+    beq irq_nocaps
+    lda caps_ofs
+    eor #8
+    sta caps_ofs
+    lda #3
+irq_nocaps:
     asl
     cmp #8
     bcc irq_keytab
     lda #6
 irq_keytab:
     tax
+    cpx #4                      ; unshifted, shifted: by CAPS LOCK
+    bcs irq_tab
+    txa
+    ora caps_ofs
+    tax
+irq_tab:
     lda keytabs,x
     sta KTABPTR
     lda keytabs+1,x
@@ -356,6 +373,7 @@ irq_keytab:
 
 keytabs:
     dta a(kt_unshift), a(kt_shift), a(K_KEYTAB_C), a(K_KEYTAB_CT)
+    dta a($EB81), a($EBC2)      ; CAPS LOCK off: the KERNAL's tables
 
 ; ----------------------------------------------------------------------------
 ; raise_errbuf
@@ -383,7 +401,6 @@ res_code_end:
 ; Filing system state (bank 2, foreground only).
 
 ch_open     dta 0, 0            ; per channel: 0 closed, else OSFIND mode
-ch_ptr      dta 0,0,0,0, 0,0,0,0    ; per channel: PTR#, 32 bits
 ch_ext      dta 0,0,0,0, 0,0,0,0    ; per channel: EXT#, 32 bits
 uci_ok      dta 0               ; 1: Ultimate command interface found
 uciHDR      dta 0,0,0,0,0,0,0,0 ; UCI command header (target, command, args)
@@ -392,16 +409,9 @@ fsMODE      dta 0               ; OSFIND / OSFILE call in progress
 fsSX        dta 0               ; caller's X during a filing system call
 fsSY        dta 0               ; caller's Y
 reu_banks   dta 0, 0            ; REU size in 64K banks (0: none)
-reu_tmp     dta 0               ; REU byte transfers
-reu_save0   dta 0
-reu_saveS   dta 0
-rd_ok       dta 0               ; there is an REU RAM disk (reudisk.s)
 reu_cwd     dta 0               ; /REU is the current directory
 rd_chent    dta 0, 0            ; per channel on /REU: its entry
 snd_on      dta 0               ; a sound engine image is in RAM (not NONE)
-iec_dev     dta 0               ; serial-bus device for the IEC helpers
-softiec_dev dta 0               ; SoftIEC drive's device number (0: unknown)
-osfblk      dta 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0  ; OSFILE block for *LOAD/*SAVE
 
 res_data_end:
     .if res_data_end > MBOX

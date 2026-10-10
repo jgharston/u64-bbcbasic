@@ -276,7 +276,22 @@ snd_8sid    = $03FD             ; the 8SID layout was loaded (*SID SETUP):
 ; $02A7-$02FF is unused by the KERNAL; unlike page 1 it cannot collide
 ; with the machine stack while BASIC's error handler runs.
 errbuf      = $02A7
-ERRMAX      = $0300-errbuf      ; 89 bytes: number, message, terminator
+ERRMAX      = 56                ; number, message (54), terminator
+; The rest of $02A7-$02FF (cleared by RAMTAS at the cold start): MOS
+; variables moved out of the full resident area (2026-10-10).
+osfblk      = errbuf+ERRMAX     ; 18: OSFILE block for *LOAD/*SAVE
+ch_ptr      = osfblk+18         ; 8: per channel: PTR#, 32 bits
+reu_tmp     = ch_ptr+8          ; REU byte transfers
+reu_save0   = reu_tmp+1
+reu_saveS   = reu_save0+1
+iec_dev     = reu_saveS+1       ; serial-bus device for the IEC helpers
+softiec_dev = iec_dev+1         ; SoftIEC drive's device number (0: unknown)
+caps_ofs    = softiec_dev+1     ; CAPS LOCK: 0 on, 8 off (irq_keylog)
+rd_ok       = caps_ofs+1        ; there is an REU RAM disk (reudisk.s)
+    .if rd_ok >= $0300
+    .error "Page 2 MOS variables overflow"
+    .endif
+LSTSHF      = $028E             ; KERNAL: shift keys at the last scan
 VDUBUFLEN   = 9                 ; longest VDU parameter list (VDU 23)
 
 ; ----------------------------------------------------------------------------

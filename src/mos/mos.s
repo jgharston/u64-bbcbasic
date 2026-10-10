@@ -917,6 +917,7 @@ rd_ret:
 ;   &7D set escape, &7E acknowledge escape, &80 ADVAL (0), &81 INKEY,
 ;   &82 high address, &83 OSHWM (PAGE), &84/&85 HIMEM, &86 POS/VPOS,
 ;   &87 character at cursor, &DA VDU queue, &E5 escape key on/off,
+;   &CA keyboard status (CAPS LOCK),
 ;   &7F EOF# (filing system, bank 2), &72 shadow for the next MODE, &75
 ;   VDU status (bit 4: shadow mode).
 
@@ -953,7 +954,7 @@ by_found:
 
 byte_codes:
     dta $0F, $15, $7C, $7D, $7E, $80, $81, $82, $83, $84, $85, $86
-    dta $87, $DA, $E5, $7F, $72, $75, 0
+    dta $87, $DA, $E5, $7F, $72, $75, $CA, 0
 byte_handlers:
     dta a(by_flush-1)
     dta a(by_flush-1)
@@ -973,6 +974,7 @@ byte_handlers:
     dta a(by_eof-1)
     dta a(by_shadow-1)
     dta a(by_vdustat-1)
+    dta a(by_kbdstat-1)
 
 by_ret:
     lda by_a
@@ -1127,6 +1129,42 @@ by_vduq:                        ; &DA: new = (old AND Y) EOR X, old in X
     jmp by_ret
 by_eof:                         ; &7F: EOF#, X = channel -> X = $FF at end
     farcall fs_eof, BANK_FS
+    jmp by_ret
+; by_kbdstat (OSBYTE &CA)
+;   Summary: the keyboard status byte, as the BBC's: new = (old AND Y)
+;            EOR X, the old one returned in X.
+;   Function: bit 4 = 0 CAPS LOCK on (caps_ofs 0; Shift+C= switches it),
+;            bit 5 = 1 SHIFT LOCK off (there is none), bit 3 SHIFT and
+;            bit 6 CTRL held (read only); setting bit 4 switches CAPS LOCK.
+;   Input:   X, Y.  Output: X = the old status.  Uses: A, mosTMP.
+by_kbdstat:
+    lda caps_ofs                ; 8 (off) -> bit 4
+    asl
+    ora #$20
+    sta mosTMP
+    lda SHFLAG
+    and #1                      ; SHIFT -> bit 3
+    asl
+    asl
+    asl
+    ora mosTMP
+    sta mosTMP
+    lda SHFLAG
+    and #4                      ; CTRL -> bit 6
+    asl
+    asl
+    asl
+    asl
+    ora mosTMP
+    sta mosTMP                  ; old
+    tya
+    and mosTMP
+    stx mosTMP+1
+    eor mosTMP+1
+    and #$10                    ; new CAPS LOCK
+    lsr
+    sta caps_ofs
+    ldx mosTMP
     jmp by_ret
 by_escdis:                      ; &E5: X <> 0 disables the ESCAPE key
     lda escdis

@@ -45,7 +45,7 @@ This is not a BBC Micro emulator. The BBC memory map (screen memory, MODE 7 tele
 The MOS calls a program can use are those in *HELP OSBYTE, *HELP OSWORD and *HELP MEMORY.
 
 @@ KEYBOARD
-Letters type in capitals, as with CAPS LOCK on a BBC Micro. Shift gives lower case.
+Letters type in capitals, as with CAPS LOCK on a BBC Micro; Shift gives lower case. Shift+C= switches CAPS LOCK off and on again: off, letters type in lower case and Shift gives capitals (BASIC's keywords are capitals). OSBYTE &CA reads and sets it (bit 4 = 1: off), as on the BBC.
 
 The ASCII characters the C64 keyboard lacks:
 
@@ -214,6 +214,7 @@ OSBYTE calls (*FX a,x,y) available:
   &85   HIMEM for a mode
   &86   POS (X) and VPOS (Y)
   &87   character at cursor
+  &CA   keyboard status (bit 4: CAPS LOCK off)
   &DA   VDU queue length
   &E5   ESCAPE key off (X<>0)
 

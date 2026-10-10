@@ -33,7 +33,11 @@ The C64 has two cursor keys: <kbd>CRSR ⇅</kbd> and <kbd>CRSR ⇄</kbd>. With
 | <kbd>RUN/STOP</kbd> | ESCAPE: forget the line |
 
 Letters type as capitals, as with CAPS LOCK on a BBC Micro. Hold
-<kbd>SHIFT</kbd> for lower case. The ASCII signs the C64 keyboard does not
+<kbd>SHIFT</kbd> for lower case. <kbd>SHIFT</kbd>+<kbd>C=</kbd> switches
+CAPS LOCK off (letters in lower case, <kbd>SHIFT</kbd> for capitals) and on
+again. BASIC's keywords must be typed in capitals, so CAPS LOCK off is for
+text in strings and REMs. Programs read and set it with OSBYTE &CA (bit 4:
+1 = off), as on the BBC. The ASCII signs the C64 keyboard does not
 have are listed under `*HELP KEYBOARD`, for example `\` on the pound key and
 `_` on the left-arrow key.
 

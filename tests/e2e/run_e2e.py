@@ -219,6 +219,19 @@ def test_line_editor(t):
     run_line(t, "*EDIT", "BBC")
 
 
+def test_caps_lock(t):
+    # OSBYTE &CA: CAPS LOCK on at the start (bit 4 = 0, SHIFT LOCK off:
+    # bit 5); set off and on again (Shift+C= on the keyboard does the same)
+    out = remote(t).run_lines([
+        "A%=&CA:X%=0:Y%=255:S%=(USR&C7F4 AND &FF00) DIV 256",
+        "A%=&CA:X%=&10:Y%=&EF:D%=USR&C7F4",
+        "A%=&CA:X%=0:Y%=255:T%=(USR&C7F4 AND &FF00) DIV 256",
+        "A%=&CA:X%=0:Y%=&EF:D%=USR&C7F4",
+        "A%=&CA:X%=0:Y%=255:U%=(USR&C7F4 AND &FF00) DIV 256",
+        'PRINT "C=";S% AND &30;",";T% AND &30;",";U% AND &30'])["output"]
+    assert "C=32,48,32" in out, out
+
+
 def test_hex(t):
     run_line(t, "PRINT ~255", "FF")
 
@@ -1557,7 +1570,7 @@ def test_remote_debug(t):
         rm.debug_end()
 
 
-TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test_ascii, test_program,
+TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test_caps_lock, test_ascii, test_program,
          test_error, test_mos_error, test_help, test_help_paging,
          test_bad_number,
          test_vdu_overflow, test_fx_escape, test_stop_key,
