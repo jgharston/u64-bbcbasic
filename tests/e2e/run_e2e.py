@@ -1091,7 +1091,7 @@ def test_classics(t):
     # starts (without its ANIMAL.DAT it uses its four built-in lines)
     d = os.path.join(os.path.dirname(__file__), "..", "..", "demos", "classics")
     rm = remote(t)
-    progs = [("persian", None), ("polygon", None)]
+    progs = []
     if ult(t):                          # (OPENIN needs the filing system)
         # its knowledge file in /Temp (the current directory): read with
         # INPUT# (6502 PRINT# format; the Z80 original gave Type mismatch)
@@ -1100,16 +1100,19 @@ def test_classics(t):
             with open(os.path.join(d, "ANIMAL.DAT"), "rb") as f:
                 ftp.storbinary("STOR /Temp/ANIMAL.DAT", f)
         progs.append(("animal", "refresh my memory"))
+    # (animal first: after MODE 2, Upic Lite, BASIC runs at 1/6 speed)
+    progs += [("persian", None), ("polygon", None)]
     for name, want in progs:
         r = rm.send_program(open(os.path.join(d, name + ".bas")).read(),
                             run=True, timeout=12)
         if name == "animal":            # no animal; don't save: it ends
             rm.wait_line_wanted(30)     # (reading the file takes a while)
-            rm.run_lines(["N"], timeout=30)
+            first = rm.run_lines(["N"], timeout=30)  # lists what it knows
             rm.wait_line_wanted(30)
-            out = rm.run_lines(["N"], timeout=30)
-            assert out["state"] == "prompt" and "know are" in out["output"], out
-            assert "gnat" in out["output"], out     # the file's animals
+            out = rm.run_lines(["N"], timeout=30)    # don't save: it ends
+            assert out["state"] == "prompt", out
+            assert "know are" in first["output"], first
+            assert "gnat" in first["output"], first  # the file's animals
             run_line(t, "*DELETE ANIMAL.DAT", ">")
         else:
             rm.stop()

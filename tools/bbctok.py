@@ -212,13 +212,20 @@ def tokenise_line(text, start=True, lineno=True):
     return bytes(buf[:buf.index(CR)])
 
 
-def tokenise_program(text):
-    """Program text -> image as stored at PAGE (ends CR &FF)."""
+def tokenise_program(text, indent=False):
+    """Program text -> image as stored at PAGE (ends CR &FF).
+
+    The source's indentation (spaces after the line number beyond the
+    first, CLAUDE.md: structured, indented sources) is dropped unless
+    indent is true, as the VS Code extension does on upload: it costs
+    memory, and LISTO 7 indents the listing on the machine again."""
     image = bytearray([CR])
     last = -1
     for n, raw in enumerate(text.splitlines(), 1):
         if not raw.strip():
             continue
+        if not indent:
+            raw = re.sub(r"^(\s*\d+) +", r"\1 ", raw)
         tok = tokenise_line(raw.rstrip())
         k = 0
         while k < len(tok) and tok[k] == 0x20:
