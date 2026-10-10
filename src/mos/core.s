@@ -447,7 +447,7 @@ er6a        dta 0
 er6b        dta 0
 egbits      dta 0               ; its bits
 ecrow       dta 0               ; text row (clear/cls)
-esqt        dta 0, 0            ; e_squeeze
+esqt        dta 0, 0            ; engine scratch (gfx.s)
 ewb_first   dta a(0)            ; window: offset of its first byte in a row
 ewb_count   dta 0               ; window: width in bytes
 

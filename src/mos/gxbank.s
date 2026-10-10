@@ -11,12 +11,10 @@
 ; Mode table: type, mc, cols, rows, ncol, xsh, ysc, cw, ch, palette
 MT_LEN = 10
 mode_nums:
-    dta 0, 1, 2, 3, 4, 5, 6, 7, 100, 103, 104, $FF
+    dta 1, 2, 4, 5, 6, 7, 100, 103, 104, $FF
 mode_tab:
-    dta 1, 0, 80, 32,  2, 2, 0, 4, 6, pal_bbc2-pal_sets   ; 0
     dta 1, 1, 40, 32,  4, 3, 0, 4, 6, pal_bbc4-pal_sets   ; 1
     dta 1, 1, 20, 32, 16, 3, 0, 8, 6, pal_bbc16-pal_sets  ; 2
-    dta 0, 0, 40, 25, 16, 0, 0, 8, 8, pal_bbc16-pal_sets  ; 3 (40 cols yet)
     dta 1, 0, 40, 32,  2, 2, 0, 8, 6, pal_bbc2-pal_sets   ; 4
     dta 1, 1, 20, 32,  4, 3, 0, 8, 6, pal_bbc4-pal_sets   ; 5
     dta 0, 0, 40, 25, 16, 0, 0, 8, 8, pal_bbc16-pal_sets  ; 6
@@ -41,8 +39,9 @@ pal_ulb4:
 ; ----------------------------------------------------------------------------
 ; bk_mode (VDU 22, from the core's vdu_mode)
 ;   Summary: VDU 22,n (MODE n).
-;   Function: looks n up in mode_nums (an unknown number uses n AND 7,
-;            as the BBC Model B does), sets the vmode_* variables and the
+;   Function: MODE 0 and 3 (80 columns: dropped, owner 2026-10-10) are
+;            their 40-column twins MODE 4 and 6; looks n up in mode_nums
+;            (an unknown number uses n AND 7, as the BBC Model B does), sets the vmode_* variables and the
 ;            default palette, then the VIC-II and the screen: text modes
 ;            get the text screen and font back; bitmap modes switch the
 ;            KERNAL cursor off, and the engine clears the bitmap and
@@ -59,6 +58,15 @@ bk_mode:
     sta mode_shadow
 vm_look:
     lda vdubuf
+    cmp #3                      ; 80 columns: the 40-column twin
+    bne vm_n3
+    lda #6
+vm_n3:
+    cmp #0
+    bne vm_n0
+    lda #4
+vm_n0:
+    sta vdubuf
     ldx #0
 vm_find:
     ldy mode_nums,x
@@ -420,12 +428,7 @@ uc_n2:
     jmp uc_160
 uc_n5:
     lda #0                      ; bits per pixel - 1
-    ldy #4                      ; cell width (MODE 0, 3: 80 columns)
-    cpx #0
-    beq uc_go
-    cpx #3
-    beq uc_go
-    ldy #8
+    ldy #8                      ; cell width
     cpx #4
     beq uc_go
     cpx #6
@@ -442,11 +445,7 @@ uc_go:
     sta vmode_rend
     lda vmode_mc
     sty vmode_cw
-    lda #80
-    cpy #4
-    beq uc_cols
     lda #40
-uc_cols:
     sta vmode_cols
     lda #1
     sta vtype                   ; (MODE 3 and 6 are text modes otherwise)

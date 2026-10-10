@@ -9,8 +9,10 @@ original author and source and lists every change (zlib licence, see
 | Program | Author | Shows | Changes |
 |---|---|---|---|
 | `sine.bas` | John A. Coll, 1981 | MODE 1, dotted lines (PLOT 21), VDU 5 text along a curve, VDU 19 | BBCSDL first line removed; ends with a key instead of a WAIT loop |
-| `hanoi.bas` | Richard T. Russell, 1982 | MODE 3 (80 x 25), recursion, colour codes in strings | BBCSDL first line, OFF, *REFRESH and WAIT removed |
 | `fern.bas` | QBASIC original from PC Magazine; BB4W version by David Williams | MODE 2, 80,000 points of an iterated function system | BBCSDL first line removed; MODE 8 is MODE 2; CASE is four IF lines; GCOL 2 is GCOL 0,2; OFF is VDU 23,1 |
+| `persian.bas` | Acorn Computers (IBM version 1986) | MODE 2, GCOL 3 (EOR) line patterns, VDU 29 origin | BBCSDL first line removed; MODE 18 is MODE 2, the origin the screen centre |
+| `polygon.bas` | John A. Coll (IBM version 1986) | MODE 2, filled triangles (PLOT 85), arrays, random polygons | BBCSDL first line removed; MODE 18 is MODE 2 |
+| `animal.bas` | Teichholtz and North (Creative Computing), BBC BASIC version by Chris Atkinson and Richard Russell | Guess the Animal: a learning game, its knowledge in `ANIMAL.DAT` (OPENIN, PRINT#, INPUT#) | none (from agon-bbc-basic's examples); run it in a writable directory with `ANIMAL.DAT` |
 
 `files/`: the file-handling examples of BBC BASIC (Z80) by Richard T.
 Russell (serial, random-access and indexed files, merging, sorting),

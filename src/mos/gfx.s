@@ -1840,11 +1840,6 @@ egc_8:
     .endif
     lda glyph,x
 egc_row8:
-    ldx vmode_cw
-    cpx #4
-    bne egc_bits
-    jsr e_squeeze               ; 8 bits -> 4 in the top nybble
-egc_bits:
     sta egbits
     lda erx0
     sta ex
@@ -1930,28 +1925,6 @@ er6_skip:
 
     .endif
 
-; e_squeeze: A = 8 glyph bits -> 4 bits in the top nybble, each the OR
-; of a pair (for 4-pixel wide cells)
-e_squeeze:
-    sta esqt
-    lda #0
-    sta esqt+1
-    ldx #4
-esq_loop:
-    lda esqt
-    and #$C0
-    cmp #1                      ; C = 1 if either bit of the pair is set
-    rol esqt+1
-    asl esqt
-    asl esqt
-    dex
-    bne esq_loop
-    lda esqt+1                  ; 4 bits, first pair highest: to the top
-    asl
-    asl
-    asl
-    asl
-    rts
 
 ; e_advance: cursor right; past the window's right edge: next line
 e_advance:

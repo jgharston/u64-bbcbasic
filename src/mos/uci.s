@@ -267,7 +267,9 @@ uf_drain:
     lda UCI_STAT
     bpl uf_nodata
     lda UCI_RESP
-    jmp uf_drain
+    bit ESCFLG                  ; (a reply that does not end: ESCAPE)
+    bpl uf_drain
+    jmp uci_chkesc
 uf_nodata:
     and #$30                    ; more packets: acknowledge and drain them
     cmp #$30

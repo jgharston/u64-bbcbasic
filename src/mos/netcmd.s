@@ -606,6 +606,18 @@ jq_have:
     ldx #>MOSBUF
     ldy #240
     jsr jg_read
+    lda UCI_STAT                ; more than that (an object or array with
+    bpl jq_finish               ; all its content: firmware 3.15a may then
+    lda #$04                    ; stream without end): abort the command,
+    sta UCI_CTRL                ; the type and count are in what came
+jq_abort:
+    bit ESCFLG
+    bmi jq_finish
+    lda UCI_STAT                ; until the interface is idle again
+    and #$34
+    bne jq_abort
+    jmp jq_got
+jq_finish:
     jsr uci_finish
     bcc jq_got
     jmp uci_error

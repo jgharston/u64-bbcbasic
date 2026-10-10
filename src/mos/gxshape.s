@@ -1381,11 +1381,6 @@ sv5_row:
     inx
 sv5_8:
     lda glyph,x
-    ldx vmode_cw
-    cpx #4
-    bne sv5_bits
-    jsr sh_squeeze
-sv5_bits:
     sta sh_e
     lda #0
     sta sh_j                    ; column
@@ -1526,28 +1521,6 @@ sv5m_l0:
     sta gcx+1
     rts
 
-; sh_squeeze: 8 glyph bits -> 4 in the top nybble (pairs ORed), as the
-; engine's e_squeeze
-sh_squeeze:
-    sta sh_nm
-    lda #0
-    sta sh_nm+1
-    ldx #4
-shq_loop:
-    lda sh_nm
-    and #$C0
-    cmp #1
-    rol sh_nm+1
-    asl sh_nm
-    asl sh_nm
-    dex
-    bne shq_loop
-    lda sh_nm+1
-    asl
-    asl
-    asl
-    asl
-    rts
 
 ; ----------------------------------------------------------------------------
 ; sh_flood

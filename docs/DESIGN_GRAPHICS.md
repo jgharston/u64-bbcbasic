@@ -569,3 +569,14 @@ dot wide, so the 320 pixels are centred with a 32-dot border on each side
    editor, teletext MODE 7.
 5. Upic 64/48: REU canvas, DMA drawing, show/auto-show, load/save.
 6. Archimedes modes on Upic.
+
+## 11. 80 columns dropped (owner, 2026-10-10)
+
+MODE 0 (80x32 with a 4-pixel font) and MODE 3 (80x25) are gone: the
+4-pixel text was hard to read on a C64 picture. A program asking for
+them gets the 40-column twin: MODE 0 -> MODE 4 (the same graphics and 2
+colours), MODE 3 -> MODE 6 (`bk_mode` maps before the table lookup;
+OSBYTE &87 reports the mode actually set). The squeeze of 8-pixel glyphs
+to 4 (`e_squeeze`, `sh_squeeze`) and the 80-column cases of
+`ul_choose` are removed. The demos needing 80 columns (Hanoi) left the
+demo set.

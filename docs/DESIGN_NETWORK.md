@@ -151,6 +151,13 @@ read at start-up.
   Programs that need decimals read the reply as text (`OPENIN
   "http://..."`); Open-Meteo's forecast also answers as CSV
   (`&format=csv`), its geocoding only as JSON.
+- A JSON query for an object or array (`*JSON blogs`) answers with its
+  type and count and then may stream without end (seen on the 3.3 KB
+  blog feed: the interface stays in data-available state; 14 KB read
+  without an end). U64TEXT hung there. `json_query` reads the type and
+  count, then aborts the command (CTRL bit 2) and waits for the
+  interface to be idle; `uci_finish`'s drain stops on ESCAPE
+  (2026-10-10).
 - Header create, raw and JSON exchange, body query and the frees work as
   the library describes otherwise. To be reported to ultimate-uci-oscar64
   (manual section 19 and the test table, section 20).

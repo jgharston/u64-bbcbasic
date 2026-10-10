@@ -1024,6 +1024,30 @@ def test_netchan(t):
     assert "N=48 M=4" in out, out
 
 
+def test_classics(t):
+    # the BBC Micro classics in demos/classics run (a few seconds each,
+    # then stopped): persian and polygon draw without an error; animal
+    # starts (without its ANIMAL.DAT it uses its four built-in lines)
+    d = os.path.join(os.path.dirname(__file__), "..", "..", "demos", "classics")
+    rm = remote(t)
+    progs = [("persian", None), ("polygon", None)]
+    if ult(t):                          # (OPENIN needs the filing system)
+        progs.append(("animal", "Guess the Animal"))
+    for name, want in progs:
+        r = rm.send_program(open(os.path.join(d, name + ".bas")).read(),
+                            run=True, timeout=12)
+        if name == "animal":            # no animal; don't save: it ends
+            out = rm.run_lines(["N", "N"])
+            assert out["state"] == "prompt" and "know are" in out["output"], out
+        else:
+            rm.stop()
+            rm.wait_line_wanted(10)     # (else a second ESCAPE follows)
+        assert not r["error"], (name, r)
+        if want:
+            assert want in r["output"], (name, r["output"])
+    rm.run_lines(["MODE 100"])
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -1203,15 +1227,13 @@ def test_gfx_vdu5(t):
 
 
 def test_gfx_mode3(t):
-    # MODE 3 on Upic Lite: 80 x 25 text in 10-line rows (as the BBC)
-    if not ult(t):
-        return
-    out = remote(t).run_lines(["MODE 3", "PRINT TAB(70,24);\"X\";:A%=POS:B%=VPOS",
-                               "MODE 100", "PRINT A%,B%"])["output"]
-    if "71" not in out:
-        t.notes.append("MODE 3: not Upic Lite on this machine")
-        return
-    assert re.search(r"71\s+24", out), out
+    # 80 columns are dropped (owner, 2026-10-10): MODE 3 is MODE 6 and MODE 0
+    # is MODE 4, their 40-column twins (OSBYTE &87 gives the mode in Y)
+    out = remote(t).run_lines([
+        "MODE 3:A%=&87:M%=(USR&C7F4 AND &FF0000) DIV &10000:C%=POS",
+        "MODE 0:A%=&87:N%=(USR&C7F4 AND &FF0000) DIV &10000",
+        "MODE 100", 'PRINT "M=";M%;",";N%'])["output"]
+    assert "M=6,4" in out, out
 
 
 def test_gfx_teletext(t):
@@ -1446,7 +1468,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_ascii, test_progr
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_net, test_json, test_netchan,
+         test_inst_mods, test_song, test_star_list, test_net, test_json, test_netchan, test_classics,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,
