@@ -1,16 +1,17 @@
 # u64-bbcbasic
 
 BBC BASIC 3.10 for the Ultimate 64 and C64 Ultimate, as a cartridge, with a
-BBC-style MOS (machine operating system) on top of the C64 KERNAL. Commands
-for the Ultimate's features (UCI file system, drives, clock, turbo,
-network, Ultimate Audio, Upic) are planned as `*` commands.
+BBC-style MOS (machine operating system) on top of the C64 KERNAL, and
+`*` commands for the Ultimate's features.
 
-**Status: early development (0.1.0).** It boots to the BBC BASIC `>` prompt
-and runs BASIC programs in text mode, at the device's maximum turbo speed,
-with files on the Ultimate's USB/SD/RAM disk and a built-in help system
-(`*HELP`). There are no graphics or sound yet. See
-[docs/PLAN.md](docs/PLAN.md) for the plan and roadmap, and
-[docs/HELP_REFERENCE.md](docs/HELP_REFERENCE.md) for the full reference.
+**Status: in development (0.1.0).** BBC BASIC programs run at the
+device's maximum turbo speed: the BBC's screen modes and graphics (Upic
+Lite pictures with square pixels on 64 MHz machines, teletext MODE 7),
+sound on up to 8 SIDs with instruments and a song player, files on the
+Ultimate's drives and an REU RAM disk, network channels and JSON, a
+line editor with history and BBC copy editing, and a built-in help
+system (`*HELP`). The **user manual** is [docs/manual](docs/manual/README.md);
+[docs/PLAN.md](docs/PLAN.md) has the plan and roadmap.
 
 **Compatibility.** The aim is that BBC BASIC *programs* run: the
 language, and the behaviour of the VDU, graphics, sound and file
@@ -35,14 +36,17 @@ settings are loaded into memory only, not saved to flash.
 
 ## Using it
 
-- Letters type in capitals (BBC CAPS LOCK on); Shift gives lower case.
+- Letters type in capitals (BBC CAPS LOCK on); Shift gives lower case;
+  Shift+C= switches CAPS LOCK.
 - The ASCII characters the C64 keyboard lacks: `\` = £, `^` = ↑, `_` = ←,
   `|` = Shift+£, `~` = Shift+↑, `{` = Shift++, `}` = Shift+-,
   `` ` `` = Shift+@.
 - RUN/STOP is ESCAPE.
-- Input lines can be up to 78 characters (the C64 screen editor's limit).
-- `PAGE` = &1900 (as a BBC Micro with discs), `HIMEM` = &8000: 26.75K for
-  programs; &0800-&18FF holds the sound engine.
+- Input lines can be up to 238 characters, edited in place, with the
+  last 127 lines on the cursor keys and BBC copy editing (`*EDIT C64`
+  gives the C64 screen editor back).
+- `PAGE` = &1D00 (as a BBC Micro with ADFS), `HIMEM` = &8000: 25.75K for
+  programs; &0800-&1CFF holds the sound engine (`*SOUND NONE` frees it).
 - MOS entry points: `OSWRCH` = &C7EE, `OSBYTE` = &C7F4, `OSWORD` = &C7F1,
   `OSCLI` = &C7F7, … (BBC low bytes, page &C7). The RAM vectors are at
   &0200, as on the BBC.

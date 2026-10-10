@@ -35,9 +35,9 @@ ULTPATH   = /Temp/
 CRTS      = $(BUILD)/$(NAME)-tmb.crt $(BUILD)/$(NAME)-ef.crt
 CFGS      = $(CRTS:.crt=.cfg)
 
-.PHONY: all clean compare-core e2e e2e-vice e2e-u64 vice deploy check-deploy checkcfg vscode vscode-test
+.PHONY: all clean compare-core e2e e2e-vice e2e-u64 vice deploy check-deploy checkcfg vscode vscode-test manual
 
-all: $(CRTS) $(CFGS)
+all: $(CRTS) $(CFGS) $(BUILD)/manual.stamp
 
 # --- BBC BASIC 3.10 for $8000, from Ivo van Poorten's source + our target
 
@@ -94,6 +94,13 @@ $(BUILD)/help.bin: src/help/help.txt tools/genhelp.py src/mos/mos.s Makefile
 	$(PYTHON) tools/genhelp.py --first 8 --commands src/mos/mos.s src/help/help.txt $@ docs/HELP_REFERENCE.md
 
 docs/HELP_REFERENCE.md: $(BUILD)/help.bin
+
+# The user manual: docs/manual/src chapters with the *HELP texts filled in
+MANUAL_SRC := $(wildcard docs/manual/src/*.md)
+$(BUILD)/manual.stamp: $(MANUAL_SRC) src/help/help.txt tools/genmanual.py
+	$(PYTHON) tools/genmanual.py src/help/help.txt docs/manual/src docs/manual
+	@mkdir -p $(BUILD) && touch $@
+manual: $(BUILD)/manual.stamp
 
 # --- Cartridges
 

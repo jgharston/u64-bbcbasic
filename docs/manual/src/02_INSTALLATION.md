@@ -1,0 +1,58 @@
+# 2. Installation
+
+## 2.1 What you need
+
+An Ultimate 64 (Elite, Elite II) or a C64 Ultimate, firmware 3.15 or
+later (the network, palette and SID settings need it), with an REU
+enabled (16 MB is best: the RAM disk, songs and the line editor's history
+use it). Upic Lite graphics (MODE 1, 2, 4, 5, 6 with square pixels)
+need a 64 MHz machine (Ultimate 64 Elite II, C64 Ultimate).
+
+## 2.2 The cartridges
+
+| File | Type | For |
+|---|---|---|
+| `u64bbc-tmb.crt` | Protovision TwoMegabyter (CRT type 87) | the Ultimate 64 / C64 Ultimate: the Command Interface, REU, Ultimate Audio and turbo all usable |
+| `u64bbc-ef.crt` | EasyFlash, subtype 1 | VICE, and as a fallback (no Ultimate Audio; the firmware moves the Command Interface to `$DE1C`) |
+
+Copy the `.cfg` with the same name next to the `.crt`. Started from the
+Ultimate's file browser, the cartridge loads it: the Command Interface,
+the REU, the Ultimate Audio mapping and the U64 turbo registers are
+switched on, and 8 UltiSIDs are set up for sound (UltiSID 1 at `$D400`,
+UltiSID 2 at `$D420`, each split four ways). The settings are loaded
+into memory only, not saved to flash. Started another way, `*SID SETUP`
+sets up the SIDs.
+
+## 2.3 Installing with make deploy
+
+From a PC with the source (chapter 3), `make deploy` puts the
+cartridges, their `.cfg` files and all demos on the Ultimate over FTP:
+
+```
+/<drive>/idi8b/u64bbcbasic/           the cartridges and .cfg files
+/<drive>/idi8b/u64bbcbasic/demos/     classics, music, net, sound, ...
+```
+
+The Ultimates' addresses and drives come from `.env` in the source
+folder (`ULTIP1 = 192.168.1.148`, `ULTDRV1 = SD`; a second Ultimate as
+`ULTIP2`, `ULTDRV2`). By hand: copy the same files with the Ultimate's
+FTP server or a USB stick.
+
+## 2.4 Starting
+
+Select `u64bbc-tmb.crt` in the Ultimate's file browser and run it. The
+machine starts in the C64 text screen at BBC BASIC's prompt:
+
+```
+U64 BBC BASIC 0.1.0
+BASIC 3.10 (C)1983 Acorn
+CPU turbo (maximum)
+>
+```
+
+The demos: `*DIR` into a demo folder and `CHAIN` a program, e.g.
+
+```
+*DIR /SD/idi8b/u64bbcbasic/demos/music
+CHAIN "MUSIC"
+```
