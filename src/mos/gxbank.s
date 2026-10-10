@@ -41,12 +41,16 @@ pal_ulb4:
 ;   Summary: VDU 22,n (MODE n).
 ;   Function: MODE 0 and 3 (80 columns: dropped, owner 2026-10-10) are
 ;            their 40-column twins MODE 4 and 6; looks n up in mode_nums
-;            (an unknown number uses n AND 7, as the BBC Model B does), sets the vmode_* variables and the
+;            (an unknown number uses n AND 7, as the BBC Model B does),
+;            switches the cursor on (as the BBC: a program's VDU 23,1,0
+;            ends with the mode), sets the vmode_* variables and the
 ;            default palette, then the VIC-II and the screen: text modes
 ;            get the text screen and font back; bitmap modes switch the
 ;            KERNAL cursor off, and the engine clears the bitmap and
 ;            resets windows, cursors and colours.
 bk_mode:
+    lda #1
+    sta curson
     lda shadow                  ; shadow mode: *SHADOW or MODE 128+n (BBC
     sta mode_shadow             ; Master): the VIC-II version, HIMEM &8000
     lda vdubuf

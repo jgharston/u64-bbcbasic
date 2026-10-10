@@ -54,6 +54,9 @@ ed_head     = ED+20             ; history head (next slot), count: a copy
 ed_count    = ED+21             ; of REU $3500/$3501
 ed_tmp      = ED+22             ; 1: REU byte transfers
 ed_ch       = ED+23             ; character being inserted
+ed_blk      = ED+24             ; 1: the engine's cursor is drawn
+ed_bph      = ED+25             ; blink phase (jiffy clock bit 4)
+ed_bt       = ED+26             ; jiffy from which the cursor may show
 
 EDMODE      = $03FC             ; 0: this editor, 1: the KERNAL's (*EDIT)
 
@@ -548,8 +551,12 @@ eg_bitmap:
 ; ----------------------------------------------------------------------------
 ; ed_getkey
 ;   Summary: wait for a key with the cursor shown.
-;   Function: the text screen blinks the KERNAL cursor, the other modes
-;            show the engine's cursor. While waiting, CTRL with a cursor
+;   Function: the text screen blinks the KERNAL cursor; the other modes
+;            blink the engine's cursor (a line under the cell, drawn by
+;            inverting: it first shows 8 jiffies after the last output,
+;            when MODE 7's refresh has redrawn the changed rows, else the
+;            refresh would wipe it and the next toggle draw it instead).
+;            VDU 23,1,0 (cursor off) hides it in all modes. While waiting, CTRL with a cursor
 ;            key (which the KERNAL does not decode) gives the copy cursor
 ;            codes, repeating while held (ed_poll). A request from a
 ;            remote host (docs/REMOTE_DEV.md) ends the wait too.
@@ -558,6 +565,8 @@ eg_bitmap:
 ;            C = 1: a remote request is waiting.
 ;   Uses:    A, X, Y.
 ed_getkey:
+    lda #0
+    sta ed_blk
     lda vtype
     bne egk_bm
     lda curson
@@ -566,7 +575,12 @@ ed_getkey:
     sta BLNSW
     beq egk_wait
 egk_bm:
-    jsr w0b_cursor
+    lda JIFFY
+    clc
+    adc #8
+    sta ed_bt
+    lda #$FF                    ; (a phase that never matches: the first
+    sta ed_bph                  ; toggle draws it)
 egk_wait:
     bit ESCFLG
     bmi egk_esc
@@ -576,7 +590,10 @@ egk_wait:
     cmp MB_CSEQ
     bne egk_remote
     lda NDX
-    beq egk_wait
+    bne egk_key
+    jsr egk_blink
+    jmp egk_wait
+egk_key:
     jsr egk_hide
     jsr K_GETIN
     clc
@@ -598,6 +615,34 @@ egk_hide:
     bne egk_bmh
     jmp wk_hide
 egk_bmh:
+    lda ed_blk
+    beq egk_none
+    lda #0
+    sta ed_blk
+    jmp w0b_cursor
+egk_none:
+    rts
+
+; egk_blink: bitmap modes and MODE 7: toggle the engine's cursor when the
+; jiffy clock's bit 4 changes (about 4 times a second), from ed_bt on.
+; Uses: A, X, Y.
+egk_blink:
+    lda vtype
+    beq egk_none
+    lda curson
+    beq egk_none
+    lda JIFFY
+    sec
+    sbc ed_bt
+    bmi egk_none                ; (not yet: the refresh catches up)
+    lda JIFFY
+    and #16
+    cmp ed_bph
+    beq egk_none
+    sta ed_bph
+    lda ed_blk
+    eor #1
+    sta ed_blk
     jmp w0b_cursor
 
 ; ed_poll
