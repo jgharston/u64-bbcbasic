@@ -12,7 +12,7 @@ original author and source and lists every change (zlib licence, see
 | `fern.bas` | QBASIC original from PC Magazine; BB4W version by David Williams | MODE 2, 80,000 points of an iterated function system | BBCSDL first line removed; MODE 8 is MODE 2; CASE is four IF lines; GCOL 2 is GCOL 0,2; OFF is VDU 23,1 |
 | `persian.bas` | Acorn Computers (IBM version 1986) | MODE 2, GCOL 3 (EOR) line patterns, VDU 29 origin | BBCSDL first line removed; MODE 18 is MODE 2, the origin the screen centre |
 | `polygon.bas` | John A. Coll (IBM version 1986) | MODE 2, filled triangles (PLOT 85), arrays, random polygons | BBCSDL first line removed; MODE 18 is MODE 2 |
-| `animal.bas` | Teichholtz and North (Creative Computing), BBC BASIC version by Chris Atkinson and Richard Russell | Guess the Animal: a learning game, its knowledge in `ANIMAL.DAT` (OPENIN, PRINT#, INPUT#) | none (from agon-bbc-basic's examples); run it in a writable directory with `ANIMAL.DAT` |
+| `animal.bas` | Teichholtz and North (Creative Computing), BBC BASIC version by Chris Atkinson and Richard Russell | Guess the Animal: a learning game, its knowledge in `ANIMAL.DAT` (OPENIN, PRINT#, INPUT#) | none (from agon-bbc-basic's examples); `ANIMAL.DAT` converted from Z80 BBC BASIC's `PRINT#` format (text lines) to the 6502 one (&00, length, characters reversed), else `INPUT#` gives "Type mismatch"; run it in a writable directory with `ANIMAL.DAT` |
 
 `files/`: the file-handling examples of BBC BASIC (Z80) by Richard T.
 Russell (serial, random-access and indexed files, merging, sorting),

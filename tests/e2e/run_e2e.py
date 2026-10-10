@@ -1093,13 +1093,21 @@ def test_classics(t):
     rm = remote(t)
     progs = [("persian", None), ("polygon", None)]
     if ult(t):                          # (OPENIN needs the filing system)
-        progs.append(("animal", "Guess the Animal"))
+        # its knowledge file in /Temp (the current directory): read with
+        # INPUT# (6502 PRINT# format; the Z80 original gave Type mismatch)
+        with ftplib.FTP(t.host, timeout=20) as ftp:
+            ftp.login("anonymous", "")
+            with open(os.path.join(d, "ANIMAL.DAT"), "rb") as f:
+                ftp.storbinary("STOR /Temp/ANIMAL.DAT", f)
+        progs.append(("animal", "refresh my memory"))
     for name, want in progs:
         r = rm.send_program(open(os.path.join(d, name + ".bas")).read(),
                             run=True, timeout=12)
         if name == "animal":            # no animal; don't save: it ends
             out = rm.run_lines(["N", "N"])
             assert out["state"] == "prompt" and "know are" in out["output"], out
+            assert "gnat" in out["output"], out     # the file's animals
+            run_line(t, "*DELETE ANIMAL.DAT", ">")
         else:
             rm.stop()
             rm.wait_line_wanted(10)     # (else a second ESCAPE follows)
