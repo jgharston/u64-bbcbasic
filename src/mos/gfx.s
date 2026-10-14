@@ -624,10 +624,16 @@ ep_n8:
 ep_n12:
     .if GXUL
     .if GXUP = 0
-    cmp #29                     ; Upic Lite: GXR sprites (PLOT 232-239) by
-    bne ep_n29                  ; the shapes' bank copy (bs_sprite), whose
-    lda #0                      ; RAM copy has no room: vmode_ul 0 for the
-    sta vmode_ul                ; core's sh_call; bs_sprite sets it back
+    cmp #29                     ; Upic Lite: the GXR groups (sprites 29,
+    beq ep_bank                 ; line fills 9 and 11, block copy 23) by
+    cmp #23                     ; the shapes' bank copy, whose RAM copy
+    beq ep_bank                 ; has no room: vmode_ul 0 for the core's
+    and #$FD                    ; sh_call; the bank sets it back (9, 11)
+    cmp #9
+    bne ep_n29
+ep_bank:
+    lda #0
+    sta vmode_ul
 ep_n29:
     .endif
     .endif

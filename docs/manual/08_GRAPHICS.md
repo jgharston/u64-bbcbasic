@@ -69,7 +69,7 @@ GCOL action,colour
 
 Sets the graphics colour and how it is drawn: action 0 store, 1 OR, 2 AND, 3 EOR, 4 invert. Colour 128+n sets the background (CLG).
 
-Pattern fill (ECF, as on the BBC Master): action + 16 * n uses pattern n (1-4) instead of the colour, for everything drawn. VDU 23,12+n-1,c1,...,c8 defines pattern n as 2x4 pixels of logical colours (row by row); VDU 23,11,0;0;0;0; restores the default patterns.
+Pattern fill (ECF, as on the BBC Master): action + 16 * n uses pattern n (1-4) instead of the colour, for everything drawn. VDU 23,12+n-1,c1,...,c8 defines pattern n as 2x4 pixels of logical colours (row by row); VDU 23,11,0;0;0;0; restores the default patterns. VDU 23,2-5 (GXR and Master) define pattern 1-4 as eight screen bytes in the BBC layout of the mode; the first two pixels of the first four bytes are used. VDU 23,6 (the dot-dash line pattern) and *FX 163,242 are accepted; dotted lines plot every second pixel.
 
 ```
 GCOL 0,1:DRAW 1279,1023
@@ -106,7 +106,9 @@ k 8-15    line, no end point
 k 16-31   dotted line
 k 32-63   line, no start point
 k 64-71   point
+k 72-79   line fill left/right (GXR)
 k 80-87   filled triangle
+k 88-95   line fill right (GXR)
 k 96-103  filled rectangle
 k 112-119 filled parallelogram
 k 128-135 flood fill (background)
@@ -116,14 +118,22 @@ k 152-159 filled circle
 k 160-167 arc
 k 168-175 segment
 k 176-183 sector
+k 184-191 block move/copy (GXR)
 k 192-199 ellipse
 k 200-207 filled ellipse
 k 216-223 rectangle (U64)
 k 224-231 triangle (U64)
+k 232-239 sprite (GXR, see SGET)
 k 240-247 parallelogram (U64)
 ```
 
 Triangles use the last three points; a rectangle's corners are the previous point and x,y; a parallelogram's fourth corner is worked out as on the BBC. Circles: the centre is the previous point, x,y a point on the circle (PLOT 153,r,0 after MOVE cx,cy). Ellipses: centre, then a point at the end of the horizontal axis, then x,y gives the height. The (U64) outline codes are extensions; the BBC has no outline triangle, rectangle or parallelogram. Flood fill 128-135 fills the background-coloured area around x,y; 136-143 fills up to the foreground colour. Arcs, segments and sectors: the centre is the point two plots back, the previous point gives the radius and the start, x,y the end direction; drawn anticlockwise.
+
+Line fills (as the GXR and the Master): 72-79 fills the row at x,y left and right over background-coloured pixels; 88-95 fills to the right over pixels that are not the background colour. Block move/copy: the rectangle between the last two points goes with its bottom left corner to x,y; 185/189 move it (background left behind), 186/190 copy it. Overlapping rectangles are handled.
+
+```
+MOVE 0,0:MOVE 99,99:PLOT 190,400,0
+```
 
 #### `POINT`
 
@@ -355,6 +365,14 @@ MOVE 0,0:MOVE 63,63:*SGET 1
 *SCHOOSE 1
 GCOL 0,0:PLOT 237,640,512
 ```
+
+#### `*FLOOD` (also `*NOFLOOD`, `NOFLOOD`, `*GXR`, `*NOGXR`, `NOGXR`)
+
+```
+*FLOOD   *NOFLOOD   *GXR   *NOGXR
+```
+
+Accepted for programs written for the BBC Micro's Graphics Extension ROM; they do nothing here. The GXR's functions are always on: flood fills, line fills, block copy, circles, ellipses, arcs, patterns and sprites (see PLOT, GCOL, SGET).
 
 
 ## 8.9 The sprite editor

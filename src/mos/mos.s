@@ -1887,6 +1887,10 @@ cmd_table:
     dta 'SRENUMBER', 0, a(gxr.cmd_srenumber), BANK_RD
     dta 'SSAVE', 0, a(gxr.cmd_ssave), BANK_RD
     dta 'SSPACE', 0, a(gxr.cmd_sspace), BANK_RD
+    dta 'FLOOD', 0, a(gxr.cmd_accept), BANK_RD
+    dta 'NOFLOOD', 0, a(gxr.cmd_accept), BANK_RD
+    dta 'GXR', 0, a(gxr.cmd_accept), BANK_RD
+    dta 'NOGXR', 0, a(gxr.cmd_accept), BANK_RD
     dta 'SONG', 0, a(cmd_song), BANK_SND
     dta 'SOUND', 0, a(cmd_sound), BANK_SND
     dta 'SRREAD', 0, a(cmd_srread), BANK_FS

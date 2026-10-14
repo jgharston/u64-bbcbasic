@@ -670,19 +670,27 @@ bh_done:
 
 
 ; bk_vdu23 (VDU 23, from the core's vdu_23)
-;   Summary: VDU 23,1,n cursor off/on; 23,11 default ECF patterns;
-;            23,12-15 define ECF pattern 1-4 (2 x 4 logical colours).
+;   Summary: VDU 23,1,n cursor off/on; 23,2-6 GXR patterns and 23,27
+;            sprites (bank 5); 23,11 default ECF patterns; 23,12-15
+;            define ECF pattern 1-4 (2 x 4 logical colours).
 bk_vdu23:
     lda vdubuf
     cmp #32                     ; 32-255: define a character
     bcc v23_ctl
     jmp v23_char
 v23_ctl:
-    cmp #27                     ; VDU 23,27,m,n: GXR sprites (bank 8)
+    cmp #27                     ; VDU 23,27,m,n: GXR sprites (bank 5)
     bne v23_n27
     farcall gxr.gxr_vdu23, BANK_RD
     rts
 v23_n27:
+    cmp #7                      ; VDU 23,2-6: GXR patterns (bank 5)
+    bcs v23_n26
+    cmp #2
+    bcc v23_n26
+    farcall gxb.gxb_vdu23, BANK_RD
+    rts
+v23_n26:
     cmp #1
     bne v23_ecf
     lda vdubuf+1
@@ -997,6 +1005,6 @@ ttx_len = * - ENGINE
 
 bank3_end:
     .if bank3_end > $C000
-    .error "Bank 3 overflows 16K"
+    .error "Bank 3 overflows 16K: ", bank3_end
     .endif
     :[$C000-*] dta $FF

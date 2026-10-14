@@ -1093,10 +1093,10 @@ def test_netchan(t):
 40 PRINT " ";A$:CLOSE#F%
 50 F%=OPENUP "TCP:example.com:80"
 60 PROCsend("GET / HTTP/1.0"):PROCsend("Host: example.com"):PROCsend("")
-70 A$="":REPEAT C%=BGET#F%:IF C%>31 A$=A$+CHR$C%
-80 UNTIL C%=10 OR EOF#F%
+70 A$="":T%=TIME:REPEAT C%=BGET#F%:IF C%>31 A$=A$+CHR$C%
+80 UNTIL C%=10 OR EOF#F% OR TIME>T%+2000
 90 PRINT "T=";LEFT$(A$,12)
-100 REPEAT C%=BGET#F%:UNTIL EOF#F%
+100 REPEAT C%=BGET#F%:UNTIL EOF#F% OR TIME>T%+3000
 110 PRINT "E=";EOF#F%:CLOSE#F%
 120 END
 130 DEF PROCsend(A$)
@@ -1105,7 +1105,22 @@ def test_netchan(t):
 160   BPUT#F%,13:BPUT#F%,10
 170 ENDPROC
 '''
-    out = remote(t).send_program(prog, run=True, timeout=90)["output"]
+    def net_run(prog, timeout, ok):
+        # the servers are outside: a stalled request is stopped and tried
+        # once more (a hung program would break every later test)
+        for attempt in (1, 2):
+            try:
+                out = remote(t).send_program(prog, run=True, timeout=timeout)["output"]
+            except Exception as e:      # (time-out)
+                out = "error: %s" % e
+            if ok(out):
+                return out
+            u64remote.Remote(t.host).stop()
+            time.sleep(5)
+            t.notes.append("netchan: attempt %d failed, retried" % attempt)
+        return out
+    out = net_run(prog, 90, lambda o: "h=-1 <!doctype html>" in o.lower()
+                  and "E=-1" in o)
     assert "h=-1 <!doctype html>" in out.lower(), out
     assert "T=HTTP/1.0 200" in out or "T=HTTP/1.1 200" in out, out
     assert "E=-1" in out, out
@@ -1117,7 +1132,7 @@ def test_netchan(t):
 40 N%=EXT#F%:B%=BGET#F%:PRINT "N=";N%;" M=";B% AND 7
 50 CLOSE#F%:END
 """
-    out = remote(t).send_program(prog, run=True, timeout=60)["output"]
+    out = net_run(prog, 60, lambda o: "N=48 M=4" in o)
     assert "N=48 M=4" in out, out
 
 
@@ -1694,6 +1709,52 @@ def test_sedit(t):
     assert cell[0] in (0xA0, 0xAB) and cell[1] == 0x2E, cell.hex()
 
 
+GXR_PLOT_PROG = """10 MODE {mode}
+20 GCOL0,1:MOVE 96,96:DRAW 96,304:MOVE 504,96:DRAW 504,304
+30 GCOL0,2:PLOT 77,304,200
+40 A$=STR$POINT(200,200)+STR$POINT(96,200)+STR$POINT(512,200)+STR$POINT(304,312)
+50 GCOL0,4:MOVE 600,400:PLOT 101,800,400
+60 GCOL0,5:PLOT 93,704,400
+70 A$=A$+" "+STR$POINT(648,400)+STR$POINT(752,400)+STR$POINT(800,400)+STR$POINT(816,400)
+80 GCOL0,6:MOVE 904,600:PLOT 101,1000,700
+90 MOVE 904,600:MOVE 1000,700:PLOT 190,904,800
+100 A$=A$+" "+STR$POINT(952,852)+STR$POINT(952,652)
+110 MOVE 904,600:MOVE 1000,700:PLOT 189,1104,600
+120 A$=A$+" "+STR$POINT(1152,652)+STR$POINT(952,652)
+130 MOVE 1104,600:MOVE 1200,700:PLOT 189,1144,640
+140 A$=A$+" "+STR$POINT(1112,612)+STR$POINT(1232,732)+STR$POINT(1152,652)
+150 VDU 23,2,{ecf}
+160 GCOL 16,0:MOVE 0,600:PLOT 101,200,800
+170 A$=A$+" "+STR$POINT(0,600)+STR$POINT({px},600)
+180 VDU 23,11,0;0;0;0;
+190 *FLOOD
+200 *NOGXR
+210 *FX 163,242,0
+220 MODE 100:PRINT "R=";A$
+"""
+
+
+def test_gxr_plot(t):
+    # GXR PLOT codes: line fills 72-79 and 88-95, block copy 190 and move
+    # 189 (also overlapping), a native ECF pattern (VDU 23,2), the GXR
+    # switches and *FX 163 accepted. MODE 2: the VIC-II engine (VICE) or
+    # Upic Lite (Ultimate); MODE 110: Upic full (Ultimate)
+    r = remote(t)
+    want = "R=2100 4550 66 60 066 21"
+    # MODE 2: pixel 0 colour 2 (bits 7, 5, 3, 1 = 0010: bit 3), pixel 1
+    # colour 1 (bits 6, 4, 2, 0 = 0001: bit 0)
+    prog = GXR_PLOT_PROG.format(mode=2, ecf=",".join(["9"] * 8), px=8)
+    out = r.send_program(prog, run=True, timeout=60)["output"]
+    assert want in out, out
+    if not t.is_vice:
+        rm = u64remote.Remote(t.host)
+        rm.run_lines(["*UPIC AUTO OFF"])
+        prog = GXR_PLOT_PROG.format(mode=110, ecf=",".join(["9"] * 8), px=4)
+        out = rm.send_program(prog, run=True, timeout=90)["output"]
+        rm.run_lines(["*UPIC AUTO ON"])
+        assert want in out, out
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -2114,7 +2175,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_sedit, test_net, test_json, test_netchan, test_classics,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_net, test_json, test_netchan, test_classics,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

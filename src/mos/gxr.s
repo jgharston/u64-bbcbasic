@@ -529,6 +529,11 @@ cmd_sspace:
     jsr s6_need
     jmp s6_end
 
+; cmd_accept: *FLOOD, *NOFLOOD, *GXR, *NOGXR (the GXR's switches: here
+; always on): accepted, nothing to do
+cmd_accept:
+    rts
+
 ; ----------------------------------------------------------------------------
 ; gxr_edload / gxr_edstore (for the sprite editor, sedit.s, bank 7)
 ;   Summary: sprite gv_n into the editor's buffer (REU GXR_SCR, a row every

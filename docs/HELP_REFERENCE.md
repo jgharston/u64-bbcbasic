@@ -92,19 +92,20 @@ VDU          VPOS         WIDTH
 
 *CAT         *COPY        *CP
 *DELETE      *DIR         *DRIVE
-*EDIT        *FONT        *FX
-*HELP        *INSTRUMENT  *JSON
-*KEY         *LIST        *LOAD
-*MEMORY      *MKDIR       *MOUNT
-*NET         *PALETTE     *PARTITION
-*PARTITIONS  *PWD         *RECTANGLE
-*RENAME      *SAVE        *SEDIT
-*SETTIME     *SGET        *SHADOW
-*SID         *SNAPSHOT    *SONG
-*SOUND       *SPRITE      *SRREAD
-*SRWRITE     *STATUS      *SWAP
-*TIME        *TURBO       *TYPE
-*UNMOUNT     *UPIC        *UVER
+*EDIT        *FLOOD       *FONT
+*FX          *HELP        *INSTRUMENT
+*JSON        *KEY         *LIST
+*LOAD        *MEMORY      *MKDIR
+*MOUNT       *NET         *PALETTE
+*PARTITION   *PARTITIONS  *PWD
+*RECTANGLE   *RENAME      *SAVE
+*SEDIT       *SETTIME     *SGET
+*SHADOW      *SID         *SNAPSHOT
+*SONG        *SOUND       *SPRITE
+*SRREAD      *SRWRITE     *STATUS
+*SWAP        *TIME        *TURBO
+*TYPE        *UNMOUNT     *UPIC
+*UVER
 ```
 
 ## BBC
@@ -2132,6 +2133,22 @@ Repeats the statements with v counting
 from start to end.
 ```
 
+## *FLOOD
+
+Also: `FLOOD`, `*NOFLOOD`, `NOFLOOD`, `*GXR`, `*NOGXR`, `NOGXR`
+
+```
+  *FLOOD   *NOFLOOD   *GXR   *NOGXR
+
+Accepted for programs written for the
+BBC Micro's Graphics Extension ROM;
+they do nothing here. The GXR's
+functions are always on: flood fills,
+line fills, block copy, circles,
+ellipses, arcs, patterns and sprites
+(see PLOT, GCOL, SGET).
+```
+
 ## GCOL
 
 ```
@@ -2149,7 +2166,14 @@ everything drawn. VDU
 23,12+n-1,c1,...,c8 defines pattern n
 as 2x4 pixels of logical colours (row
 by row); VDU 23,11,0;0;0;0; restores
-the default patterns.
+the default patterns. VDU 23,2-5 (GXR
+and Master) define pattern 1-4 as eight
+screen bytes in the BBC layout of the
+mode; the first two pixels of the first
+four bytes are used. VDU 23,6 (the
+dot-dash line pattern) and *FX 163,242
+are accepted; dotted lines plot every
+second pixel.
 
   GCOL 0,1:DRAW 1279,1023
   GCOL 16,0:PLOT 157,640,512
@@ -2578,7 +2602,9 @@ relative to the graphics cursor.
   k 16-31   dotted line
   k 32-63   line, no start point
   k 64-71   point
+  k 72-79   line fill left/right (GXR)
   k 80-87   filled triangle
+  k 88-95   line fill right (GXR)
   k 96-103  filled rectangle
   k 112-119 filled parallelogram
   k 128-135 flood fill (background)
@@ -2588,10 +2614,12 @@ relative to the graphics cursor.
   k 160-167 arc
   k 168-175 segment
   k 176-183 sector
+  k 184-191 block move/copy (GXR)
   k 192-199 ellipse
   k 200-207 filled ellipse
   k 216-223 rectangle (U64)
   k 224-231 triangle (U64)
+  k 232-239 sprite (GXR, see SGET)
   k 240-247 parallelogram (U64)
 
 Triangles use the last three points; a
@@ -2614,6 +2642,20 @@ centre is the point two plots back, the
 previous point gives the radius and the
 start, x,y the end direction; drawn
 anticlockwise.
+
+Line fills (as the GXR and the Master):
+72-79 fills the row at x,y left and
+right over background-coloured pixels;
+88-95 fills to the right over pixels
+that are not the background colour.
+Block move/copy: the rectangle between
+the last two points goes with its
+bottom left corner to x,y; 185/189 move
+it (background left behind), 186/190
+copy it. Overlapping rectangles are
+handled.
+
+  MOVE 0,0:MOVE 99,99:PLOT 190,400,0
 ```
 
 ## POINT

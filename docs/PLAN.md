@@ -1045,7 +1045,9 @@ copied in), fill. The previous mode is set again afterwards (cleared). Done
 More GXR (owner, 2026-10-14, after the editor): PLOT 72-79 and 88-95
 (horizontal line fills), PLOT 184-191 (move/copy a rectangle), VDU 23,6
 and *FX 163,242 (the dot-dash pattern), VDU 23,2-5 (ECF patterns as
-screen bytes), *FLOOD/*NOFLOOD/*GXR/*NOGXR accepted.
+screen bytes), *FLOOD/*NOFLOOD/*GXR/*NOGXR accepted. Done 2026-10-14
+(DESIGN_GRAPHICS 10.14), except the dot-dash pattern: accepted, but
+dotted lines keep every second pixel (no shared RAM for its table).
 
 Acorn compatibility (owner, 2026-10-14, after the editor and the GXR
 remainder): INKEY(-n) key scanning (BBC key numbers on the C64 matrix)
@@ -1058,3 +1060,23 @@ Garbage collection (owner): not in the interpreter (it stays the
 reference ROM, `make compare-core`); instead a manual section on keeping
 the string heap from filling (manual chapter 12).
 
+
+Acorn compatibility decisions (owner, 2026-10-14):
+- INKEY(-256) returns &FF (BBC B with OS 1.2): programs take their
+  baseline path rather than Master-only code we only partly support.
+- ADVAL(1-4): by default the C64 joysticks in ports 1/2, read as
+  extremes (0 / 32768 / 65520, high = left/up); *ADVAL JOY|PADDLE|MOUSE
+  [port] switches a port to paddles (SID POT lines) or a 1351 mouse
+  (position accumulated, clamped). ADVAL(0): the fire buttons.
+- *PACK: removes REMs (not jump targets) and spaces outside strings, and
+  joins lines that are not jump targets (up to 255 bytes; care with DATA,
+  IF and ON...GOTO). No variable renaming. It asks for confirmation first.
+- *SAY: SAM is loaded from the user's own disk (not distributed with the
+  project) into the REU and called.
+- Toolkit (*FIND, *REPLACE, *VARLIST, *XREF): Beebug Toolkit style.
+- *ACCESS name L: the FAT read-only attribute where the Ultimate allows
+  it, and a lock flag on the /REU RAM disk; without L it is cleared;
+  'Locked' errors as in DFS.
+- Dot-dash pattern: stays accepted without effect (see DESIGN_GRAPHICS 10.14).
+- While the owner is away: push line-editor and fast-forward main after
+  each commit that passes the full regression.

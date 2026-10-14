@@ -50,8 +50,18 @@ bsp_find:
     beq bsp_go
     dex
     bpl bsp_find
-    rts                         ; arcs, segments, sectors, block copy: not yet
+    rts                         ; (other groups: nothing)
 bsp_go:
+    .if SHRAM = 0
+    jsr bsp_run
+    lda eng_kind                ; Upic Lite sent it here (vmode_ul 0): its
+    cmp #1                      ; RAM copy again
+    bne bsp_rts
+    sta vmode_ul
+bsp_rts:
+    rts
+bsp_run:
+    .endif
     txa
     asl
     tax
@@ -62,9 +72,9 @@ bsp_go:
     rts
 bs_groups:
     dta 10, 14, 18, 19, 24, 25, 27, 28, 30, 16, 17, 20, 21, 22
-    .if SHRAM = 0
-    dta 29                      ; GXR sprites (bank copy only: bs_sprite)
-    .endif
+    .if SHRAM = 0               ; GXR (bank copy only: Upic Lite's engine
+    dta 9, 11, 23, 29           ; sends these here): line fills, block
+    .endif                      ; copy/move, sprites
 bs_groups_end:
 bs_jumps:
     dta a(bs_tri-1), a(bs_par-1), a(bs_circle-1), a(bs_circfill-1)
@@ -72,7 +82,7 @@ bs_jumps:
     dta a(bs_parout-1), a(bs_flood-1), a(bs_flood-1), a(sh_arc-1)
     dta a(sh_arc-1), a(sh_arc-1)
     .if SHRAM = 0
-    dta a(bs_sprite-1)
+    dta a(bs_gxr-1), a(bs_gxr-1), a(bs_gxr-1), a(bs_sprite-1)
     .endif
 bs_flood:
     jmp sh_flood
@@ -1709,10 +1719,18 @@ sf_test:
     bne sf_isarea
     clc
     rts
-; sf_isarea: C = 1 if colour A is area: = gbg (PLOT 128) or <> gfg (136)
+; sf_isarea: C = 1 if colour A is area: sh_fill 0: = gbg (PLOT 128,
+; 72), 8: <> gfg (136), 1: <> gbg (88)
 sf_isarea:
     ldx sh_fill
-    bne sfa_fg
+    beq sfa_bg
+    cpx #8
+    beq sfa_fg
+    cmp gbg
+    bne sfa_yes
+    clc
+    rts
+sfa_bg:
     cmp gbg
     beq sfa_yes
     clc
@@ -2240,6 +2258,11 @@ sha_sin:
     dta a($E707), a($EA1E), a($ED38), a($F055), a($F374), a($F696), a($F9B8), a($FCDC)
 
     .if SHRAM = 0
+; bs_gxr: PLOT 72-79, 88-95 and 184-191: in bank 5 (gxblock.s)
+bs_gxr:
+    farcall gxb.gxb_shape, BANK_RD
+    rts
+
 ; ----------------------------------------------------------------------------
 ; bs_sprite
 ;   Summary: PLOT 232-239 (group 29): the selected GXR sprite with its
@@ -2250,7 +2273,7 @@ sha_sin:
 ;            to device pixels; the pixel loop (bss_loop) copied to MOSBUF
 ;            and run there: turbo speed, where this bank runs at 1 MHz.
 ;            Upic Lite's engine sends group 29 here too (its RAM copy of
-;            this module has no room): vmode_ul is set back afterwards.
+;            this module has no room): bsp_go sets vmode_ul back.
 ;   Uses:    A, X, Y, ex, ey, ecol, pk_x, pk_y, MOSBUF.
 bs_sprite:
     php
@@ -2314,11 +2337,6 @@ bss_cp:
     pla
     sta epat
 bss_done:
-    lda eng_kind                ; Upic Lite: its RAM copy again
-    cmp #1
-    bne bss_rts
-    sta vmode_ul
-bss_rts:
     rts
 
 ; The pixel loop, run at MOSBUF. Every pixel sets all REU registers: the

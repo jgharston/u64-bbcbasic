@@ -664,6 +664,36 @@ console for text, the picture for graphics), automatic showing plus
 5. Upic 64/48: REU canvas, DMA drawing, show/auto-show, load/save.
 6. Archimedes modes on Upic.
 
+### 10.14 The GXR remainder (2026-10-14)
+
+`src/mos/gxblock.s`, bank 5 (`.local gxb`). It went to bank 5 because
+bank 3 was 377 bytes short. The shapes' bank copy hands groups 9, 11
+and 23 on (`bs_gxr`, a `farcall`). Upic Lite's engine sends them there
+too, as with sprites (group 29): its RAM copy of the shapes has no room.
+The bank sets `vmode_ul` back after every group (`bsp_go`). All of it
+reads the screen with `GX_POINTDEV` and draws through `gx_call`, so it
+works the same in every engine (tested: VIC-II, Upic Lite, Upic full).
+
+- **PLOT 72-79**: the row at the point, left and right over pixels of
+  the background colour; **88-95**: to the right over pixels that are
+  not the background colour. One `GX_RECT` in the plot colour and
+  action, without a pattern (as the flood fill). The graphics cursor is
+  not moved to the run's ends.
+- **PLOT 184-191**: the rectangle between gq and gp to gc (bottom left);
+  k AND 3 = 1 moves (the background colour left behind), 2 and 3 copy.
+  Pixel by pixel, rows and columns in the direction that reads every
+  pixel before it is overwritten. A move clears each source pixel right
+  after reading it, so overlaps are correct. Source pixels outside the
+  window are left out; the destination is clipped.
+- **VDU 23,2-5**: native ECF patterns. They are decoded from the mode's
+  BBC byte layout (2, 4 or 16 colours) into the engine's 2 x 4 patterns
+  (`pats`): the first two pixels of the first four bytes.
+- **VDU 23,6** and **\*FX 163,242** (dot-dash pattern): accepted, but
+  dotted lines keep every second pixel. The pattern needs a 64-byte table
+  (one byte per bit keeps the engine's pixel step at +10 bytes), and no
+  shared RAM is free for it: the Upic full engine has 12 bytes left.
+- **\*FLOOD, \*NOFLOOD, \*GXR, \*NOGXR**: accepted (`gxr.cmd_accept`).
+
 ## 11. 80 columns dropped (owner, 2026-10-10)
 
 MODE 0 (80x32 with a 4-pixel font) and MODE 3 (80x25) are gone: the
