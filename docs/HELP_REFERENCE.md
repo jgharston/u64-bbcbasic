@@ -100,10 +100,10 @@ VDU          VPOS         WIDTH
 *PARTITIONS  *PWD         *RENAME
 *SAVE        *SETTIME     *SHADOW
 *SID         *SNAPSHOT    *SONG
-*SOUND       *SRREAD      *SRWRITE
-*STATUS      *SWAP        *TIME
-*TURBO       *TYPE        *UNMOUNT
-*UVER
+*SOUND       *SPRITE      *SRREAD
+*SRWRITE     *STATUS      *SWAP
+*TIME        *TURBO       *TYPE
+*UNMOUNT     *UVER
 ```
 
 ## BBC
@@ -448,8 +448,9 @@ address; +5/+6 length; +7 the REU's 64K
 bank (4-255); +8/+9 address in the
 bank; as the Master's sideways RAM
 transfer), &70 reads a value of the
-JSON reply *JSON GET keeps (see *JSON).
-Others are ignored.
+JSON reply *JSON GET keeps (see *JSON),
+&71 moves sprites (see *SPRITE). Others
+are ignored.
 
 OSWORD 14 as on a BBC Master: put 0 in
 the first byte of a 25-byte block for
@@ -1349,6 +1350,58 @@ a rest. Up to 28 patterns of 64 rows
 (1792 rows). ADVAL(-29-v) gives the
 note voice v plays (49 = middle C), to
 draw meters while it plays.
+```
+
+## *SPRITE
+
+Also: `SPRITE`, `SPRITES`
+
+```
+  *SPRITE ON | OFF    the multiplexer
+  *SPRITE n ON x,y    show sprite n
+  *SPRITE n OFF       hide it
+  *SPRITE n SHAPE s   its shape (0-63)
+  *SPRITE n COLOUR c  its colour
+  *SPRITE n SIZE w,h  1 or 2 each way
+X
+  *SPRITE n FRONT     in front of it
+  *SPRITE DEFINE s h  shape: 126 hex
+  *SPRITE             the sprites shown
+
+Up to 32 sprites (0-31) of 24 x 21 dots
+on the VIC-II's 8, reused down the
+screen by a raster interrupt (at most 8
+on one line). *SPRITE ON loads that
+multiplexer below HIMEM and lowers
+HIMEM by 1.25K (at the prompt at once,
+in a program with the next MODE);
+*SPRITE OFF gives the memory back, as
+*SOUND NONE does for sound. A MODE
+hides all sprites.
+
+x,y are BBC graphics coordinates
+(0-1279, 0-1023), of the sprite's
+bottom left corner; colours are BBC
+colours 0-15. Shapes: 3 bytes a row of
+24 dots, 21 rows (as SpritePad), kept
+in the REU:
+
+  *SPRITE ON
+  *SPRITE DEFINE 0 FFFFFF...
+  *SPRITE 0 ON 640,512
+
+OSWORD &71 does it from programs
+without command parsing: block +0
+sprite, +1 action (0 hide, 1 show at
++2/+3 x, +4/+5 y, 2 shape +6, 3 colour
++6, 4 collisions into +6: bit 0 another
+sprite, bit 1 the picture, cleared when
+read).
+
+U64: the text screen for now (the
+graphics modes and MODE 7 follow). Upic
+Lite cannot show VIC-II sprites: use
+MODE 128+n there. Needs an REU.
 ```
 
 ## *SRWRITE

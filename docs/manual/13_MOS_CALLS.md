@@ -53,7 +53,7 @@ Other calls are ignored.
 
 #### `OSWORD`
 
-OSWORD calls available: 0 reads a line (the line editor, *EDIT), 1 reads TIME, 2 sets TIME (5 bytes, centiseconds), 9 reads a pixel (POINT), 10 reads a character definition (block +0 = character; +1 to +8 = rows), 14 reads the Ultimate's clock, &42 copies between memory and the REU (block +0: &80 to the REU, 0 from it; +1/+2 address; +5/+6 length; +7 the REU's 64K bank (4-255); +8/+9 address in the bank; as the Master's sideways RAM transfer), &70 reads a value of the JSON reply *JSON GET keeps (see *JSON). Others are ignored.
+OSWORD calls available: 0 reads a line (the line editor, *EDIT), 1 reads TIME, 2 sets TIME (5 bytes, centiseconds), 9 reads a pixel (POINT), 10 reads a character definition (block +0 = character; +1 to +8 = rows), 14 reads the Ultimate's clock, &42 copies between memory and the REU (block +0: &80 to the REU, 0 from it; +1/+2 address; +5/+6 length; +7 the REU's 64K bank (4-255); +8/+9 address in the bank; as the Master's sideways RAM transfer), &70 reads a value of the JSON reply *JSON GET keeps (see *JSON), &71 moves sprites (see *SPRITE). Others are ignored.
 
 OSWORD 14 as on a BBC Master: put 0 in the first byte of a 25-byte block for the text "Wed,07 Oct 2026.08:42:55" and a CR, or 1 for 7 BCD bytes: year (2 digits), month, day, day of week (1 = Sunday), hour, minute, second.
 

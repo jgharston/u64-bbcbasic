@@ -225,3 +225,39 @@ fmt: C64 (default), BBC or ASCII.
 C64 is a C64 charset: 2048 bytes in screen-code order (2050 with a load address also loads). BBC is 768 bytes, characters 32-127 in ASCII order, as in a BBC Micro MOS ROM at &C000. ASCII is 2048 bytes, characters 0-255 in ASCII order.
 
 With an REU (the Ultimates) the font shows on the text screen and in the graphics modes and stays over MODE changes. Without one only the text screen changes. MODE 7 builds its teletext glyphs from the font when it starts. VDU 23 changes single characters. The BBC characters are Acorn's (see CREDITS).
+
+
+## 8.5 Sprites
+
+#### `*SPRITE` (also `SPRITES`)
+
+```
+*SPRITE ON | OFF    the multiplexer
+*SPRITE n ON x,y    show sprite n
+*SPRITE n OFF       hide it
+*SPRITE n SHAPE s   its shape (0-63)
+*SPRITE n COLOUR c  its colour
+*SPRITE n SIZE w,h  1 or 2 each way
+```
+
+X
+
+```
+*SPRITE n FRONT     in front of it
+*SPRITE DEFINE s h  shape: 126 hex
+*SPRITE             the sprites shown
+```
+
+Up to 32 sprites (0-31) of 24 x 21 dots on the VIC-II's 8, reused down the screen by a raster interrupt (at most 8 on one line). *SPRITE ON loads that multiplexer below HIMEM and lowers HIMEM by 1.25K (at the prompt at once, in a program with the next MODE); *SPRITE OFF gives the memory back, as *SOUND NONE does for sound. A MODE hides all sprites.
+
+x,y are BBC graphics coordinates (0-1279, 0-1023), of the sprite's bottom left corner; colours are BBC colours 0-15. Shapes: 3 bytes a row of 24 dots, 21 rows (as SpritePad), kept in the REU:
+
+```
+*SPRITE ON
+*SPRITE DEFINE 0 FFFFFF...
+*SPRITE 0 ON 640,512
+```
+
+OSWORD &71 does it from programs without command parsing: block +0 sprite, +1 action (0 hide, 1 show at +2/+3 x, +4/+5 y, 2 shape +6, 3 colour +6, 4 collisions into +6: bit 0 another sprite, bit 1 the picture, cleared when read).
+
+**U64:** the text screen for now (the graphics modes and MODE 7 follow). Upic Lite cannot show VIC-II sprites: use MODE 128+n there. Needs an REU.

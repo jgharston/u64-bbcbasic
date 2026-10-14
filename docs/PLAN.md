@@ -982,6 +982,18 @@ define, position in BBC coordinates, colour, collisions; up to ~32 by
 raster interrupt; VIC-II modes, MODE 7, MODE 100; Upic Lite to be
 tested), then Upic full (MODE 110/111, DESIGN_GRAPHICS section 10).
 
+GXR sprites (owner, 2026-10-14; on the roadmap after Upic full): the
+BBC has no hardware sprites; Acorn's Graphics Extension ROM (built into
+the Master 128) adds software sprites, drawn into the picture: shapes
+from the screen or defined (`*SGET`, `*SEDIT`, `*SLOAD`, `*SSAVE`, ...),
+chosen with `VDU 23,27`, plotted with `PLOT &E8-&EF`. Here they are
+drawn by the engine into every bitmap mode, not only the BBC modes
+(0-6, Upic Lite and MODE 128+n) but also our own Upic modes (Upic full,
+MODE 110/111, with its own colour depth and resolution; owner,
+2026-10-14), so they show where VIC-II sprites cannot (DESIGN_SPRITES
+section 3), and run Master programs that use them. No 8-per-line limit, but drawing costs
+time. Separate from `*SPRITE` (the VIC-II's, C64 only).
+
 Garbage collection (owner): not in the interpreter (it stays the
 reference ROM, `make compare-core`); instead a manual section on keeping
 the string heap from filling (manual chapter 12).

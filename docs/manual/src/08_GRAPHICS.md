@@ -21,3 +21,7 @@ C64's text screen, MODE 103 and 104 the C64's own bitmap modes.
 ## 8.4 Colours, palettes and fonts
 
 @@help COLOURS *PALETTE *FONT
+
+## 8.5 Sprites
+
+@@help *SPRITE

@@ -376,6 +376,8 @@ kx_n        dta 0               ; *KEY expansion: characters left,
 kx_pos      dta 0               ; the next one's position, the key,
 kx_key      dta 0               ; the keys 1-8 set (bits; keys.s)
 kx_def      dta 0
+spr_on      dta 0               ; *SPRITE ON: the multiplexer wanted,
+spr_page    dta 0               ; its page in RAM (0: not there; sprite.s)
 tcx         dta 0               ; bitmap modes: text cursor
 tcy         dta 0
 twl         dta 0               ; text window (characters)

@@ -1031,12 +1031,24 @@ by_oshwm:                       ; &83: PAGE = &1D00 (&0800-&1CFF: MOSBUF,
     bne by_ret
     ldy #>OSHWM_NONE
     bne by_ret
-by_himem:                       ; &84: HIMEM of the current mode
-    ldx #0
+by_himem:                       ; &84: HIMEM of the current mode (below
+    ldx #0                      ; the sprite multiplexer when it is there)
+    ldy spr_page
+    bne bh84_rts
     ldy vmode_himem
+bh84_rts:
     jmp by_ret
 by_himem85:                     ; &85: HIMEM for mode X (BASIC's MODE)
     farcall bk_himem, BANK_GFX
+    lda spr_on                  ; *SPRITE ON: 5 pages lower in the VIC-II
+    beq bh85_rts                ; modes (HIMEM &8000 or &7C00; not Upic
+    cpy #$7C                    ; Lite's)
+    bcc bh85_rts
+    tya
+    sec
+    sbc #5
+    tay
+bh85_rts:
     ldx #0
     jmp by_ret
 by_shadow:                      ; &72 (Master): X = 0 shadow, 1 normal
@@ -1288,6 +1300,11 @@ mw_not42:
     farcall net.json_word, BANK_NET ; a JSON value (netcmd.s)
     rts
 mw_not70:
+    cmp #$71
+    bne mw_not71
+    farcall spr.spr_word, BANK_RD ; sprites (sprite.s)
+    rts
+mw_not71:
     cmp #14
     bne mw_not14
     farcall clock_word, BANK_FS ; OSWORD 14: read the clock
@@ -1813,6 +1830,7 @@ cmd_table:
     dta 'SETTIME', 0, a(cmd_settime), BANK_FS
     dta 'SHADOW', 0, a(cmd_shadow), BANK_MOS
     dta 'SNAPSHOT', 0, a(snap.cmd_snapshot), BANK_RD
+    dta 'SPRITE', 0, a(spr.cmd_sprite), BANK_RD
     dta 'SONG', 0, a(cmd_song), BANK_SND
     dta 'SOUND', 0, a(cmd_sound), BANK_SND
     dta 'SRREAD', 0, a(cmd_srread), BANK_FS

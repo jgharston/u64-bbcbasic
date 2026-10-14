@@ -49,6 +49,13 @@ pal_ulb4:
 ;            KERNAL cursor off, and the engine clears the bitmap and
 ;            resets windows, cursors and colours.
 bk_mode:
+    jsr bk_mode0
+    lda spr_on                  ; sprites on: the multiplexer below the new
+    beq bkm_rts                 ; HIMEM (or out: Upic Lite)
+    farcall spr.spr_modehook, BANK_RD
+bkm_rts:
+    rts
+bk_mode0:
     lda #1
     sta curson
     lda shadow                  ; shadow mode: *SHADOW or MODE 128+n (BBC

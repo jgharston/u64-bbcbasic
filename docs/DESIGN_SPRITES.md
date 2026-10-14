@@ -79,3 +79,39 @@ Options for the bitmap modes, to decide:
    then shows 24 rows of graphics instead of 25 in the VIC-II modes);
 3. text screen only, until Upic full (MODE 110/111), whose picture is in
    the REU and leaves the VIC-II's bank free.
+
+## 4. Implemented (step 1, 2026-10-14)
+
+- `*SPRITE ON` / `OFF` switches the multiplexer, as `*SOUND` the sound
+  engine (owner's request): ON copies the image (`spritemux.s`, 5 pages)
+  below the mode's HIMEM (&7B00, or &7700 under MODE 7's &7C00) and
+  lowers HIMEM; OFF stops the interrupt and gives the pages back. At the
+  prompt BASIC's HIMEM moves at once; in a program from the next MODE.
+  OSBYTE &84/&85 report the lowered HIMEM while sprites are on.
+- After every MODE `bk_mode` calls `spr_modehook` (bank 5): the image is
+  reinstalled below the new HIMEM with all sprites hidden; in Upic Lite
+  and (for now) the graphics modes it stays out.
+- The interrupt (`mx_irq` on $0314) handles only the VIC-II raster
+  interrupt and passes everything else to the vector before it: at line
+  251 an insertion sort by Y and the first 8; then each next virtual
+  sprite once the one 8 before it has finished (Y + 22 lines, +21 more
+  double high). Collision registers are read at every raster interrupt
+  and credited to the virtual sprites on the hardware ones.
+- Robustness (fixed after the first demo flickered): Y is frozen per
+  frame (the sort's copy, `skey`), and each hardware sprite keeps the
+  line its virtual sprite ends (`hwend`): BASIC moving a sprite during
+  the frame no longer makes a reuse cut the one still drawn. A raster
+  line passed while setting `$D012` places at once (not from the frame
+  interrupt, whose target is the next frame); the frame interrupt only
+  acts at its own line.
+- The limit stays the VIC-II's: at most 8 sprites on a raster line; a
+  9th on the same lines drops out for that frame (seen as flicker).
+  `demos/sprites/BALLS.bas` keeps 32 balls in four bands of 8, so never
+  more than 8 share a line: no flicker (tested on the U64).
+- Shapes: 64 in REU bank 1 at $1000, copied to $E000 (pointers $80-$BF)
+  in the text screen. `*SPRITE DEFINE s` takes 126 hex digits (the
+  remote's 74-byte line limit: from programs).
+- OSWORD &71 as in section 1, plus action 4: the collision bits (cleared
+  when read).
+- Not yet: the graphics modes and MODE 7 (REU copying per band, step 3),
+  `*SPRITE LOAD`, multicolour's shared colours.

@@ -1214,6 +1214,39 @@ def test_snapshot(t):
     run_line(t, "NEW", ">")
 
 
+def test_sprite(t):
+    # *SPRITE: the multiplexer below HIMEM; a red sprite in the video
+    # stream; two overlapping sprites collide (OSWORD &71); MODE hides
+    # them; *SPRITE OFF gives HIMEM back
+    if t.is_vice:
+        run_line(t, "*SPRITE ON", "need an REU")
+        return
+    rm = remote(t)
+    rm.run_lines(["MODE 100", "CLS"])
+    out = rm.run_lines(["*SPRITE ON", "PRINT ~HIMEM"])["output"]
+    assert "7B00" in out, out
+    prog = "\n".join([
+        "10 *SPRITE DEFINE 0 " + "F" * 126,
+        "20 *SPRITE 0 ON 640,300",
+        "30 *SPRITE 0 COLOUR 1",
+        "40 *SPRITE 1 ON 660,300",
+        "50 *SPRITE 1 COLOUR 2",
+        "60 T%=TIME:REPEAT UNTIL TIME>T%+10",
+        "70 DIM B% 10:B%?0=0:B%?1=4:A%=&71:X%=B% MOD 256:Y%=B% DIV 256:CALL &C7F1",
+        '80 PRINT "C=";B%?6', ""])
+    r = rm.send_program(prog, run=True, timeout=20)
+    assert "C=1" in r["output"] or "C=3" in r["output"], r
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import u64shot
+    rows = u64shot.grab(t.host, 11002)
+    red = sum(row.count(2) for row in rows)
+    assert red > 300, red                   # sprite 0: 24 x 21, partly under 1
+    out = rm.run_lines(["MODE 100", "*SPRITE"])["output"]
+    assert "Sprites on" in out and " shape " not in out, out
+    out = rm.run_lines(["*SPRITE OFF", "PRINT ~HIMEM"])["output"]
+    assert "8000" in out, out
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -1634,7 +1667,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_net, test_json, test_netchan, test_classics,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_net, test_json, test_netchan, test_classics,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,
