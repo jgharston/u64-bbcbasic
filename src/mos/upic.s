@@ -499,9 +499,10 @@ up_auto:
     bcc upa_no
 upa_go:
     lda up_kind
-    bne upa_t
-    lda #0                      ; (prompt: no limit)
-    sta mosNUM
+    cmp #2
+    beq upa_t
+    lda #0                      ; (prompt, GET: no limit; mosNUM is only
+    sta mosNUM                  ; INKEY's)
     sta mosNUM+1
 upa_t:
     lda up_kind                 ; GET / INKEY: end at the press

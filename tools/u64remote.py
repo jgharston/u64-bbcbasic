@@ -227,8 +227,13 @@ class Remote:
             pass
 
     def drain(self, mb=None):
-        """Output captured since the last call (the ring)."""
-        mb = mb or self.mailbox()
+        """Output captured since the last call (the ring); nothing while
+        a Upic picture is showing (the ring is swapped out with BASIC)."""
+        if mb is None:
+            try:
+                mb = self.mailbox()
+            except ShowingError:
+                return b""
         w, r = mb[MB_RINGW], mb[MB_RINGR]
         if w == r:
             return b""

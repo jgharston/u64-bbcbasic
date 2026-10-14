@@ -1,0 +1,37 @@
+10 REM GFXC64: the C64's own modes. MODE 100 is the C64 text screen
+20 REM (colours per character); 103 hires 320x200 (2 colours per 8x8
+30 REM cell) and 104 multicolour 160x200 (4 per 4x8 cell): the VIC-II's
+40 REM colour clash. Graphics are 1280 x 800 units here (200 lines).
+50 MODE 100
+60 *OFF
+70 FOR I%=0 TO 15
+80   COLOUR I%:PRINT "COLOUR ";I%;" ";
+90 NEXT
+100 COLOUR 7
+110 PRINT ''"MODE 100: the text screen. A key..."
+120 K%=GET
+130 MODE 103:PROCcard(103)
+140 MODE 104:PROCcard(104)
+150 CHAIN "GFXDEMO"
+160 END
+170 DEF PROCcard(M%)
+180   LOCAL I%,K%
+190   *OFF
+200   PRINT "MODE ";M%
+210   FOR I%=0 TO 15
+220     GCOL 0,I%:A%=I%*80
+230     *RECTANGLE FILL A%,0,80,60
+240   NEXT
+250   FOR I%=0 TO 15
+260     GCOL 0,I%:C%=I%*80:D%=100
+270     *LINE 0,700,C%,D%
+280   NEXT
+290   FOR I%=1 TO 7
+300     GCOL 0,I%:A%=200+I%*120:R%=50
+310     *CIRCLE FILL A%,300,R%
+320   NEXT
+330   GCOL 0,1
+340   *ELLIPSE 900,550,250,100
+350   PRINT TAB(0,21);"Colour clash"
+360   K%=GET
+370 ENDPROC
