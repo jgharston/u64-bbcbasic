@@ -16,6 +16,10 @@
 SPR_N       = 32
 FRAME_LINE  = 251               ; the frame interrupt (bottom border)
 SCR_PTRS    = $C3F8             ; sprite pointers (screen matrix $C000)
+BLK_PTR     = $FD               ; graphics modes, MODE 7: the two shape
+BLK_ADDR    = $FF40             ; blocks $FF40 and $FF80 (pointers $FD,
+                                ; $FE), the only free room in the bitmap's
+                                ; VIC-II bank (DESIGN_SPRITES.md 3)
 
 .macro mx_flag reg, mask
     lda :reg
@@ -35,6 +39,9 @@ mx_n        dta 0               ; virtual sprites shown this frame
 mx_oldvec   dta 0, 0            ; the interrupt vector before ours
 mx_bit      dta 1, 2, 4, 8, 16, 32, 64, 128
 mx_nbit     dta $FE, $FD, $FB, $F7, $EF, $DF, $BF, $7F
+mx_bmp      dta 0               ; 0: text screen (shapes at $E000), 1: a
+                                ; bitmap (shapes copied into the blocks)
+blk_shape   dta $FF, $FF        ; pointer ($80 + shape) in each block
 
 ; The tables (sprite.s writes them with interrupts off; all but sorder
 ; and skey below offset 256)
@@ -51,6 +58,13 @@ sorder      :SPR_N dta 0        ; indices by Y (kept from frame to frame)
 skey        :SPR_N dta 0        ; sort key: Y, or 255 when hidden
 hwown       :8 dta 0            ; hardware sprite s shows virtual hwown[s]
 hwend       :8 dta 0            ; ... until (the line after) hwend[s]
+blk_busy    dta 0, 0            ; a block's shape is drawn until this line
+blk_lo      dta <BLK_ADDR, <[BLK_ADDR+64]
+mx_atframe  dta 0               ; 1: placing from the frame interrupt
+mx_due      dta 0               ; the line the next one can be placed
+mx_blk      dta 0               ; its block (graphics modes)
+mx_copy     dta 0               ; $FF: its shape must be copied there
+mx_ptr      dta 0               ; its sprite pointer
 
 ; ----------------------------------------------------------------------------
 ; mx_irq ($0314 while sprites are on)
@@ -174,41 +188,94 @@ mxf_counted:
     lda #0
     sta $D015
     sta mx_next
-mxf_first:                      ; the first 8 now (for the frame to come:
-    lda mx_next                 ; no comparison with this raster line,
-    cmp mx_n                    ; which is the frame's bottom)
-    bcs mxf_sched
-    cmp #8
-    bcs mxf_sched
-    jsr mx_put
-    inc mx_next
-    jmp mxf_first
-mxf_sched:
-    lda mx_next
-    cmp mx_n
-    bcs mxp_frame               ; 8 or fewer: the next frame
-    and #7                      ; the 9th: when the 1st is drawn
-    tax
-    lda hwend,x
-    jmp mxp_wait
+    ldx #7                      ; a new frame: every hardware sprite and
+mxf_free:                       ; block free from its top
+    sta hwend,x
+    dex
+    bpl mxf_free
+    sta blk_busy
+    sta blk_busy+1
+    lda #1                      ; place what is free at once (from line 0
+    sta mx_atframe              ; of the frame to come)
+    jsr mx_place
+    lda #0
+    sta mx_atframe
+    rts
 
-; mx_place: place sorder[mx_next] (and the following, while their slot is
-; free already) on hardware sprite mx_next AND 7; then the raster line
-; for the next, or the frame line.
+; mx_place: place sorder[mx_next] (and the following, while they can be
+; placed already) on hardware sprite mx_next AND 7, once that one has
+; ended and, in a bitmap, a block holds its shape (or comes free to copy
+; it into); then the raster line for the next, or the frame line.
 mx_place:
     lda mx_next
     cmp mx_n
-    bcs mxp_frame
-    cmp #8
-    bcc mxp_now                 ; the first 8: free
+    bcc mxp_one
+    jmp mxp_frame
+mxp_one:
     and #7                      ; its hardware sprite: done drawing?
     tax
     lda hwend,x                 ; (the line after its last)
+    sta mx_due
+    ldx mx_next
+    ldy sorder,x
+    lda sptr,y
+    sta mx_ptr
+    lda #0
+    sta mx_copy
+    lda mx_bmp
+    beq mxp_when
+    lda sptr,y                  ; a bitmap: its shape in a block?
+    ldx #0
+    cmp blk_shape
+    beq mxp_have
+    inx
+    cmp blk_shape+1
+    beq mxp_have
+    ldx #0                      ; no: the block that comes free first
+    lda blk_busy+1
+    cmp blk_busy
+    bcs mxp_b0
+    inx
+mxp_b0:
+    dec mx_copy
+    lda blk_busy,x
+    cmp mx_due
+    bcc mxp_have
+    sta mx_due
+mxp_have:
+    stx mx_blk
+    txa
+    clc
+    adc #BLK_PTR
+    sta mx_ptr
+mxp_when:
+    lda mx_due
+    ldx mx_atframe              ; from the frame: what is free at once
+    beq mxp_raster
+    cmp #0
+    bne mxp_wait
+    beq mxp_now
+mxp_raster:
     cmp $D012
     beq mxp_now
     bcs mxp_wait                ; not yet: an interrupt then
 mxp_now:
+    bit mx_copy
+    bpl mxp_put
+    jsr mx_shape
+mxp_put:
     jsr mx_put
+    lda mx_bmp                  ; the block in use until this one ends
+    beq mxp_inc
+    lda mx_next
+    and #7
+    tax
+    lda hwend,x
+    ldx mx_blk
+    cmp blk_busy,x
+    bcc mxp_inc
+    sta blk_busy,x
+mxp_inc:
     inc mx_next
     jmp mx_place
 mxp_wait:
@@ -249,7 +316,44 @@ mxe_n:
 mxe_rts:
     rts
 
-; mx_put: sorder[mx_next] onto hardware sprite mx_next AND 7
+; mx_shape: shape sptr[Y] - $80 from the REU into block mx_blk (64
+; bytes by DMA; foreground REU use has interrupts off, so the registers
+; are ours). Uses: A, X; Y kept.
+mx_shape:
+    ldx mx_blk
+    lda sptr,y
+    sta blk_shape,x
+    sec
+    sbc #$80
+    pha
+    and #3                      ; REU_SHAPES + shape * 64
+    lsr
+    ror
+    ror
+    sta $DF04
+    pla
+    lsr
+    lsr
+    clc
+    adc #>REU_SHAPES
+    sta $DF05
+    lda #REU_SHBANK
+    sta $DF06
+    lda blk_lo,x
+    sta $DF02
+    lda #>BLK_ADDR
+    sta $DF03
+    lda #64
+    sta $DF07
+    lda #0
+    sta $DF08
+    sta $DF0A
+    lda #$91                    ; REU -> C64, now
+    sta $DF01
+    rts
+
+; mx_put: sorder[mx_next] onto hardware sprite mx_next AND 7 (pointer
+; mx_ptr)
 mx_put:
     ldx mx_next
     ldy sorder,x
@@ -269,7 +373,7 @@ mx_put:
     sta hwend,x
     lda scol,y
     sta $D027,x
-    lda sptr,y
+    lda mx_ptr
     sta SCR_PTRS,x
     txa
     asl

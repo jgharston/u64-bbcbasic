@@ -16,6 +16,7 @@ Usage: run_e2e.py [--vice-only | --no-vice] [--device IP ...] [--only NAME]
 """
 import argparse
 import ftplib
+import io
 import json
 import os
 import re
@@ -1247,6 +1248,62 @@ def test_sprite(t):
     assert "8000" in out, out
 
 
+def test_sprite_gfx(t):
+    # sprites in a VIC-II graphics mode (MODE 129) and MODE 7: shapes from
+    # a SpritePad file (*SPRITE LOAD) copied into the two blocks by the
+    # multiplexer; each sprite's colour counts its shape's dots in the
+    # video stream; a multicolour sprite (MULTI, COLOURS)
+    if not ult(t):
+        return
+    full = bytes([255] * 63 + [0])                       # 504 dots
+    left = bytes([255, 240, 0] * 21 + [0])               # 12 a row: 252
+    top = bytes([255] * 30 + [0] * 33 + [0])             # 10 rows: 240
+    spd = b"SPD" + bytes([1, 2, 0, 0, 0, 0]) + full + left + top
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", "")
+        ftp.storbinary("STOR /Temp/SHAPES.SPD", io.BytesIO(spd))
+    rm = remote(t)
+    rm.run_lines(["MODE 100", "*SPRITE ON", "MODE 129"])
+    prog = "\n".join([
+        "10 *SPRITE LOAD 10 SHAPES.SPD",
+        "20 *SPRITE 0 SHAPE 10",
+        "30 *SPRITE 0 COLOUR 1",
+        "40 *SPRITE 0 ON 100,800",
+        "50 *SPRITE 1 SHAPE 11",
+        "60 *SPRITE 1 COLOUR 2",
+        "70 *SPRITE 1 ON 400,600",
+        "80 *SPRITE 2 SHAPE 12",
+        "90 *SPRITE 2 COLOUR 3",
+        "100 *SPRITE 2 ON 700,400",
+        "110 *SPRITE COLOURS 5,6",
+        "120 *SPRITE 3 SHAPE 10",
+        "130 *SPRITE 3 MULTI ON",
+        "140 *SPRITE 3 ON 1000,200", ""])
+    r = rm.send_program(prog, run=True, timeout=20)
+    assert r["ok"], r
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import u64shot
+    time.sleep(0.5)
+    rows = u64shot.grab(t.host, 11002)
+    count = {c: sum(row.count(c) for row in rows) for c in (2, 5, 7, 3)}
+    assert 480 <= count[2] <= 530, count                 # red: full
+    assert 240 <= count[5] <= 265, count                 # green: left half
+    assert 230 <= count[7] <= 250, count                 # yellow: top rows
+    assert 480 <= count[3] <= 530, count                 # cyan: multicolour
+    rm.run_lines(["MODE 7", "*SPRITE 0 SHAPE 11", "*SPRITE 0 COLOUR 1",
+                  "*SPRITE 0 ON 600,500"])
+    time.sleep(0.5)
+    rows = u64shot.grab(t.host, 11002)
+    red = sum(row.count(2) for row in rows)
+    assert 240 <= red <= 265, red
+    # MODE 7 -> a bitmap mode: hung once (the mode set $0314 under the
+    # multiplexer's raster interrupt)
+    out = rm.run_lines(["MODE 129", "*SPRITE", "MODE 100", "*SPRITE OFF",
+                        "PRINT ~HIMEM", "*DELETE SHAPES.SPD"])["output"]
+    assert "Sprites on at &7B00" in out, out
+    assert "8000" in out, out
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -1667,7 +1724,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_net, test_json, test_netchan, test_classics,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_net, test_json, test_netchan, test_classics,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

@@ -7,9 +7,10 @@
 ; HIMEM by 5 pages, *SPRITE OFF gives them back; switched on and off by
 ; the user, as the sound engine). Positions in BBC graphics coordinates.
 ; Shapes: 64 of 24 x 21 (63 bytes), kept in the REU (REU_SHAPES); in the
-; text screen also at $E000 (VIC-II pointers $80-$BF). The graphics
-; modes and MODE 7 (shapes copied just in time) follow in step 3
-; (docs/DESIGN_SPRITES.md); Upic Lite cannot show VIC-II sprites.
+; text screen also at $E000 (VIC-II pointers $80-$BF); in the graphics
+; modes and MODE 7 the multiplexer copies them into two blocks at $FF40
+; as the sprites come (docs/DESIGN_SPRITES.md); Upic Lite cannot show
+; VIC-II sprites.
 ;
 ; ----------------------------------------------------------------------------
 
@@ -17,6 +18,8 @@ SPR_PAGES   = 5                 ; the image's size in pages
 REU_SHAPES  = $1000             ; REU bank 1 (free beside the song header)
 REU_SHBANK  = 1
 SHAPE_RAM   = $E000             ; text screen: shapes here (VIC-II $80+)
+REU_SCRATCH = $2000             ; REU bank 1, 17 pages: *SPRITE LOAD's file
+SCRATCH_PG  = 17
 
 ; ----------------------------------------------------------------------------
 ; The multiplexer images (spritemux.s), assembled for $7B00 and $7700
@@ -50,6 +53,8 @@ O_ORDER     = mux7b.sorder - $7B00
 O_NEXT      = mux7b.mx_next - $7B00
 O_OLDVEC    = mux7b.mx_oldvec - $7B00
 O_IRQ       = mux7b.mx_irq - $7B00
+O_BMP       = mux7b.mx_bmp - $7B00
+O_BLKSHP    = mux7b.blk_shape - $7B00
     .if O_COLL+32 > 256
     .error "Sprite tables must lie below offset 256"
     .endif
@@ -89,6 +94,18 @@ cs_nooff:
     bcc cs_nodef
     jmp sp_define
 cs_nodef:
+    lda #<wd_colours
+    ldx #>wd_colours
+    jsr s6_word
+    bcc cs_nocols
+    jmp sp_colours
+cs_nocols:
+    lda #<wd_load
+    ldx #>wd_load
+    jsr s6_word
+    bcc cs_noload
+    jmp sp_load
+cs_noload:
     jsr s6_need                 ; *SPRITE n ...
     lda mosNUM+1
     bne cs_badn
@@ -140,8 +157,32 @@ cs_n_size:
     lda #<wd_size
     ldx #>wd_size
     jsr s6_word
-    bcc cs_n_behind
+    bcc cs_n_multi
     jmp sp_size
+cs_n_multi:
+    lda #<wd_multi
+    ldx #>wd_multi
+    jsr s6_word
+    bcc cs_n_behind
+    lda #<wd_on
+    ldx #>wd_on
+    jsr s6_word
+    bcc csm_off
+    jsr s6_end
+    lda #16                     ; flag bit 4: multicolour
+    ldx #$FF
+    jmp sp_flag
+csm_off:
+    lda #<wd_off
+    ldx #>wd_off
+    jsr s6_word
+    bcc cs_syn2
+    jsr s6_end
+    lda #0
+    ldx #$EF
+    jmp sp_flag
+cs_syn2:
+    jmp s6_syntax
 cs_n_behind:
     lda #<wd_behind
     ldx #>wd_behind
@@ -460,11 +501,6 @@ spo_reu:
     brk
     dta 249, 'Sprites need a VIC-II mode: MODE 128+n', 0
 spo_vic:
-    lda vtype
-    beq spo_text
-    brk
-    dta 248, 'Sprites: the text screen for now', 0
-spo_text:
     lda #1
     sta spr_on
     lda spr_page
@@ -570,7 +606,15 @@ spi_ptr:
     iny
     dex
     bne spi_ptr
-    jsr sp_shapes               ; the shapes to $E000
+    lda vtype                   ; the text screen: the shapes to $E000;
+    bne spi_bmp                 ; a bitmap: the multiplexer copies them
+    jsr sp_shapes
+    jmp spi_vec
+spi_bmp:
+    ldy #O_BMP
+    lda #1
+    sta (mosPTR2),y
+spi_vec:
     lda mosPTR2+1
     sta spr_page
     php                         ; the raster interrupt
@@ -648,43 +692,14 @@ sp_shapes:
     jmp rd_dma
 
 ; ----------------------------------------------------------------------------
-; spr_modehook (from bk_mode, bank 3): after a MODE change with sprites on:
-; in again below the new HIMEM (the sprites hidden, as a MODE clears), or
-; out in a Upic Lite mode or a graphics mode (step 3: text screen only).
+; spr_modehook (from bk_mode, bank 3): after a MODE change with sprites
+; on (bk_mode took the multiplexer out before it): in again below the new
+; HIMEM, the sprites hidden as a MODE clears; not in a Upic Lite mode.
 spr_modehook:
-    lda spr_page
-    beq smh_in
-    sta mosPTR2+1               ; our vector still in $0314 (a MODE that
-    lda #0                      ; did not set its own): the old one back
-    sta mosPTR2
-    php
-    sei
-    lda $0315
-    cmp spr_page
-    bcc smh_gone
-    sbc spr_page
-    cmp #SPR_PAGES
-    bcs smh_gone
-    ldy #O_OLDVEC
-    lda (mosPTR2),y
-    sta $0314
-    iny
-    lda (mosPTR2),y
-    sta $0315
-smh_gone:
-    lda $D01A
-    and #$FE
-    sta $D01A
-    lda #0
-    sta $D015
-    sta spr_page
-    plp
 smh_in:
     lda eng_kind
     cmp #1
     beq smh_rts
-    lda vtype
-    bne smh_rts
     jmp sp_install
 smh_rts:
     rts
@@ -728,6 +743,7 @@ spd_byte:
     sta fsLEN+1
     lda #REU_TO_REU
     jsr rd_dma
+    jsr sp_inval                ; (a block may hold the old shape)
     lda spr_page                ; and to $E000 + s * 64
     beq spd_rts
     lda vtype
@@ -954,6 +970,220 @@ sw_coll:
     sta (mosPTR),y
     rts
 
+; sp_inval: a graphics mode's shape blocks emptied (the multiplexer
+; copies again): after DEFINE and LOAD. Uses: A, Y, mosPTR2.
+sp_inval:
+    lda spr_page
+    beq spv_rts
+    sta mosPTR2+1
+    lda #O_BLKSHP
+    sta mosPTR2
+    ldy #0
+    lda #$FF
+    php
+    sei
+    sta (mosPTR2),y
+    iny
+    sta (mosPTR2),y
+    plp
+spv_rts:
+    rts
+
+; ----------------------------------------------------------------------------
+; sp_colours: COLOURS c1 c2: the multicolour pair, shared by every sprite
+; (the VIC-II has one pair: $D025, $D026)
+sp_colours:
+    jsr s6_need
+    lda mosNUM
+    and #15
+    tax
+    lda sp_bbc2c64,x
+    sta $D025
+    jsr s6_skipsp
+    cmp #','
+    bne spc_2
+    iny
+spc_2:
+    jsr s6_need
+    jsr s6_end
+    lda mosNUM
+    and #15
+    tax
+    lda sp_bbc2c64,x
+    sta $D026
+    rts
+
+; ----------------------------------------------------------------------------
+; sp_load
+;   Summary: LOAD s file: shapes from s on, from a file.
+;   Function: reads up to 17 pages into REU_SCRATCH, then copies the
+;            shapes (64 bytes each) to REU_SHAPES: a SpritePad file
+;            ('SPD', version 1: 9-byte header, the count in byte 4), a
+;            file with a 3-byte header (its length 64n + 3), or plain
+;            64-byte shapes (the last may be 63 bytes).
+;   Input:   mosPTR/Y = 's file'.
+;   Output:  the shapes; the $E000 copy or the blocks renewed.
+;   Uses:    A, X, Y, fs*, mosTMP, MOSBUF.
+sp_load:
+    jsr s6_hasreu
+    bne spl_reu
+    brk
+    dta 254, 'Sprites need an REU', 0
+spl_reu:
+    jsr sp_byte64n
+    pha                         ; the first shape
+    jsr s6_name
+    jsr s6_end
+    farcall rx_openin, BANK_FS
+    lda fsTMP+2                 ; size: at most the scratch area
+    ora fsTMP+3
+    bne spl_big
+    lda fsTMP+1
+    cmp #SCRATCH_PG
+    bcc spl_size
+spl_big:
+    lda #0
+    sta fsTMP
+    lda #SCRATCH_PG
+    sta fsTMP+1
+spl_size:
+    lda fsTMP
+    pha
+    lda fsTMP+1
+    pha
+    lda #REU_SHBANK
+    ldy #>REU_SCRATCH
+    ldx #SCRATCH_PG
+    farcall rx_read, BANK_FS
+    farcall rx_close, BANK_FS
+    pla
+    sta mosTMP+3                ; the size
+    pla
+    sta mosTMP+2
+    pla
+    sta mosTMP                  ; the shape to fill
+    lda #0                      ; the first 5 bytes: the header?
+    sta fsCNT
+    sta fsCNT+1
+    lda #5
+    jsr spl_get
+    ldx #0                      ; offset: 0, 3 or 9
+    lda MOSBUF
+    cmp #'S'
+    bne spl_raw
+    lda MOSBUF+1
+    cmp #'P'
+    bne spl_raw
+    lda MOSBUF+2
+    cmp #'D'
+    bne spl_raw
+    lda MOSBUF+3
+    cmp #1
+    beq spl_v1
+    brk
+    dta 247, 'SPD version 1 only', 0
+spl_v1:
+    ldx #9
+    bne spl_off
+spl_raw:
+    lda mosTMP+2
+    and #63
+    cmp #3
+    bne spl_off
+    ldx #3
+spl_off:
+    stx fsCNT
+    lda mosTMP+2                ; count = (size - offset + 1) / 64
+    sec
+    sbc fsCNT
+    sta mosTMP+2
+    lda mosTMP+3
+    sbc #0
+    sta mosTMP+3
+    bcc spl_none
+    inc mosTMP+2
+    bne spl_div
+    inc mosTMP+3
+spl_div:
+    ldx #6
+spl_div6:
+    lsr mosTMP+3
+    ror mosTMP+2
+    dex
+    bne spl_div6
+    lda mosTMP+2
+    sta mosTMP+1
+    lda fsCNT
+    cmp #9
+    bne spl_copy
+    ldx MOSBUF+4
+    inx
+    beq spl_copy                ; (256: the file decides)
+    cpx mosTMP+1
+    bcs spl_copy
+    stx mosTMP+1
+spl_copy:
+    lda mosTMP+1
+    beq spl_done
+    lda mosTMP
+    cmp #64
+    bcs spl_done
+    lda #64                     ; the scratch -> MOSBUF -> its place
+    jsr spl_get
+    lda mosTMP
+    sta fsSX
+    jsr spd_reuaddr
+    jsr spl_mosbuf
+    lda #REU_TO_REU
+    jsr rd_dma
+    lda fsCNT
+    clc
+    adc #64
+    sta fsCNT
+    bcc spl_nx
+    inc fsCNT+1
+spl_nx:
+    inc mosTMP
+    dec mosTMP+1
+    jmp spl_copy
+spl_none:
+spl_done:
+    jsr sp_inval
+    lda spr_page                ; the text screen: the $E000 copy
+    beq spl_rts
+    lda vtype
+    bne spl_rts
+    jmp sp_shapes
+spl_rts:
+    rts
+; spl_get: A bytes from REU_SCRATCH + fsCNT to MOSBUF
+spl_get:
+    pha
+    lda fsCNT
+    sta fsTMP
+    lda fsCNT+1
+    clc
+    adc #>REU_SCRATCH
+    sta fsTMP+1
+    lda #REU_SHBANK
+    sta fsTMP+2
+    jsr spl_mosbuf
+    pla
+    sta fsLEN
+    lda #REU_TO_C64
+    jmp rd_dma
+; spl_mosbuf: fsADDR = MOSBUF, fsLEN = 64
+spl_mosbuf:
+    lda #<MOSBUF
+    sta fsADDR
+    lda #>MOSBUF
+    sta fsADDR+1
+    lda #64
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    rts
+
 ; BBC colours 0-15 -> C64 colours (as COLOUR in the text screen)
 sp_bbc2c64:
     dta 0, 2, 5, 7, 6, 4, 3, 1, 8, 9, 10, 11, 12, 13, 14, 15
@@ -966,4 +1196,7 @@ wd_size     dta 'SIZE', 0
 wd_behind   dta 'BEHIND', 0
 wd_front    dta 'FRONT', 0
 wd_define   dta 'DEFINE', 0
+wd_colours  dta 'COLOURS', 0
+wd_load     dta 'LOAD', 0
+wd_multi    dta 'MULTI', 0
     .endl

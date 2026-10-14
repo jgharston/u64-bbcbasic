@@ -113,5 +113,34 @@ Options for the bitmap modes, to decide:
   remote's 74-byte line limit: from programs).
 - OSWORD &71 as in section 1, plus action 4: the collision bits (cleared
   when read).
-- Not yet: the graphics modes and MODE 7 (REU copying per band, step 3),
-  `*SPRITE LOAD`, multicolour's shared colours.
+
+## 5. Graphics modes, MODE 7, LOAD, multicolour (step 3, 2026-10-14)
+
+- **Shape blocks.** In the VIC-II graphics modes and MODE 7 the shapes
+  go into two blocks, $FF40 and $FF80 (pointers $FD, $FE). Per block
+  the multiplexer keeps the shape in it and the line until which a
+  sprite still draws from it. A sprite whose shape is in a block uses
+  it; otherwise the block that comes free first gets the shape by REU
+  DMA (64 bytes, in the raster interrupt: foreground REU transfers have
+  interrupts off, so the registers are free), and the sprite waits for
+  that line if it must. So sprites on the same lines can have at most 2
+  different shapes; a 3rd is placed once a block is free (too late: it
+  drops out where they meet). Shapes stay in their block from frame to
+  frame; DEFINE and LOAD empty the blocks.
+- **The frame** resets every hardware sprite's and block's end line and
+  places what is free at once (`mx_atframe`: compared with line 0 of
+  the coming frame, not the raster line), the rest by raster interrupt.
+- **MODE 7**'s refresh runs from the CIA interrupt, which the
+  multiplexer passes on; the drawing engine has interrupts off between
+  its yields: both can delay a raster interrupt (a sprite may then drop
+  out for a frame while much is drawn).
+- **`*SPRITE LOAD s file`**: the file (up to 17
+  pages) into REU bank 1 at $2000 (scratch), then the shapes from s on
+  into $1000: SpritePad 'SPD' version 1 (9-byte header, the count in
+  byte 4), a 3-byte header (length 64n + 3), or plain 64-byte shapes.
+- **Multicolour** (owner's choice, 2026-10-14): `*SPRITE n MULTI ON|OFF`
+  per sprite; `*SPRITE COLOURS a,b` sets the pair the VIC-II shares
+  between all sprites ($D025, $D026). `COLOUR` only ever sets a
+  sprite's own colour.
+- Not yet: `*SPRITE LOAD` does not take SPD's colours; SPD versions 2+
+  (SpritePad 2) give an error.

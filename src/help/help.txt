@@ -631,12 +631,15 @@ Pitch as SOUND, rounded to semitones; amplitude 1-64 an instrument, -15 to -1 th
   *SPRITE n SHAPE s   its shape (0-63)
   *SPRITE n COLOUR c  its colour
   *SPRITE n SIZE w,h  1 or 2 each way
-X
-  *SPRITE n FRONT     in front of it
+  *SPRITE n MULTI ON  multicolour (OFF)
+  *SPRITE n BEHIND    behind graphics
+  *SPRITE n FRONT     in front of them
+  *SPRITE COLOURS a,b the shared pair
   *SPRITE DEFINE s h  shape: 126 hex
+  *SPRITE LOAD s file shapes from s on
   *SPRITE             the sprites shown
 
-Up to 32 sprites (0-31) of 24 x 21 dots on the VIC-II's 8, reused down the screen by a raster interrupt (at most 8 on one line). *SPRITE ON loads that multiplexer below HIMEM and lowers HIMEM by 1.25K (at the prompt at once, in a program with the next MODE); *SPRITE OFF gives the memory back, as *SOUND NONE does for sound. A MODE hides all sprites.
+Up to 32 sprites (0-31) of 24 x 21 dots on the VIC-II's 8, reused down the screen by a raster interrupt (at most 8 on one line: a 9th drops out where 9 meet). *SPRITE ON loads that multiplexer below HIMEM and lowers HIMEM by 1.25K (at the prompt at once, in a program with the next MODE: put it before MODE); *SPRITE OFF gives the memory back, as *SOUND NONE does for sound. A MODE hides all sprites.
 
 x,y are BBC graphics coordinates (0-1279, 0-1023), of the sprite's bottom left corner; colours are BBC colours 0-15. Shapes: 3 bytes a row of 24 dots, 21 rows (as SpritePad), kept in the REU:
 
@@ -644,9 +647,13 @@ x,y are BBC graphics coordinates (0-1279, 0-1023), of the sprite's bottom left c
   *SPRITE DEFINE 0 FFFFFF...
   *SPRITE 0 ON 640,512
 
+*SPRITE LOAD reads SpritePad files (SPD version 1), files with a 3-byte header, or plain 64-byte shapes. Multicolour sprites have 12 x 21 double-wide dots in 4 colours: transparent, the sprite's own, and the pair *SPRITE COLOURS sets for all sprites (the VIC-II has one pair).
+
+In the graphics modes and MODE 7 the bitmap leaves room for two shapes: the multiplexer copies each sprite's shape in as it comes, so sprites on the same lines can have at most 2 different shapes (the text screen holds all 64).
+
 OSWORD &71 does it from programs without command parsing: block +0 sprite, +1 action (0 hide, 1 show at +2/+3 x, +4/+5 y, 2 shape +6, 3 colour +6, 4 collisions into +6: bit 0 another sprite, bit 1 the picture, cleared when read).
 
-U64: the text screen for now (the graphics modes and MODE 7 follow). Upic Lite cannot show VIC-II sprites: use MODE 128+n there. Needs an REU.
+Upic Lite cannot show VIC-II sprites: use MODE 128+n there. Needs an REU.
 
 @@ *SRWRITE | SRWRITE
   *SRWRITE <start> <end> <REU addr>

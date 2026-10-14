@@ -49,6 +49,10 @@ pal_ulb4:
 ;            KERNAL cursor off, and the engine clears the bitmap and
 ;            resets windows, cursors and colours.
 bk_mode:
+    lda spr_page                ; the sprite multiplexer out first: the
+    beq bkm_mode                ; mode sets $0314 itself (MODE 7), and an
+    farcall spr.sp_remove, BANK_RD ; unanswered raster interrupt would
+bkm_mode:                       ; come back for ever
     jsr bk_mode0
     lda spr_on                  ; sprites on: the multiplexer below the new
     beq bkm_rts                 ; HIMEM (or out: Upic Lite)
