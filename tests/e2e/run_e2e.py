@@ -1186,6 +1186,34 @@ def test_reu_irq(t):
     run_line(t, "*SOUND SID", ">")
 
 
+def test_snapshot(t):
+    # *SNAPSHOT: program and variables into a slot and back; the mode
+    # with them; a slot to a file and back; refused in a running program
+    if t.is_vice:
+        run_line(t, "*SNAPSHOT 1", "need an REU")
+        return
+    ult(t)                              # current directory /Temp
+    rm = remote(t)
+    rm.run_lines(["NEW", '10 PRINT "SNAP ";X%', 'X%=42:A$="HELLO"', "*SNAPSHOT 1"])
+    rm.run_lines(["NEW", 'X%=7:A$="BYE"', "*SNAPSHOT LOAD 1"])
+    out = rm.run_lines(['PRINT X%;" ";A$', "RUN"])["output"]
+    assert "42 HELLO" in out and "SNAP 42" in out, out
+    out = rm.run_lines(["*SNAPSHOT"])["output"]
+    assert re.search(r"^1 .*MODE 100", out, re.M), out
+    rm.run_lines(["MODE 7", "*SNAPSHOT 2", "MODE 100", "*SNAPSHOT LOAD 2"])
+    out = rm.run_lines(["A%=&87:M%=(USR&C7F4 AND &FF0000) DIV &10000",
+                        "MODE 100", 'PRINT "M=";M%'])["output"]
+    assert "M=7" in out, out
+    rm.run_lines(["*SNAPSHOT SAVE 1 SNAPTEST", "NEW", "*SNAPSHOT LOAD SNAPTEST"])
+    out = rm.run_lines(["RUN"])["output"]
+    assert "SNAP 42" in out, out
+    run_line(t, "*DELETE SNAPTEST", ">")
+    run_line(t, "*SNAPSHOT 10", "Bad slot")
+    r = rm.send_program('10 OSCLI "SNAPSHOT 3"\n', run=True, timeout=10)
+    assert r["error"] and "prompt only" in r["error"]["message"], r
+    run_line(t, "NEW", ">")
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -1606,7 +1634,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_net, test_json, test_netchan, test_classics,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_net, test_json, test_netchan, test_classics,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

@@ -38,7 +38,7 @@ Everything in this manual's reference sections is also on the machine:
 
 BBC BASIC programs run: the BBC BASIC 3.10 language and the behaviour of the VDU, graphics, sound and file statements.
 
-This is not a BBC Micro emulator. The BBC memory map (screen memory, MODE 7 teletext), the BBC hardware at &FE00, the MOS internals and BBC machine code are not there. Programs that poke the machine, or CALL machine code written for the BBC, do not work.
+This is not a BBC Micro emulator. MODE 7's screen memory is at &7C00 as on the BBC, so programs that write teletext codes there work; the other modes keep their pictures elsewhere (see MODE and MEMORY). The BBC hardware at &FE00, the MOS internals and BBC machine code are not there: programs that poke the BBC's hardware, or CALL machine code written for the BBC, do not work.
 
 The MOS calls a program can use are those in *HELP OSBYTE, *HELP OSWORD and *HELP MEMORY.
 

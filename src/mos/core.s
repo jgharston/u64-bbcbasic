@@ -352,7 +352,7 @@ vdu_tabdone:
 ; drawing engine at ENGINE (gfx.s), which also draws their text.
 
 ; mode state, shared with the engine and with OSBYTE in bank 0
-vmode       dta 7               ; current MODE number
+vmode       dta 100             ; current MODE number (start-up: the C64 text screen)
 vtype       dta 0               ; 0: text screen, 1: VIC-II bitmap
 vmode_mc    dta 0               ; 1: multicolour bitmap
 vmode_cols  dta 40              ; text columns, rows

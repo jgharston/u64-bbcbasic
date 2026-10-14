@@ -19,6 +19,44 @@ ck_cmd      = mosARGS           ; ck_dma: the REU command
 KEY_MAX     = 63                ; characters per key
 
 ; ----------------------------------------------------------------------------
+; key_init
+;   Summary: no key texts at the cold start.
+;   Function: the REU keeps its contents over a reset and holds anything
+;            after power-on: the ten slots (REU_KEYS, 640 bytes) are set to
+;            0 by one DMA from a 0 byte with the C64 address held still.
+;   Input:   reu_banks.  Output: the slots empty.  Uses: A, reu_tmp.
+key_init:
+    lda reu_banks
+    ora reu_banks+1
+    beq ki_rts
+    lda #0
+    sta reu_tmp
+    php                         ; (interrupts off while the REU is set up)
+    sei
+    sta REU_ADDR
+    sta REU_BANK
+    sta REU_LEN
+    lda #>REU_KEYS
+    sta REU_ADDR+1
+    lda #>[10*64]
+    sta REU_LEN+1
+    lda #<[10*64]
+    sta REU_LEN
+    lda #<reu_tmp
+    sta REU_C64
+    lda #>reu_tmp
+    sta REU_C64+1
+    lda #$80                    ; the C64 address held
+    sta REU_CTRL
+    lda #REU_TO_REU
+    sta REU_CMD
+    lda #0
+    sta REU_CTRL
+    plp
+ki_rts:
+    rts
+
+; ----------------------------------------------------------------------------
 ; key_avail
 ;   Summary: is there a key to read (typed, or an expansion going on)?
 ;   Input:   none.  Output: Z = 0 yes, Z = 1 no.  Uses: A.

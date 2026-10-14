@@ -99,10 +99,11 @@ VDU          VPOS         WIDTH
 *NET         *PALETTE     *PARTITION
 *PARTITIONS  *PWD         *RENAME
 *SAVE        *SETTIME     *SHADOW
-*SID         *SONG        *SOUND
-*SRREAD      *SRWRITE     *STATUS
-*SWAP        *TIME        *TURBO
-*TYPE        *UNMOUNT     *UVER
+*SID         *SNAPSHOT    *SONG
+*SOUND       *SRREAD      *SRWRITE
+*STATUS      *SWAP        *TIME
+*TURBO       *TYPE        *UNMOUNT
+*UVER
 ```
 
 ## BBC
@@ -115,12 +116,15 @@ BBC BASIC programs run: the BBC BASIC
 VDU, graphics, sound and file
 statements.
 
-This is not a BBC Micro emulator. The
-BBC memory map (screen memory, MODE 7
-teletext), the BBC hardware at &FE00,
-the MOS internals and BBC machine code
-are not there. Programs that poke the
-machine, or CALL machine code written
+This is not a BBC Micro emulator. MODE
+7's screen memory is at &7C00 as on the
+BBC, so programs that write teletext
+codes there work; the other modes keep
+their pictures elsewhere (see MODE and
+MEMORY). The BBC hardware at &FE00, the
+MOS internals and BBC machine code are
+not there: programs that poke the BBC's
+hardware, or CALL machine code written
 for the BBC, do not work.
 
 The MOS calls a program can use are
@@ -1012,6 +1016,41 @@ graphics modes lines are typed without
 editing.
 ```
 
+## *SNAPSHOT
+
+Also: `SNAPSHOT`
+
+```
+  *SNAPSHOT n          take (slot 1-9)
+  *SNAPSHOT LOAD n     back to it
+  *SNAPSHOT            list the slots
+  *SNAPSHOT SAVE n f   slot to file f
+  *SNAPSHOT LOAD f     from file f
+
+A snapshot keeps BASIC's world in the
+REU: the program, its variables,
+BASIC's workspace and zero page (not
+&52-&6F), the screen mode, with the
+time it was taken. Taking and restoring
+take a moment. Take it at the prompt;
+LOAD brings the program and the
+variables back as they were (the
+screen's content is not kept). PAGE
+must be the same as when it was taken.
+
+  *SNAPSHOT 1
+  NEW
+  *SNAPSHOT LOAD 1
+
+Slots 1-9 lie at &B8000-&FFFFF
+(*SRWRITE and OSWORD &42 stop below
+&B0000) and go when the power goes off;
+SAVE copies a slot to a file on the
+Ultimate's drives, LOAD with a name
+reads one back. Needs an REU of 1 MB or
+more.
+```
+
 ## *SHADOW
 
 Also: `SHADOW`
@@ -1324,10 +1363,11 @@ Copies memory to the REU, as the BBC
 Master's sideways RAM command. Programs
 keep data there (tables, levels, text,
 pictures) and fetch it with *SRREAD.
-REU addresses from &40000 up to the
-REU's size (&40000-&FFFFFF with 16 MB);
-memory from PAGE to &7FFF. Numbers
-decimal or &hex.
+REU addresses &40000-&AFFFF (448K;
+above them the snapshots, *SNAPSHOT,
+and from &100000 the RAM disk); memory
+from PAGE to &7FFF. Numbers decimal or
+&hex.
 
   *SRWRITE &3000 +&1000 &40000
 

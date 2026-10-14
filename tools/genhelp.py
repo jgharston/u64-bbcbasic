@@ -112,7 +112,7 @@ def main():
             seen[name] = n
 
     if args.commands:
-        cmds = re.findall(r"dta '([A-Z]+)', 0, a\(\w+\), BANK_\w+",
+        cmds = re.findall(r"dta '([A-Z]+)', 0, a\([\w.]+\), BANK_\w+",
                           open(args.commands).read())
         missing = [c for c in cmds if "*" + c not in seen]
         if missing:

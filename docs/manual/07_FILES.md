@@ -251,7 +251,7 @@ first 256K):
 *SRWRITE <start> +<len> <REU addr>
 ```
 
-Copies memory to the REU, as the BBC Master's sideways RAM command. Programs keep data there (tables, levels, text, pictures) and fetch it with *SRREAD. REU addresses from &40000 up to the REU's size (&40000-&FFFFFF with 16 MB); memory from PAGE to &7FFF. Numbers decimal or &hex.
+Copies memory to the REU, as the BBC Master's sideways RAM command. Programs keep data there (tables, levels, text, pictures) and fetch it with *SRREAD. REU addresses &40000-&AFFFF (448K; above them the snapshots, *SNAPSHOT, and from &100000 the RAM disk); memory from PAGE to &7FFF. Numbers decimal or &hex.
 
 ```
 *SRWRITE &3000 +&1000 &40000

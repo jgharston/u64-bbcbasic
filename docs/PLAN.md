@@ -964,3 +964,25 @@ set. Not with `*EDIT C64` (the KERNAL reads the keys).
 CAPS LOCK (2026-10-10): Shift+C= switches it (irq_keylog; off = the
 KERNAL's own tables), OSBYTE &CA reads and sets it (bit 4).
 
+## 26. Snapshots, then sprites, then Upic full (owner, 2026-10-14)
+
+Snapshots (built): `*SNAPSHOT n` takes BASIC's world at the prompt into
+REU slot n (1-9, &B8000-&FFFFF, 32K each; slot 0 at &B0000 is the
+working slot for files): BASIC's zero page ($02-$51; the user's $70-$8F),
+its workspace &0400-&07FF and PAGE..HIMEM, with the mode, PAGE, HIMEM
+and the time in a header. `*SNAPSHOT LOAD n` sets the mode first, then
+copies everything back: BASIC finishes the restored line and is at the
+prompt with the program and variables as they were (taken at the prompt
+only: the interpreter's 6502 stack is then the same). `*SNAPSHOT SAVE n
+file` / `LOAD file` copy a slot to and from the Ultimate's drives (the
+owner chose both). `*SRWRITE`/OSWORD &42 now stop at &AFFFF.
+
+Next, in this order (owner): sprites with multiplexing (`*SPRITE`:
+define, position in BBC coordinates, colour, collisions; up to ~32 by
+raster interrupt; VIC-II modes, MODE 7, MODE 100; Upic Lite to be
+tested), then Upic full (MODE 110/111, DESIGN_GRAPHICS section 10).
+
+Garbage collection (owner): not in the interpreter (it stays the
+reference ROM, `make compare-core`); instead a manual section on keeping
+the string heap from filling (manual chapter 12).
+

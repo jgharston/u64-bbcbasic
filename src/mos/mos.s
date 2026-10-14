@@ -72,6 +72,7 @@ cold:
     farcall fs_init, BANK_FS    ; find the Ultimate (up to 0.5 s)
     farcall sid_auto, BANK_FS   ; fewer than 8 SIDs: the 8SID layout
     jsr font_to_reu             ; fonts for MODE changes and bitmap text
+    jsr key_init                ; no *KEY texts
     farcall font_keepdef, BANK_FS ; and the start-up font for *FONT DEFAULT
     farcall snd_instinit, BANK_SND ; default instruments to the REU
     farcall rd_boot, BANK_RD    ; the REU RAM disk
@@ -1811,6 +1812,7 @@ cmd_table:
     dta 'SAVE', 0, a(cmd_save), BANK_FS
     dta 'SETTIME', 0, a(cmd_settime), BANK_FS
     dta 'SHADOW', 0, a(cmd_shadow), BANK_MOS
+    dta 'SNAPSHOT', 0, a(snap.cmd_snapshot), BANK_RD
     dta 'SONG', 0, a(cmd_song), BANK_SND
     dta 'SOUND', 0, a(cmd_sound), BANK_SND
     dta 'SRREAD', 0, a(cmd_srread), BANK_FS
