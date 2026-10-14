@@ -1533,6 +1533,103 @@ def test_mode1_font(t):
     assert "F=40,A0,E0,A0,A0,0,0,0," in r and "-1 0" in r, r
 
 
+def gxr_file(sprites):
+    """A GXR sprite file (BBC Micro / Master format, checked against the
+    GXR sprite disc): length (2), count, then per sprite width in bytes -
+    1, height - 1, data size (2), mode, number and the mode's screen
+    bytes, rows top to bottom, each row's bytes right to left.
+    sprites: [(number, mode, rows of logical colours)]."""
+    def enc(px, mode):
+        if mode == 2:
+            b = 0
+            for i, c in enumerate(px):          # pixel i: bits 7-i,5-i,3-i,1-i
+                for k, bit in enumerate((3, 2, 1, 0)):
+                    if c >> bit & 1:
+                        b |= 1 << (7 - i - 2 * k)
+            return b
+        b = 0                                   # MODE 1/5: bits 7-i, 3-i
+        for i, c in enumerate(px):
+            b |= (c >> 1 & 1) << (7 - i) | (c & 1) << (3 - i)
+        return b
+    body = bytearray()
+    for num, mode, rows in sprites:
+        ppb = 2 if mode == 2 else 4
+        wb = len(rows[0]) // ppb
+        data = bytearray()
+        for row in rows:
+            bs = [enc(row[i * ppb:(i + 1) * ppb], mode) for i in range(wb)]
+            data += bytes(bs[::-1])
+        body += bytes([wb - 1, len(rows) - 1, len(data) & 255, len(data) >> 8,
+                       mode, num]) + data
+    n = len(body) + 3
+    return bytes([n & 255, n >> 8, len(sprites)]) + bytes(body)
+
+
+def test_gxr(t):
+    # GXR software sprites (docs/DESIGN_SPRITES.md 6): *SGET, PLOT 237,
+    # EOR erases, *SMASK; a replaced sprite; *SRENUMBER, *SDELETE; *SSAVE
+    # and *SLOAD back; VDU 23,27; GXR files decoded (MODE 2 and 1)
+    if t.is_vice:
+        run_line(t, "*SNEW", "Sprites need an REU")
+        return
+    if not ult(t):
+        return
+    rm = remote(t)
+    prog = "\n".join([
+        "10 MODE 132",
+        "20 GCOL 0,1:*CIRCLE FILL 100,100,60",
+        "30 MOVE 40,40:MOVE 160,160:*SGET 1",
+        "40 MOVE 40,40:MOVE 160,160:*SGET 1",
+        "50 GCOL 0,0:PLOT 237,600,600",
+        '60 A$=STR$POINT(660,660)+STR$POINT(600,600)',
+        "70 GCOL 3,0:PLOT 237,600,600",
+        "80 A$=A$+STR$POINT(660,660)",
+        "90 *SMASK 1 0",
+        "100 GCOL 0,1:*RECTANGLE FILL 800,300,200,200",
+        "110 GCOL 0,0:PLOT 237,820,320",
+        "120 A$=A$+STR$POINT(830,330)+STR$POINT(880,380)",
+        "130 *SRENUMBER 1,5",
+        "140 *SCHOOSE 5",
+        "150 GCOL 0,0:PLOT 237,300,700",
+        "160 A$=A$+STR$POINT(360,760)",
+        "170 *SSAVE GXRT",
+        "180 *SNEW",
+        "190 *SLOAD GXRT",
+        "200 VDU 23,27,0,5,0,0,0,0,0,0",
+        "210 PLOT 237,1000,700",
+        "220 A$=A$+STR$POINT(1060,760)",
+        "230 *SDELETE 5",
+        '240 PRINT "R=";A$', ""])
+    rm.run_lines(["*DIR /Temp"])
+    r = rm.send_program(prog, run=True, timeout=60)
+    assert "R=1001111" in r["output"], r
+    out = rm.run_lines(["*SCHOOSE 5"])
+    assert out["error"] and "exist" in out["error"]["message"], out
+    # GXR files: a MODE 2 sprite (2 x 2 bytes: 4 x 2 pixels) and a MODE 1
+    # one (1 byte: 4 x 1); POINT reads them back
+    m2 = [[1, 2, 9, 15], [0, 7, 8, 3]]
+    m1 = [[0, 1, 2, 3]]
+    data = gxr_file([(7, 2, m2), (8, 1, m1)])
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", "")
+        ftp.storbinary("STOR /Temp/GXRF", io.BytesIO(data))
+    prog = "\n".join([
+        "10 MODE 2",
+        "20 *SLOAD GXRF",
+        "30 *SCHOOSE 7",
+        "40 GCOL 0,0:PLOT 237,0,0",
+        '50 A$="":FOR R%=0 TO 1:FOR C%=0 TO 3',
+        '60 A$=A$+CHR$(48+POINT(C%*8+4,(1-R%)*4+2)):NEXT:NEXT',
+        "70 *SCHOOSE 8",
+        "80 PLOT 237,0,100",
+        '90 FOR C%=0 TO 3:A$=A$+CHR$(48+POINT(C%*8+4,102)):NEXT',
+        '100 PRINT "G=";A$', ""])
+    r = rm.send_program(prog, run=True, timeout=60)
+    want = "".join(chr(48 + c) for c in m2[0] + m2[1] + m1[0])
+    assert "G=" + want in r["output"], (want, r)
+    rm.run_lines(["MODE 100", "*SNEW", "*DELETE GXRT", "*DELETE GXRF"])
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -1953,7 +2050,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_net, test_json, test_netchan, test_classics,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_net, test_json, test_netchan, test_classics,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

@@ -1031,6 +1031,27 @@ domain) in its 4-pixel cells, swapped into the REU font while the mode is
 on; the 8x8 glyphs drawn there showed only their left halves. Upic Lite's
 MODE 1 keeps its 40 sharp columns.
 
+Sprite editor (owner, 2026-10-14): one editor for both kinds, built
+into the MOS (bank 7): `*SEDIT n` (GXR sprite n) and `*SEDIT VIC s`
+(hardware shape s); a text-screen grid (one character cell a pixel, 16
+colours, scrolling for big GXR sprites) with the palette and keys at the
+side and a VIC shape previewed at size as a real sprite; drawing (cursor
+keys, colours 0-F, SPACE, C, RETURN keeps, ESCAPE cancels), transforms
+(flip, shift), size and new sprites (GXR: width/height, another sprite
+copied in), fill. The previous mode is set again afterwards (cleared).
+
+More GXR (owner, 2026-10-14, after the editor): PLOT 72-79 and 88-95
+(horizontal line fills), PLOT 184-191 (move/copy a rectangle), VDU 23,6
+and *FX 163,242 (the dot-dash pattern), VDU 23,2-5 (ECF patterns as
+screen bytes), *FLOOD/*NOFLOOD/*GXR/*NOGXR accepted.
+
+Acorn compatibility (owner, 2026-10-14, after the editor and the GXR
+remainder): INKEY(-n) key scanning (BBC key numbers on the C64 matrix)
+and INKEY(-256); ADVAL(0-4) with the C64 joysticks/paddles and the 1351
+mouse (Master style); *FX19, 4, 11, 12, 200, 220, 229; the DFS commands
+*EXEC, *SPOOL, *BUILD, *DUMP, *INFO, *ACCESS, *RUN; a BASIC toolkit
+(*FIND, *REPLACE, *VARLIST, *XREF, *PACK); speech (*SAY, SAM-style).
+
 Garbage collection (owner): not in the interpreter (it stays the
 reference ROM, `make compare-core`); instead a manual section on keeping
 the string heap from filling (manual chapter 12).

@@ -76,6 +76,11 @@ cold:
     lda #0                      ; Upic full: auto-show on, nothing drawn
     sta UP_DIRTY
     sta FONT46                  ; (the REU font: the normal glyphs)
+    lda reu_banks               ; GXR sprites: none (with an REU)
+    ora reu_banks+1
+    beq cold_nogxr
+    farcall gxr.gxr_init, BANK_RD
+cold_nogxr:
     farcall font_keepdef, BANK_FS ; and the start-up font for *FONT DEFAULT
     farcall snd_instinit, BANK_SND ; default instruments to the REU
     farcall rd_boot, BANK_RD    ; the REU RAM disk
@@ -1871,6 +1876,17 @@ cmd_table:
     dta 'GCOL', 0, a(bvc.cmd_gcol), BANK_UP
     dta 'OFF', 0, a(bvc.cmd_off), BANK_UP
     dta 'ON', 0, a(bvc.cmd_on), BANK_UP
+    dta 'SCHOOSE', 0, a(gxr.cmd_schoose), BANK_RD
+    dta 'SDELETE', 0, a(gxr.cmd_sdelete), BANK_RD
+    dta 'SEDIT', 0, a(gxr.cmd_sedit), BANK_RD
+    dta 'SGET', 0, a(gxr.cmd_sget), BANK_RD
+    dta 'SLOAD', 0, a(gxr.cmd_sload), BANK_RD
+    dta 'SMASK', 0, a(gxr.cmd_smask), BANK_RD
+    dta 'SMERGE', 0, a(gxr.cmd_smerge), BANK_RD
+    dta 'SNEW', 0, a(gxr.cmd_snew), BANK_RD
+    dta 'SRENUMBER', 0, a(gxr.cmd_srenumber), BANK_RD
+    dta 'SSAVE', 0, a(gxr.cmd_ssave), BANK_RD
+    dta 'SSPACE', 0, a(gxr.cmd_sspace), BANK_RD
     dta 'SONG', 0, a(cmd_song), BANK_SND
     dta 'SOUND', 0, a(cmd_sound), BANK_SND
     dta 'SRREAD', 0, a(cmd_srread), BANK_FS

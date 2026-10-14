@@ -678,6 +678,11 @@ bk_vdu23:
     bcc v23_ctl
     jmp v23_char
 v23_ctl:
+    cmp #27                     ; VDU 23,27,m,n: GXR sprites (bank 8)
+    bne v23_n27
+    farcall gxr.gxr_vdu23, BANK_RD
+    rts
+v23_n27:
     cmp #1
     bne v23_ecf
     lda vdubuf+1

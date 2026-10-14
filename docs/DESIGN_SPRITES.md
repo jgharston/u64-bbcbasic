@@ -144,3 +144,57 @@ Options for the bitmap modes, to decide:
   sprite's own colour.
 - Not yet: `*SPRITE LOAD` does not take SPD's colours; SPD versions 2+
   (SpritePad 2) give an error.
+
+## 6. GXR software sprites (owner, 2026-10-14)
+
+The BBC Master's / GXR's sprites: drawn into the picture by the engine,
+so they work in every graphics mode, Upic Lite and Upic full included
+(where the VIC-II's sprites cannot show).
+
+GXR, as found in its ROM (tobylobster's annotated reassembly) and on its
+sprite disc (ZornsLemma/GXR, discs/..._Sprites.orig.ssd):
+
+- `*SGET n` / `VDU 23,27,1,n,0,0,0,0,0,0`: the rectangle between the
+  last two graphics points becomes sprite n, selected. `*SCHOOSE n` /
+  `VDU 23,27,0,n,...`: select. `PLOT 232-239` (&E8-&EF, group 29):
+  the selected sprite with its bottom-left corner at x,y, every pixel
+  through the GCOL action (no transparency), clipped to the window.
+- `*SDELETE n`, `*SNEW`, `*SRENUMBER n,m` (m replaced), `*SLOAD f`
+  (replace all), `*SMERGE f` (add), `*SSAVE f`, `*SSPACE n` (pages of
+  sprite memory), `*SEDIT n` (editor).
+- File: 2 bytes length, 1 byte count, then per sprite 6 bytes (width in
+  bytes - 1, height - 1, data size low/high, mode, number) and the data:
+  rows top to bottom, each row's bytes right to left, the mode's screen
+  bytes (MODE 0/4 1 bit, 1/5 2 bits interleaved b7/b3..., 2 4 bits
+  b7/b5/b3/b1). Checked by decoding the disc's S.ROCKETS, S.CHOPPER etc.
+
+Here (owner's decisions): every pixel as its logical colour (one byte),
+so a sprite plots in any mode, sized in the device pixels it was taken
+in; `*SMASK n c` (new) leaves colour c out when plotting; *SLOAD/*SMERGE
+read real GXR files (decoded by their mode) and our own format;
+`*SSAVE` writes ours; `*SEDIT` later.
+
+- Store: REU bank 1, &4000 the selected sprite's descriptor (data
+  address, width, height, mask, valid), &4006 its number, &4008 the data
+  end; &4100 a directory of 256 entries (address, width, height, mask,
+  used); data &4800-&FFFF (46K). Delete and replace close the gap.
+- Plot (bank 3, group 29): the descriptor, then a small loop copied to
+  MOSBUF (turbo speed: bank code runs at 1 MHz) reads the pixels from
+  the REU one by one (fixed C64 address, the REU's address counting on;
+  interrupts off for the whole sprite, so the sound interrupt cannot
+  move the REU registers) and plots each through the engine's PSET with
+  the GCOL action (k AND 3 as for shapes), skipping the mask colour.
+  Upic Lite: its engine sends group 29 to bank 3 as well (its RAM copy
+  of the shapes has no room).
+- **Built and measured** (2026-10-14, U64-II): `*SGET`/PLOT 237/EOR/mask
+  in MODE 132, 2 and 110; the GXR sprite disc's S.CHOPPER (MODE 2,
+  26 x 16) and S.DOG (MODE 1, 44 x 24) load pixel-exact; 100 plots of a
+  32 x 32 sprite take 1.65 s (MODE 132), 1.74 s (MODE 2, Upic Lite),
+  1.85 s (MODE 110): about 50 sprites a second. E2E test `gxr` (with GXR
+  files made from the format, as the disc's own files are Acornsoft's).
+- Found on the way: replacing a sprite moved its data (gx_delete) with
+  the same variables *SGET kept its box in, and the reselect changed the
+  sprite number being written: both kept now.
+- Code: the store and commands in bank 5 (gxr.s; bank 8 is full), the
+  plot in the shapes' bank 3 copy (bs_sprite) with its loop run from
+  MOSBUF; Upic Lite's engine routes group 29 there.

@@ -33,3 +33,7 @@ C64's text screen, MODE 103 and 104 the C64's own bitmap modes.
 ## 8.7 BASIC V graphics commands
 
 @@help *RECTANGLE
+
+## 8.8 GXR software sprites
+
+@@help *SGET

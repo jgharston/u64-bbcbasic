@@ -234,6 +234,13 @@ class Remote:
                 mb = self.mailbox()
             except ShowingError:
                 return b""
+        if getattr(self, "_ring_r", None) is not None:
+            # a read position written while a show began went into the
+            # picture's RAM and was lost with the swap back: again
+            self.write(MBOX + MB_RINGR, [self._ring_r])
+            mb = bytearray(mb)
+            mb[MB_RINGR] = self._ring_r
+            self._ring_r = None
         w, r = mb[MB_RINGW], mb[MB_RINGR]
         if w == r:
             return b""
@@ -244,6 +251,8 @@ class Remote:
             if w:
                 out += self.read(MBOX + MB_RING, w)
         self.write(MBOX + MB_RINGR, [w])
+        if self.read(MBOX, 4) != b"BBCR":       # a show began meanwhile
+            self._ring_r = w
         return out
 
     # --- operations ----------------------------------------------------------

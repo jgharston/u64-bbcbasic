@@ -8,6 +8,7 @@
     icl 'reudisk.s'
     icl 'snapshot.s'
     icl 'sprite.s'
+    icl 'gxr.s'
 
 bank5_end:
     .if bank5_end > $C000

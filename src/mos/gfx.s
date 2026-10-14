@@ -622,6 +622,15 @@ ep_n8:
     bne ep_n12
     jmp e_rectplot
 ep_n12:
+    .if GXUL
+    .if GXUP = 0
+    cmp #29                     ; Upic Lite: GXR sprites (PLOT 232-239) by
+    bne ep_n29                  ; the shapes' bank copy (bs_sprite), whose
+    lda #0                      ; RAM copy has no room: vmode_ul 0 for the
+    sta vmode_ul                ; core's sh_call; bs_sprite sets it back
+ep_n29:
+    .endif
+    .endif
     rts                         ; not yet: ignored
 
 ; e_setcol: colour and action from k AND 3 (1 fg, 2 inverse, 3 bg)

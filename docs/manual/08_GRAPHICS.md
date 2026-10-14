@@ -324,3 +324,34 @@ X%=640:Y%=512:R%=200
 *CIRCLE FILL X%,Y%,R%
 *RECTANGLE 0,0,1279,100
 ```
+
+
+## 8.8 GXR software sprites
+
+#### `*SGET` (also `*SCHOOSE`, `SCHOOSE`, `*SDELETE`, `SDELETE`, `*SNEW`, `SNEW`, `*SRENUMBER`, `SRENUMBER`, `*SLOAD`, `SLOAD`, `*SMERGE`, `SMERGE`, `*SSAVE`, `SSAVE`, `*SSPACE`, `SSPACE`, `*SMASK`, `SMASK`, `*SEDIT`, `SEDIT`, `GXR`)
+
+```
+*SGET n        the last 2 points' box
+*SCHOOSE n     select sprite n
+PLOT 237,x,y   plot it (232-239)
+*SDELETE n     *SNEW (all)
+*SRENUMBER n,m n becomes m
+*SMASK n c|OFF colour c left out
+*SLOAD f       *SMERGE f  *SSAVE f
+*SSPACE n      (accepted)
+VDU 23,27,0,n  select; 23,27,1,n get
+```
+
+Software sprites as the BBC Master's GXR: pictures taken from the screen and plotted anywhere, drawn into the picture by the graphics engine, so they work in every graphics mode, Upic Lite and Upic full included (VIC-II sprites: see SPRITE).
+
+*SGET n takes the rectangle between the last two graphics points (MOVE, MOVE), up to 192 x 255 pixels, as sprite n (0-255) and selects it; *SCHOOSE n selects one. PLOT 232-239 plots the selected sprite with its bottom-left corner at x,y (k AND 3 and the GCOL action as for any PLOT: GCOL 3 EOR draws and erases), clipped to the graphics window. A sprite keeps its size in pixels of the mode it was taken in.
+
+*SMASK n c (U64) leaves colour c out when sprite n is plotted, so it sits over a background without its box; *SMASK n OFF plots every pixel again (as the GXR).
+
+*SLOAD reads a sprite file (all sprites replaced), *SMERGE adds one: our own format, or real GXR sprite files from a BBC Micro or Master (MODE 0, 1, 2, 4, 5), decoded from their mode. *SSAVE writes our format. Sprites live in the REU (46K); *SSPACE is accepted for GXR programs. *SEDIT (the editor) is not there yet. Needs an REU.
+
+```
+MOVE 0,0:MOVE 63,63:*SGET 1
+*SCHOOSE 1
+GCOL 0,0:PLOT 237,640,512
+```

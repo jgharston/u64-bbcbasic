@@ -62,12 +62,18 @@ bsp_go:
     rts
 bs_groups:
     dta 10, 14, 18, 19, 24, 25, 27, 28, 30, 16, 17, 20, 21, 22
+    .if SHRAM = 0
+    dta 29                      ; GXR sprites (bank copy only: bs_sprite)
+    .endif
 bs_groups_end:
 bs_jumps:
     dta a(bs_tri-1), a(bs_par-1), a(bs_circle-1), a(bs_circfill-1)
     dta a(bs_ellipse-1), a(bs_ellfill-1), a(bs_rectout-1), a(bs_triout-1)
     dta a(bs_parout-1), a(bs_flood-1), a(bs_flood-1), a(sh_arc-1)
     dta a(sh_arc-1), a(sh_arc-1)
+    .if SHRAM = 0
+    dta a(bs_sprite-1)
+    .endif
 bs_flood:
     jmp sh_flood
 bs_tri:
@@ -2232,3 +2238,160 @@ sha_sin:
     dta a($B8E4), a($BB86), a($BE32), a($C0E9), a($C3AA), a($C674), a($C946), a($CC21)
     dta a($CF05), a($D1EF), a($D4E1), a($D7DA), a($DAD8), a($DDDD), a($E0E6), a($E3F5)
     dta a($E707), a($EA1E), a($ED38), a($F055), a($F374), a($F696), a($F9B8), a($FCDC)
+
+    .if SHRAM = 0
+; ----------------------------------------------------------------------------
+; bs_sprite
+;   Summary: PLOT 232-239 (group 29): the selected GXR sprite with its
+;            bottom-left corner at the graphics cursor (docs/DESIGN_SPRITES.md
+;            6), each pixel through the GCOL action set for the plot code,
+;            the mask colour left out, clipped to the graphics window.
+;   Function: the descriptor from the REU (GXR_DESC, gxr.s); the corner
+;            to device pixels; the pixel loop (bss_loop) copied to MOSBUF
+;            and run there: turbo speed, where this bank runs at 1 MHz.
+;            Upic Lite's engine sends group 29 here too (its RAM copy of
+;            this module has no room): vmode_ul is set back afterwards.
+;   Uses:    A, X, Y, ex, ey, ecol, pk_x, pk_y, MOSBUF.
+bs_sprite:
+    php
+    sei
+    lda #<SPD                   ; the descriptor (6 bytes)
+    sta REU_C64
+    lda #>SPD
+    sta REU_C64+1
+    lda #<GXR_DESC
+    sta REU_ADDR
+    lda #>GXR_DESC
+    sta REU_ADDR+1
+    lda #GXR_BANK
+    sta REU_BANK
+    lda #6
+    sta REU_LEN
+    lda #0
+    sta REU_LEN+1
+    sta REU_CTRL
+    lda #REU_TO_C64
+    sta REU_CMD
+    plp
+    lda SPD+5
+    beq bss_done
+    lda gcx                     ; the corner (the new point) to pixels
+    sta pk_x
+    lda gcx+1
+    sta pk_x+1
+    lda gcy
+    sta pk_y
+    lda gcy+1
+    sta pk_y+1
+    ldx #GX_TODEV
+    jsr gx_call
+    lda ex
+    sta SP_X0
+    lda ex+1
+    sta SP_X0+1
+    lda SPD+3                   ; the top row: ey - (height - 1)
+    sec
+    sbc #1
+    sta SP_T
+    lda ey
+    sec
+    sbc SP_T
+    sta ey
+    lda ey+1
+    sbc #0
+    sta ey+1
+    ldx #bss_len-1              ; the loop into MOSBUF
+bss_cp:
+    lda bss_load,x
+    sta MOSBUF,x
+    dex
+    bpl bss_cp
+    lda epat                    ; (no ECF pattern for the sprite's pixels)
+    pha
+    lda #0
+    sta epat
+    jsr MOSBUF
+    pla
+    sta epat
+bss_done:
+    lda eng_kind                ; Upic Lite: its RAM copy again
+    cmp #1
+    bne bss_rts
+    sta vmode_ul
+bss_rts:
+    rts
+
+; The pixel loop, run at MOSBUF. Every pixel sets all REU registers: the
+; Upic full engine uses the REU between two pixels. Interrupts off for
+; the whole sprite.
+SPD         = MOSBUF+$B0        ; the descriptor: address (2), width,
+SP_X0       = MOSBUF+$B6        ; height, mask, valid; the left x (2);
+SP_T        = MOSBUF+$B8        ; scratch; the pixel; columns, rows to go
+SP_PIX      = MOSBUF+$B9
+SP_C        = MOSBUF+$BA
+SP_R        = MOSBUF+$BB
+bss_load:
+    .local bssl
+    org MOSBUF, bss_load
+    php
+    sei
+    lda SPD+3
+    sta SP_R
+row:
+    lda SP_X0
+    sta ex
+    lda SP_X0+1
+    sta ex+1
+    lda SPD+2
+    sta SP_C
+col:
+    lda #<SP_PIX
+    sta REU_C64
+    lda #>SP_PIX
+    sta REU_C64+1
+    lda SPD
+    sta REU_ADDR
+    lda SPD+1
+    sta REU_ADDR+1
+    lda #GXR_BANK
+    sta REU_BANK
+    lda #1
+    sta REU_LEN
+    lda #0
+    sta REU_LEN+1
+    sta REU_CTRL
+    lda #REU_TO_C64
+    sta REU_CMD
+    inc SPD
+    bne nx
+    inc SPD+1
+nx:
+    lda SP_PIX
+    cmp SPD+4
+    beq skip
+    sta ecol
+    ldx #GX_PSET
+    jsr gx_call
+skip:
+    inc ex
+    bne ex1
+    inc ex+1
+ex1:
+    dec SP_C
+    bne col
+    inc ey
+    bne ey1
+    inc ey+1
+ey1:
+    dec SP_R
+    bne row
+    plp
+    rts
+LEN         = * - MOSBUF
+    .endl
+bss_len     = bssl.LEN
+    org bss_load + bss_len
+    .if bss_len > $B0
+    .error "Sprite plot loop over MOSBUF+$B0"
+    .endif
+    .endif
