@@ -131,6 +131,13 @@ def call(name, args):
     if not host:
         return {"ok": False, "error": {"message": "no host: set U64_HOST or ULTIP1 in .env"}}
     r = u64remote.Remote(host, os.environ.get("ULTIMATE_PASSWORD"))
+    try:
+        return call_remote(r, name, args)
+    finally:                    # nobody reads the ring between calls
+        r.release()
+
+
+def call_remote(r, name, args):
     timeout = float(args.get("timeout", 30))
     if name == "bbc_run":
         return r.send_program(args["program"], run=True, timeout=timeout)

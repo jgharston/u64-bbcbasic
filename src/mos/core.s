@@ -171,9 +171,10 @@ wrr_done:
 ; wr_tee
 ;   Summary: copy an output byte into the remote output ring.
 ;   Function: when the ring is full, waits for the host to read it, for
-;            2.56 to 5.12 seconds (TIME); then capture is switched off so
-;            a host that went away cannot hang the machine. ESCAPE also
-;            leaves the wait.
+;            at most a second (TIME); then capture is switched off so a
+;            host that went away holds the output up only once and
+;            briefly (a host that is there reads every few centiseconds).
+;            ESCAPE also leaves the wait.
 ;   Input:   A = byte.  Output: MB_RING, MB_RINGW.
 ;   Uses:    A, X, mosTMP+2/+3.
 wr_tee:
@@ -185,18 +186,18 @@ wr_tee:
     cmp MB_RINGR
     bne wt_store                ; room left
     sta mosTMP+3
-    lda mostime+1               ; full: wait for the host, 2.56-5.12 s
-    sta mosTMP+2                ; (TIME high byte at the start)
+    lda mostime                 ; full: wait for the host, up to 1 s
+    sta mosTMP+2                ; (TIME low byte at the start)
 wt_wait:
     bit ESCFLG
     bmi wt_off
     lda mosTMP+3
     cmp MB_RINGR
     bne wt_go
-    lda mostime+1
+    lda mostime
     sec
     sbc mosTMP+2
-    cmp #2
+    cmp #100
     bcc wt_wait
 wt_off:
     lda #0                      ; host gone: capture off

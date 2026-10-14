@@ -32,6 +32,7 @@ import argparse
 import json
 import os
 import re
+import signal
 import sys
 import time
 import urllib.error
@@ -191,6 +192,22 @@ class Remote:
     def capture(self, on):
         self.post(REQ_CAPTURE, bytes([1 if on else 0]))
 
+    def capture_direct(self, on):
+        """Capture on or off by writing the mailbox byte: works while a
+        program runs too (the MOS takes REQ_CAPTURE only at the prompt)."""
+        if on:
+            self.drain()
+        self.write(MBOX + MB_CAPTURE, [1 if on else 0])
+
+    def release(self):
+        """Capture off when this host stops reading: otherwise the MOS
+        waits on the full ring (up to a second) before it gives up on us.
+        Never raises: called on every exit."""
+        try:
+            self.write(MBOX + MB_CAPTURE, [0])
+        except Exception:
+            pass
+
     def drain(self, mb=None):
         """Output captured since the last call (the ring)."""
         mb = mb or self.mailbox()
@@ -302,7 +319,7 @@ class Remote:
         # capture off when BASIC is back at the prompt (only then does the
         # MOS take requests): nobody reads the ring any more, and a program
         # started later with RUN would wait for the host on a full ring,
-        # 2.5-5 s, before the MOS gives up on it
+        # up to a second, before the MOS gives up on it
         if r.get("state") == "prompt":
             self.capture(False)
         return r
@@ -340,6 +357,7 @@ class Remote:
         if st["state"] != "paused":
             raise RemoteError("not paused (state %s)" % st["state"])
         errors_before = st["error_count"]
+        self.capture_direct(True)           # (released after the last call)
         self.post(REQ_DEBUG, bytes([how]))
         self.errors_before = errors_before
         r = self.run_lines([], timeout=timeout, prepared=True)
@@ -493,6 +511,7 @@ def main():
         sys.exit("no host: --host, U64_HOST or ULTIP1 in .env")
     remote = Remote(args.host, args.password)
     code, result = EXIT_OK, {}
+    signal.signal(signal.SIGTERM, lambda *a: sys.exit(EXIT_TIMEOUT))
     try:
         if args.cmd == "status":
             result = remote.state()
@@ -526,6 +545,8 @@ def main():
     except (RemoteError, TimeoutError, ValueError) as e:
         code = EXIT_TIMEOUT if isinstance(e, TimeoutError) else EXIT_CONNECTION
         result = {"ok": False, "error": {"message": str(e)}}
+    finally:                                # also Ctrl+C and SIGTERM
+        remote.release()
 
     if args.json:
         print(json.dumps(result, indent=1))

@@ -98,8 +98,18 @@ name without reading a file.
 
 **Output capture.** When on, OSWRCH also copies each character into the
 ring. If the ring is full, OSWRCH waits until the host has read it
-(bounded, and ESCAPE leaves the wait), so no output is lost. Off by
-default; costs nothing then. The screen (`$C000`) can be read as well.
+(at most a second, and ESCAPE leaves the wait), so no output is lost;
+a host that does not read for a second is taken as gone and capture
+goes off. Off by default; costs nothing then. The screen (`$C000`) can
+be read as well.
+
+A host switches capture off whenever it stops reading: `u64remote.py`
+on every exit (also Ctrl+C and termination), the MCP server after every
+call, by writing byte 14 directly (the MOS takes `REQ_CAPTURE` only at
+the prompt; the byte works while a program runs too). Otherwise output
+on the machine halts for that second the next time the ring fills
+(2026-10-14). The capture's REST reads also show as lines on screen in
+the Upic modes: none while recording a video.
 
 ## 5. Operations (extension side)
 
