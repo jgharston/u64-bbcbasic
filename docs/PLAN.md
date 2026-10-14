@@ -950,5 +950,17 @@ Built in `src/mos/lineed.s` (bank 0, about 1.5 KB), entered from OSWORD 0
 - State in `MOSBUF+$C0` (no * command runs while a line is typed);
   RAM was full elsewhere (resident area, `$0200-$03FB`, the RAM core).
 
-Not yet: `*KEY` (function key strings), COPY in bitmap modes.
+Not yet: COPY in bitmap modes.
+
+`*KEY` (2026-10-10, owner's choice of the next roadmap item): `*KEY n
+text` for F1-F8 (the C64's labels; keys 0 and 9 kept for BBC programs),
+GSTRANS codes (`|M`, `|A`-`|Z`, `|?`, `||`, `|"`, `|!`), `*KEY n`
+clears, `*KEY` lists. Texts in the REU (bank 0 $3600, 64 bytes a key),
+the expansion in the RAM core (`kx_*`); every key the MOS reads goes
+through `key_avail`/`key_get` (OSRDCH, INKEY, the line editor), so a
+text types at the prompt and in programs. F1 is COPY until `*KEY 1` is
+set. Not with `*EDIT C64` (the KERNAL reads the keys).
+
+CAPS LOCK (2026-10-10): Shift+C= switches it (irq_keylog; off = the
+KERNAL's own tables), OSBYTE &CA reads and sets it (bit 4).
 

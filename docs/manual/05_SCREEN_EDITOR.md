@@ -208,8 +208,9 @@ editing: characters, <kbd>INST/DEL</kbd> for the last one, <kbd>RETURN</kbd>.
 - **ESCAPE** (<kbd>RUN/STOP</kbd>) while typing forgets the line: BASIC
   answers `Escape` and gives a fresh prompt. <kbd>RESTORE</kbd> does the
   same.
-- **Function keys**: <kbd>F1</kbd> is COPY. The other function keys type
-  nothing yet (`*KEY` is not there yet).
+- **Function keys**: `*KEY` gives F1-F8 a text to type (`*KEY 2 LIST|M`:
+  <kbd>F2</kbd> lists the program). <kbd>F1</kbd> is COPY until `*KEY 1`
+  is set.
 - **Key repeat**: the cursor keys, space and <kbd>INST/DEL</kbd> repeat while
   held; CTRL with a cursor key and <kbd>F1</kbd> (COPY) do too, after the
   same short delay: hold <kbd>F1</kbd> to copy the rest of a line.
@@ -234,3 +235,20 @@ editing: characters, <kbd>INST/DEL</kbd> for the last one, <kbd>RETURN</kbd>.
 BBC (the default): lines up to 238 characters in every screen mode, edited in place, with the last 127 lines on UP and DOWN and BBC copy editing (CTRL+cursor keys, F1 is COPY). See KEYBOARD.
 
 C64: the KERNAL's full-screen editor in the text screen, as on a C64: move the cursor anywhere on the screen and press RETURN to enter that line; 78 characters after the prompt. In the graphics modes lines are typed without editing.
+
+#### `*KEY`
+
+```
+*KEY n text     set function key n
+*KEY n          clear it
+*KEY            list the keys set
+```
+
+Function key Fn (1-8; F2, F4, F6, F8 are Shift with F1, F3, F5, F7) then types the text, at the prompt and in programs (GET, INKEY, INPUT), as on a BBC Micro. Codes in the text: |M RETURN, |A-|Z control codes, |? DELETE, || |, |" ", |! the next character + 128. Quotes around the text are optional.
+
+```
+*KEY 2 LIST|M
+*KEY 3 "RUN|M"
+```
+
+F1 is the line editor's COPY until *KEY 1 is set. Up to 63 characters a key; keys 0 and 9 are kept (BBC programs set them) but have no key. The texts are kept in the REU. With *EDIT C64 the keys type nothing.

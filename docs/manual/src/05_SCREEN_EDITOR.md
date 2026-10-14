@@ -206,8 +206,9 @@ editing: characters, <kbd>INST/DEL</kbd> for the last one, <kbd>RETURN</kbd>.
 - **ESCAPE** (<kbd>RUN/STOP</kbd>) while typing forgets the line: BASIC
   answers `Escape` and gives a fresh prompt. <kbd>RESTORE</kbd> does the
   same.
-- **Function keys**: <kbd>F1</kbd> is COPY. The other function keys type
-  nothing yet (`*KEY` is not there yet).
+- **Function keys**: `*KEY` gives F1-F8 a text to type (`*KEY 2 LIST|M`:
+  <kbd>F2</kbd> lists the program). <kbd>F1</kbd> is COPY until `*KEY 1`
+  is set.
 - **Key repeat**: the cursor keys, space and <kbd>INST/DEL</kbd> repeat while
   held; CTRL with a cursor key and <kbd>F1</kbd> (COPY) do too, after the
   same short delay: hold <kbd>F1</kbd> to copy the rest of a line.
@@ -221,4 +222,4 @@ editing: characters, <kbd>INST/DEL</kbd> for the last one, <kbd>RETURN</kbd>.
 
 ## 5.10 Reference
 
-@@help *EDIT
+@@help *EDIT *KEY

@@ -372,6 +372,10 @@ vmode_bufhi dta $58             ; Upic Lite: buffer page (column 0)
 vmode_himem dta $80             ; HIMEM page of the current mode
 vmode_rend  dta 0               ; Upic Lite renderer: 1 320x1, 2 320x2,
                                 ; 3 160x2, 4 160x4 (width x bits/pixel)
+kx_n        dta 0               ; *KEY expansion: characters left,
+kx_pos      dta 0               ; the next one's position, the key,
+kx_key      dta 0               ; the keys 1-8 set (bits; keys.s)
+kx_def      dta 0
 tcx         dta 0               ; bitmap modes: text cursor
 tcy         dta 0
 twl         dta 0               ; text window (characters)

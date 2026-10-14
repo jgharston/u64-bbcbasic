@@ -232,6 +232,28 @@ def test_caps_lock(t):
     assert "C=32,48,32" in out, out
 
 
+def test_key(t):
+    # *KEY: F2 types a text at the prompt; *KEY lists; GET$ in a program
+    # reads an expansion; *KEY n alone clears (texts in the REU)
+    if t.is_vice:
+        run_line(t, "*KEY 2 X", "Needs an REU")
+        return
+    run_line(t, "*KEY 2 PRINT 6*7|M", ">")
+    screen.type_text(t.bridge, "CLS\r")
+    screen.wait_for(t.bridge, lambda r: r[0].startswith(">"))
+    screen.type_text(t.bridge, "{F2}")
+    screen.wait_for(t.bridge, lambda r: any("        42" in x for x in r[1:]))
+    rows = run_line(t, "*KEY", "*KEY 2")
+    assert any("*KEY 2 PRINT 6*7|M" in r for r in rows), rows
+    run_line(t, '*KEY 3 "AB"', ">")
+    screen.type_text(t.bridge, 'A$=GET$:B$=GET$:PRINT "G=";A$;B$\r{F3}')
+    screen.wait_for(t.bridge, lambda r: any("G=AB" in x for x in r))
+    run_line(t, "*KEY 2", ">")
+    run_line(t, "*KEY 3", ">")
+    rows = run_line(t, "*KEY", ">")
+    assert not any("*KEY 2" in r or "*KEY 3" in r for r in rows), rows
+
+
 def test_hex(t):
     run_line(t, "PRINT ~255", "FF")
 
@@ -1570,7 +1592,7 @@ def test_remote_debug(t):
         rm.debug_end()
 
 
-TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test_caps_lock, test_ascii, test_program,
+TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test_caps_lock, test_key, test_ascii, test_program,
          test_error, test_mos_error, test_help, test_help_paging,
          test_bad_number,
          test_vdu_overflow, test_fx_escape, test_stop_key,

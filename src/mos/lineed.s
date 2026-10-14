@@ -311,6 +311,7 @@ le_again:
 le_esc:                         ; ESCAPE: the line ends as it is
     lda #0
     sta NDX                     ; (RUN/STOP's RETURN in the buffer)
+    sta kx_n                    ; (and a *KEY text)
     jsr ed_cend
     jmp w0_end
 le_return:
@@ -589,13 +590,15 @@ egk_wait:
     lda MB_HSEQ
     cmp MB_CSEQ
     bne egk_remote
-    lda NDX
+    jsr key_avail
     bne egk_key
     jsr egk_blink
     jmp egk_wait
 egk_key:
     jsr egk_hide
-    jsr K_GETIN
+    jsr key_get
+    cmp #0                      ; (none after all, e.g. a *KEY control
+    beq ed_getkey               ; code that cannot be typed: wait on)
     clc
     rts
 egk_esc:
@@ -659,6 +662,9 @@ egk_blink:
 ed_poll:
     lda SHFLAG
     bne epl_ctrl
+    lda kx_def                  ; (*KEY 1 set: F1 is no COPY)
+    lsr
+    bcs epl_none
     lda SFDX                    ; F1 held
     cmp #4
     bne epl_none

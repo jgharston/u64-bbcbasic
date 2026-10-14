@@ -94,15 +94,15 @@ VDU          VPOS         WIDTH
 *DELETE      *DIR         *DRIVE
 *EDIT        *FONT        *FX
 *HELP        *INSTRUMENT  *JSON
-*LIST        *LOAD        *MEMORY
-*MKDIR       *MOUNT       *NET
-*PALETTE     *PARTITION   *PARTITIONS
-*PWD         *RENAME      *SAVE
-*SETTIME     *SHADOW      *SID
-*SONG        *SOUND       *SRREAD
-*SRWRITE     *STATUS      *SWAP
-*TIME        *TURBO       *TYPE
-*UNMOUNT     *UVER
+*KEY         *LIST        *LOAD
+*MEMORY      *MKDIR       *MOUNT
+*NET         *PALETTE     *PARTITION
+*PARTITIONS  *PWD         *RENAME
+*SAVE        *SETTIME     *SHADOW
+*SID         *SONG        *SOUND
+*SRREAD      *SRWRITE     *STATUS
+*SWAP        *TIME        *TURBO
+*TYPE        *UNMOUNT     *UVER
 ```
 
 ## BBC
@@ -554,8 +554,8 @@ fill, arcs, segments, sectors. Sound:
 SOUND and ENVELOPE as on a BBC Micro.
 LOAD and SAVE work between PAGE (&1D00,
 or &900 with *SOUND NONE) and &7FFF.
-Two files open at a time. *KEY, *EXEC
-and *SPOOL are not there yet.
+Two files open at a time. *EXEC and
+*SPOOL are not there yet.
 ```
 
 ## REMOTE
@@ -807,6 +807,36 @@ Also: `RENAME`
   *RENAME <old> <new>
 
 Renames a file.
+```
+
+## *KEY
+
+Also: `KEY`
+
+```
+  *KEY n text     set function key n
+  *KEY n          clear it
+  *KEY            list the keys set
+
+Function key Fn (1-8; F2, F4, F6, F8
+are Shift with F1, F3, F5, F7) then
+types the text, at the prompt and in
+programs (GET, INKEY, INPUT), as on a
+BBC Micro. Codes in the text: |M
+RETURN, |A-|Z control codes, |? DELETE,
+|| |, |" ", |! the next character +
+128. Quotes around the text are
+optional.
+
+  *KEY 2 LIST|M
+  *KEY 3 "RUN|M"
+
+F1 is the line editor's COPY until *KEY
+1 is set. Up to 63 characters a key;
+keys 0 and 9 are kept (BBC programs set
+them) but have no key. The texts are
+kept in the REU. With *EDIT C64 the
+keys type nothing.
 ```
 
 ## *LIST

@@ -35,7 +35,8 @@ what this BASIC can and cannot do.
   Saving them in the interrupt does not work: the Ultimate's bank
   register reads back only its low 3 bits (memory wipes of 2026-10-10).
 - MADS labels are case-insensitive: don't name a routine like a KERNAL
-  equate (`keylog`/`KEYLOG`).
+  equate (`keylog`/`KEYLOG`). `#>label+2` is `(>label)+2`: bracket the
+  sum, `#>[label+2]` (an REU transfer once went to $0258, not $0058).
 - Code in cartridge banks runs at bus speed (1 MHz) and cannot modify
   itself; put hot paths and anything self-modifying in RAM.
 - New `*` commands need a `*HELP` entry in `src/help/help.txt` (the build
