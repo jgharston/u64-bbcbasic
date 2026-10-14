@@ -391,7 +391,7 @@ mode that keeps its colours without colour clash where possible:
 | MODE (proposal) | Mode | Pixels | Units | Machines |
 |---|---|---|---|---|
 | 110 | Upic 64 | 384x256, 16 colours | 1536x1024 | Ultimate 64 Elite II, C64 Ultimate (64 MHz) |
-| 111 | Upic 48 | 288x256 logical, 16 colours | 1152x1024 | all U64 models (the 48 MHz path shows 3 of every 4 stored pixels; drawing uses only the shown ones) |
+| 111 | Upic 48 | 288x256 logical, 16 colours | 1536x1024 (x * 3 / 16; was 1152, circles came out 4/3 wide) | all U64 models (the 48 MHz path shows 3 of every 4 stored pixels; drawing uses only the shown ones) |
 
 - A Upic picture is 48K, and BASIC needs RAM besides it, so the canvas
   lives in the REU (section 5).
@@ -604,7 +604,9 @@ console for text, the picture for graphics), automatic showing plus
   colour (BBC colours as MODE 100), COLOUR 128+n reverses (one
   background, $D021, as the VIC-II's text mode).
 - **The picture**: x >> 2 and y >> 2 of the OS units (1536 x 1024 for
-  MODE 110: 384 x 256; 1152 x 1024 for MODE 111: 288 logical). A
+  MODE 110: 384 x 256); MODE 111 also 1536 x 1024, x * 3 >> 4 onto its
+  288 logical pixels (owner, 2026-10-14: round circles; 1152 units made
+  its pixels 4/3 wide on the screen). A
   logical pixel x of MODE 111 is byte column 2 (x div 3) + (x mod 3 >
   0): mod 0 the whole byte (pixels 4m and 4m+1, so it looks the same on
   64 MHz machines), 1 the low nybble, 2 the high one.

@@ -418,6 +418,24 @@ e_todev:
     lda pk_x+1
     adc gox+1
     sta ex+1
+    .if GXUP
+    lda vmode_rend              ; MODE 111: x * 3 >> 4 (1536 units onto
+    beq etd_x3                  ; its 288 pixels, round circles as MODE
+    lda ex                      ; 110; the shift is vmode_xsh = 4)
+    asl
+    sta etmp
+    lda ex+1
+    rol
+    sta etmp+1
+    lda etmp
+    clc
+    adc ex
+    sta ex
+    lda etmp+1
+    adc ex+1
+    sta ex+1
+etd_x3:
+    .endif
     ldx vmode_xsh
     beq etd_y
 etd_xs:

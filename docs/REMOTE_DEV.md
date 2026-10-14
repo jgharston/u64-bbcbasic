@@ -213,3 +213,9 @@ second: every memory read stops the CPU for a moment, which in Upic
 shows as a disturbed line). `endshow` (MCP: `bbc_endshow`) writes `$AA`
 there: the show ends as with a key press and the program goes on;
 `stop` ends it with ESCAPE.
+
+The same holds for Upic Lite (MODE 0-2, 4-6 on 64 MHz machines): its
+picture is drawn by the CPU too, so every memory read of a host (status
+polls, `run` waiting at GET) shows as a disturbed raster line in the
+frame. A stray line seen in a frame grab of a Upic Lite screen is that,
+not drawing (checked 2026-10-14: none in frames taken without polling).

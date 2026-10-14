@@ -1132,7 +1132,7 @@ There are no 80-column modes: MODE 0 is MODE 4 and MODE 3 is MODE 6, their 40-co
 
 Upic Lite: a live picture of 320x256 (MODE 2 and 5: 160x256 with double-width pixels, 16 or 4 colours anywhere) with square pixels, as on the BBC, on 64 MHz machines (Ultimate 64 Elite II, C64 Ultimate) with firmware 3.15+. The screen memory lies below HIMEM as on the BBC (MODE 4, 5, 6: &5800; MODE 1 and 2: &3000), and BASIC runs at about 1/6 of its speed while the picture is shown. Elsewhere these modes use the VIC-II (200 lines, 32 rows of 6-line text).
 
-Upic full (MODE 110, 111): graphics go into a 16-colour picture in the REU (OS units 1536 x 1024 for 110, 1152 x 1024 for 111, 4 per pixel), text to a 40x25 console on the screen; the picture shows with *UPIC SHOW (see UPIC). MODE 111 has 288 pixels: 3 of every 4 that a 48 MHz Ultimate shows; MODE 110 needs 64 MHz. HIMEM stays &8000.
+Upic full (MODE 110, 111): graphics go into a 16-colour picture in the REU (OS units 1536 x 1024 in both: 4 per pixel in 110, 16/3 in 111, so circles stay round), text to a 40x25 console on the screen; the picture shows with *UPIC SHOW (see UPIC). MODE 111 has 288 pixels: 3 of every 4 that a 48 MHz Ultimate shows; MODE 110 needs 64 MHz. HIMEM stays &8000.
 
 @@ MOVE
   MOVE x,y

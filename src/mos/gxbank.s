@@ -26,7 +26,8 @@ mode_tab:
     dta 1, 0, 40, 25, 16, 2, 1, 8, 8, pal_c64-pal_sets    ; 103 hires
     dta 1, 1, 20, 25, 16, 3, 1, 8, 8, pal_c64-pal_sets    ; 104 multicolour
     dta 1, 2, 40, 25, 16, 2, 1, 8, 8, pal_bbc16-pal_sets  ; 110 Upic 64
-    dta 1, 2, 40, 25, 16, 2, 1, 8, 8, pal_bbc16-pal_sets  ; 111 Upic 48
+    dta 1, 2, 40, 25, 16, 4, 1, 8, 8, pal_bbc16-pal_sets  ; 111 Upic 48
+                                ; (x * 3 >> 4: 1536 units, gfx.s)
 pal_sets:
 pal_bbc2:
     dta 0, 1

@@ -1417,10 +1417,11 @@ def test_upic_mode(t):
     prog = "\n".join([
         "10 MODE 111",
         "20 GCOL 0,129:CLG",
-        "30 GCOL 0,3:MOVE 0,0:PLOT 101,575,511",
+        "30 GCOL 0,3:MOVE 0,0:PLOT 101,767,511",
         "40 *UPIC SHOW", ""])
     upic_show(t, rm, prog, lambda rows: got.update(counts(rows)))
-    # 144 logical pixels = 48 groups of 4 = 192 dots, x 128 lines
+    # 768 units = 144 logical pixels (x 3 / 16) = 48 groups of 4 = 192
+    # dots, x 128 lines
     assert got[3] == 24576 and got[1] == 98304 - 24576, got
     out = rm.run_lines(["*SPRITE ON"])["output"]
     assert "VIC-II mode" in out, out

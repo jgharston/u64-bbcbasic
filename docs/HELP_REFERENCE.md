@@ -2331,13 +2331,14 @@ rows of 6-line text).
 
 Upic full (MODE 110, 111): graphics go
 into a 16-colour picture in the REU (OS
-units 1536 x 1024 for 110, 1152 x 1024
-for 111, 4 per pixel), text to a 40x25
-console on the screen; the picture
-shows with *UPIC SHOW (see UPIC). MODE
-111 has 288 pixels: 3 of every 4 that a
-48 MHz Ultimate shows; MODE 110 needs
-64 MHz. HIMEM stays &8000.
+units 1536 x 1024 in both: 4 per pixel
+in 110, 16/3 in 111, so circles stay
+round), text to a 40x25 console on the
+screen; the picture shows with *UPIC
+SHOW (see UPIC). MODE 111 has 288
+pixels: 3 of every 4 that a 48 MHz
+Ultimate shows; MODE 110 needs 64 MHz.
+HIMEM stays &8000.
 ```
 
 ## MOVE
