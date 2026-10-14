@@ -44,12 +44,20 @@ OSBYTE calls (*FX a,x,y) available:
 &85   HIMEM for a mode
 &86   POS (X) and VPOS (Y)
 &87   character at cursor
+&04   cursor keys (kept)
+&0B   key repeat (0 off)
+&0C   key repeat (0 default)
+&13   wait for the frame's end
+&80   ADVAL
+&A3   GXR (accepted)
+&C8   bit 0: ESCAPE off
 &CA   keyboard status (CAPS LOCK)
+&DC   escape character
 &DA   VDU queue length
 &E5   ESCAPE key off (X<>0)
 ```
 
-Other calls are ignored.
+Other calls are ignored. Key repeat uses the KERNAL's speed: *FX 11,n and *FX 12,n with n > 0 make every key repeat. *FX 220,c makes the key typing ASCII c set ESCAPE (27: only RUN/STOP).
 
 #### `OSWORD`
 
@@ -73,4 +81,19 @@ Calls OSBYTE a with X=x and Y=y. See OSBYTE.
 
 ```
 *FX 15     flush the keyboard buffer
+```
+
+#### `*ADVAL`
+
+```
+*ADVAL             list the ports
+*ADVAL JOY [p]     joysticks (both)
+*ADVAL PADDLE [p]  paddles (port 1)
+*ADVAL MOUSE [p]   1351 (port 1)
+```
+
+Chooses what ADVAL reads from a C64 control port. A joystick gives 65520, 32768 or 0 per axis. Paddles give their position: paddle A is the x channel, paddle B the y channel, their buttons the port's fire. A 1351 mouse (proportional mode) moves a position that starts in the middle: right and up make x lower and y higher, as a BBC joystick; its left button is fire. Read a mouse often: more than 31 counts between two reads are lost. Port 2 is BBC joystick 1 (ADVAL 1, 2), port 1 joystick 2 (ADVAL 3, 4).
+
+```
+*ADVAL MOUSE 1
 ```

@@ -931,7 +931,8 @@ rd_ret:
 ;   &7D set escape, &7E acknowledge escape, &80 ADVAL (0), &81 INKEY,
 ;   &82 high address, &83 OSHWM (PAGE), &84/&85 HIMEM, &86 POS/VPOS,
 ;   &87 character at cursor, &DA VDU queue, &E5 escape key on/off,
-;   &CA keyboard status (CAPS LOCK),
+;   &CA keyboard status (CAPS LOCK), &04, &0B, &0C, &13, &A3, &C8, &DC
+;   (bank 7, acorn.s),
 ;   &7F EOF# (filing system, bank 2), &72 shadow for the next MODE, &75
 ;   VDU status (bit 4: shadow mode).
 
@@ -968,7 +969,8 @@ by_found:
 
 byte_codes:
     dta $0F, $15, $7C, $7D, $7E, $80, $81, $82, $83, $84, $85, $86
-    dta $87, $DA, $E5, $7F, $72, $75, $CA, 0
+    dta $87, $DA, $E5, $7F, $72, $75, $CA
+    dta $04, $0B, $0C, $13, $A3, $C8, $DC, 0
 byte_handlers:
     dta a(by_flush-1)
     dta a(by_flush-1)
@@ -989,6 +991,8 @@ byte_handlers:
     dta a(by_shadow-1)
     dta a(by_vdustat-1)
     dta a(by_kbdstat-1)
+    dta a(by_acorn-1), a(by_acorn-1), a(by_acorn-1), a(by_acorn-1)
+    dta a(by_acorn-1), a(by_acorn-1), a(by_acorn-1)
 
 by_ret:
     lda by_a
@@ -1022,8 +1026,14 @@ by_ackesc:                      ; &7E: X = $FF if ESCAPE was pending
     bne by_ret
 by_adval:                       ; &80: X = &E4-&FB: sound queues of
     ldy #0                      ; voices 23-0 (free bytes, sndcmd.s);
-    cpx #$CC                    ; &CC-&E3: the song's notes of voices
-                                ; 23-0; others 0 (no ADC, no buffers)
+    cpx #5                      ; &CC-&E3: the song's notes of voices
+    bcc bad_ac                  ; 23-0; 0-4 and &FF (keys waiting): the
+    cpx #$FF                    ; control ports (acorn.s); others 0
+    bne bad_snd
+bad_ac:
+    jmp bad_acorn
+bad_snd:
+    cpx #$CC
     bcc bad_zero
     cpx #$FC
     bcs bad_zero
@@ -1199,23 +1209,38 @@ by_kbdstat:
     ldx mosTMP
     jmp by_ret
 by_escdis:                      ; &E5: X <> 0 disables the ESCAPE key
+    lda escdis                  ; (escdis bit 0; bit 1 is *FX 200's)
+    and #1
+    pha
     lda escdis
-    stx escdis
+    and #2
+    cpx #0
+    beq bed_set
+    ora #1
+bed_set:
+    sta escdis
+    pla
     tax
+    jmp by_ret
+by_acorn:                       ; &04, &0B, &0C, &13, &A3, &C8, &DC: bank 7
+    farcall acorn.ac_byte, BANK_NET
+    jmp by_ret
+bad_acorn:                      ; ADVAL 0-4, -1: bank 7
+    farcall acorn.ac_adval, BANK_NET
     jmp by_ret
 
 ; by_inkey (OSBYTE &81)
 ;   Summary: INKEY: wait up to a time for a key, or scan a key.
 ;   Input:   X + 256*Y = time in centiseconds (Y < $80); Y = $FF: key scan.
 ;   Output:  Y = 0, X = ASCII key, C = 0; or C = 1 with Y = $1B (ESCAPE)
-;            or Y = $FF (time-out). Key scans return X = 0, Y = 0 for now.
+;            or Y = $FF (time-out). Key scans: X = Y = &FF held, 0 not
+;            (acorn.s); X = 0: X = &FF, Y = 0 (BBC B, OS 1.2).
 ;   Uses:    mosNUM, mosTMP, inkey_t0. TIME is read with interrupts off.
 
 by_inkey:
     cpy #$FF
     bne ink_wait
-    ldx #0                      ; key scan: not implemented yet
-    ldy #0
+    farcall acorn.ac_scan, BANK_NET ; INKEY(-n), INKEY(-256)
     jmp by_ret
 ink_wait:
     stx mosNUM
@@ -1887,6 +1912,7 @@ cmd_table:
     dta 'SRENUMBER', 0, a(gxr.cmd_srenumber), BANK_RD
     dta 'SSAVE', 0, a(gxr.cmd_ssave), BANK_RD
     dta 'SSPACE', 0, a(gxr.cmd_sspace), BANK_RD
+    dta 'ADVAL', 0, a(acorn.cmd_adval), BANK_NET
     dta 'FLOOD', 0, a(gxr.cmd_accept), BANK_RD
     dta 'NOFLOOD', 0, a(gxr.cmd_accept), BANK_RD
     dta 'GXR', 0, a(gxr.cmd_accept), BANK_RD

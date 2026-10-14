@@ -823,6 +823,12 @@ k=INKEY(t)
 
 Waits up to t centiseconds for a key; -1 if none came. INKEY(0) does not wait.
 
+INKEY(-n) is TRUE while the key with the BBC's number n is held (the C64 key in its place): -1 SHIFT, -2 CTRL, -99 SPACE, -74 RETURN, -113 ESCAPE (RUN/STOP), -26 / -122 cursor left / right, -58 / -42 up / down, f1-f8 on F1-F7 (f2, f4, f6, f8 with Shift: -114 f1, -115 f2, -116 f3, -21 f4, -117 f5, -118 f6, -23 f7, -119 f8), -106 COPY (F1); letters and digits as on the BBC (-66 A, -98 Z, ...). Keys the C64 lacks (f0, f9, TAB, CAPS LOCK, [ ]) are never held. INKEY(-256) gives 255: a BBC B with OS 1.2.
+
+```
+IF INKEY(-98) THEN X%=X%-1
+```
+
 #### `INKEY$`
 
 ```

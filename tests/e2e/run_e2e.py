@@ -1755,6 +1755,43 @@ def test_gxr_plot(t):
         assert want in out, out
 
 
+def test_acorn(t):
+    # Acorn compatibility (acorn.s): INKEY(-256) = 255; no key held reads
+    # FALSE for every INKEY(-n); idle control ports: ADVAL(1-4) 32768,
+    # ADVAL(0) AND 3 = 0; ADVAL(-1) counts the keys waiting; nothing in
+    # the ports: paddles 0, a mouse stays in the middle; *FX 4 and 200
+    # give the old value back; *FX 11/12 set the KERNAL's repeat; *FX 19
+    # waits a frame; *FX 220 makes a typed key ESCAPE
+    r = remote(t)
+    prog = """10 *ADVAL JOY
+20 A$=STR$INKEY(-256)
+30 N%=0:FOR I%=1 TO 122:IF INKEY(-I%) N%=N%+1
+40 NEXT:A$=A$+" "+STR$N%
+50 A$=A$+" "+STR$ADVAL(1)+" "+STR$ADVAL(4)+" "+STR$(ADVAL(0) AND 3)
+60 ?&277=65:?&278=66:?&C6=2:A$=A$+" "+STR$ADVAL(-1):*FX 15
+70 *ADVAL PADDLE 2
+80 A$=A$+" "+STR$ADVAL(1)+" "+STR$ADVAL(2)
+90 *ADVAL MOUSE
+100 A$=A$+" "+STR$ADVAL(3)+" "+STR$ADVAL(4)
+110 *ADVAL JOY
+120 *FX 4,1
+130 A%=4:X%=0:Y%=0:R%=(USR(&C7F4) AND &FF00) DIV 256:A$=A$+" "+STR$R%
+140 *FX 11,0
+150 A$=A$+" "+STR$?&28A
+160 *FX 12,0
+170 A$=A$+" "+STR$?&28A
+180 T%=TIME:FOR I%=1 TO 50:*FX 19
+190 NEXT:T%=TIME-T%:A$=A$+" "+STR$(T%>70 AND T%<130)
+200 *FX 220,32
+220 ON ERROR OSCLI "FX 220,27":PRINT "R=";A$;" E=";ERR:END
+230 ?&277=32:?&C6=1:B$=GET$
+240 PRINT "NO ESCAPE"
+"""
+    out = r.send_program(prog, run=True, timeout=60)["output"]
+    assert "R=255 0 32768 32768 0 2 0 0 32624 32896 1 64 0 -1 E=17" in out, out
+    r.run_lines(["*FX 220,27", "*ADVAL"])
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -2175,7 +2212,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_net, test_json, test_netchan, test_classics,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_acorn, test_net, test_json, test_netchan, test_classics,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

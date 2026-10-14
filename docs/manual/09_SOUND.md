@@ -38,7 +38,14 @@ Defines envelope n (1-16), as on a BBC Micro. t: step length in 1/100 s (add 128
 ADVAL(n)
 ```
 
-ADVAL(-5) to ADVAL(-8): free room in the sound queue of channel 0 to 3, as on a BBC Micro: 15 when empty, 4 bytes per note waiting. In SID mode ADVAL(-5) to ADVAL(-28) for voices 0-23, and ADVAL(-29) to ADVAL(-52) the note voice 0-23 plays now (1-96, 49 = middle C; 0: none), for meters while a song plays (*SONG). Other values return 0 (no analogue port).
+ADVAL(-5) to ADVAL(-8): free room in the sound queue of channel 0 to 3, as on a BBC Micro: 15 when empty, 4 bytes per note waiting. In SID mode ADVAL(-5) to ADVAL(-28) for voices 0-23, and ADVAL(-29) to ADVAL(-52) the note voice 0-23 plays now (1-96, 49 = middle C; 0: none), for meters while a song plays (*SONG).
+
+The analogue channels read the C64's control ports (see *ADVAL): ADVAL(1) and ADVAL(2) are joystick 1's x and y (control port 2), ADVAL(3) and ADVAL(4) joystick 2 (port 1); 0-65520, high is left and up, 32768 in the middle (a joystick gives 65520, 32768 or 0). ADVAL(0) AND 3 gives the fire buttons (bit 0 joystick 1), ADVAL(-1) the keys waiting in the keyboard buffer. Other values return 0.
+
+```
+IF ADVAL(0) AND 1 THEN PROCfire
+X%=ADVAL(1) DIV 256
+```
 
 
 ## 9.2 The sound engine

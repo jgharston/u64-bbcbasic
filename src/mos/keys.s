@@ -78,6 +78,7 @@ key_get:
     lda kx_n
     bne kg_next
     jsr K_GETIN
+    jsr kg_esc
     cmp #$85
     bcc kg_rts
     cmp #$8D
@@ -114,6 +115,28 @@ kg_conv:
     lda asc2pet,x
     rts
 kg_none:
+    lda #0
+    rts
+
+; kg_esc: *FX 220 (acorn.s): a typed key that is the escape character
+; (other than 27) sets ESCAPE instead.  Input: A = PETSCII.  Output: A
+; (0: none).  Uses: A, X.
+kg_esc:
+    tax
+    beq kge_rts
+    lda acorn.ac_fx220
+    beq kge_none
+    lda pet2asc,x
+    eor #27
+    cmp acorn.ac_fx220
+    beq kge_esc
+kge_none:
+    txa
+kge_rts:
+    rts
+kge_esc:
+    lda #$80
+    sta ESCFLG
     lda #0
     rts
 
