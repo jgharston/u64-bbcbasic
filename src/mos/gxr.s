@@ -194,6 +194,48 @@ gi_n:
     lda #REU_TO_REU
     jmp gx_state
 
+; gxr_cold (cold start, with an REU): the VIC-II shapes cleared too (the
+; REU holds whatever it had at power-on), then gxr_init
+gxr_cold:
+    lda #0
+    ldx #$BF
+gc_zero:
+    sta MOSBUF,x
+    dex
+    cpx #$FF
+    bne gc_zero
+    lda #<$1000                 ; the VIC-II shapes (REU_SHAPES, 64 x
+    sta gv_a                    ; 64 = 4K = 21 x $C0 + $40): all 0 at the
+    lda #>$1000                 ; start (the REU holds whatever it had)
+    sta gv_a+1
+    lda #22
+    sta gv_r
+gi_shp:
+    lda #<MOSBUF
+    sta fsADDR
+    lda #>MOSBUF
+    sta fsADDR+1
+    lda gv_a
+    sta fsTMP
+    lda gv_a+1
+    sta fsTMP+1
+    lda #$C0
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    lda #REU_TO_REU
+    jsr gx_dma
+    lda gv_a
+    clc
+    adc #$C0
+    sta gv_a
+    bcc gi_sn
+    inc gv_a+1
+gi_sn:
+    dec gv_r
+    bne gi_shp
+    jmp gxr_init
+
 ; gx_need: an REU ("Sprites need an REU")
 gx_need:
     jsr s6_hasreu
@@ -487,10 +529,190 @@ cmd_sspace:
     jsr s6_need
     jmp s6_end
 
-; cmd_sedit: *SEDIT n: not yet
-cmd_sedit:
-    brk
-    dta 254, '*SEDIT: not yet (sprites: *SGET)', 0
+; ----------------------------------------------------------------------------
+; gxr_edload / gxr_edstore (for the sprite editor, sedit.s, bank 7)
+;   Summary: sprite gv_n into the editor's buffer (REU GXR_SCR, a row every
+;            256 bytes: pixel x,y at y * 256 + x), and back.
+;   Function: edload: GE_W/GE_H its size (a missing sprite: 16 x 16, all
+;            colour 0); edstore: a new sprite gv_n of GE_W x GE_H (its mask
+;            kept), the rows copied in, selected. Rows go through MOSBUF in
+;            64-byte pieces (the editor's own variables are at MOSBUF+$80).
+;   Input:   gv_n; edstore: GE_W, GE_H.  Output: edload: GE_W, GE_H.
+;   Uses:    A, X, Y, fs*, GE, gv_*, MOSBUF+$00-$3F.
+gxr_edload:
+    jsr gx_rdent
+    lda GE_USED
+    bne gel_have
+    lda #16                     ; new: 16 x 16, cleared
+    sta GE_W
+    sta GE_H
+    jmp ged_clear
+gel_have:
+    jsr ged_clear               ; (columns beyond the width: 0)
+    lda GE_LO
+    sta gv_s
+    lda GE_HI
+    sta gv_s+1
+    lda #0                      ; buffer row address (low 0, high = row)
+    sta gv_b
+    sta gv_b+1
+    lda GE_H
+    sta gv_r
+gel_row:
+    lda #0
+    sta gv_t                    ; x of the piece
+gel_piece:
+    jsr ged_len                 ; fsLEN = min(64, w - x)
+    lda gv_s                    ; sprite row -> MOSBUF
+    sta fsTMP
+    lda gv_s+1
+    sta fsTMP+1
+    jsr ged_mosbuf
+    lda #REU_TO_C64
+    jsr gx_dma
+    lda gv_t                    ; MOSBUF -> buffer row, column gv_t
+    sta fsTMP
+    lda gv_b+1
+    sta fsTMP+1
+    lda #GXR_SCR
+    sta fsTMP+2
+    jsr ged_mosbuf
+    lda #REU_TO_REU
+    jsr rd_dma
+    lda fsLEN
+    clc
+    adc gv_s
+    sta gv_s
+    bcc gel_s
+    inc gv_s+1
+gel_s:
+    lda gv_t
+    clc
+    adc fsLEN
+    sta gv_t
+    cmp GE_W
+    bcc gel_piece
+    inc gv_b+1
+    dec gv_r
+    bne gel_row
+    rts
+
+gxr_edstore:
+    lda #$FF                    ; the mask kept (a new sprite: none)
+    sta GE_MASK
+    lda GE_W
+    pha
+    lda GE_H
+    pha
+    jsr gx_rdent
+    lda GE_USED
+    beq ges_nomask
+    lda GE_MASK
+    sta gv_t
+    jmp ges_m
+ges_nomask:
+    lda #$FF
+    sta gv_t
+ges_m:
+    pla
+    sta GE_H
+    pla
+    sta GE_W
+    lda gv_t
+    sta GE_MASK
+    jsr gx_alloc
+    lda GE_LO
+    sta gv_s
+    lda GE_HI
+    sta gv_s+1
+    lda #0
+    sta gv_b+1
+    lda GE_H
+    sta gv_r
+ges_row:
+    lda #0
+    sta gv_t
+ges_piece:
+    jsr ged_len
+    lda gv_t                    ; buffer -> MOSBUF
+    sta fsTMP
+    lda gv_b+1
+    sta fsTMP+1
+    lda #GXR_SCR
+    sta fsTMP+2
+    jsr ged_mosbuf
+    lda #REU_TO_C64
+    jsr rd_dma
+    lda gv_s                    ; MOSBUF -> the sprite
+    sta fsTMP
+    lda gv_s+1
+    sta fsTMP+1
+    jsr ged_mosbuf
+    lda #REU_TO_REU
+    jsr gx_dma
+    lda fsLEN
+    clc
+    adc gv_s
+    sta gv_s
+    bcc ges_s
+    inc gv_s+1
+ges_s:
+    lda gv_t
+    clc
+    adc fsLEN
+    sta gv_t
+    cmp GE_W
+    bcc ges_piece
+    inc gv_b+1
+    dec gv_r
+    bne ges_row
+    jmp gx_select
+
+; ged_len: fsLEN = min(64, GE_W - gv_t)
+ged_len:
+    lda GE_W
+    sec
+    sbc gv_t
+    cmp #64
+    bcc gln_ok
+    lda #64
+gln_ok:
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    rts
+; ged_mosbuf: fsADDR = MOSBUF (fsLEN kept)
+ged_mosbuf:
+    lda #<MOSBUF
+    sta fsADDR
+    lda #>MOSBUF
+    sta fsADDR+1
+    rts
+; ged_clear: the buffer all 0 (64K, by DMA from one 0 byte)
+ged_clear:
+    lda #0
+    sta gv_t
+    php
+    sei
+    lda #<gv_t
+    sta REU_C64
+    lda #>gv_t
+    sta REU_C64+1
+    lda #0
+    sta REU_ADDR
+    sta REU_ADDR+1
+    sta REU_LEN
+    sta REU_LEN+1               ; (0 = 65536)
+    lda #GXR_SCR
+    sta REU_BANK
+    lda #$80
+    sta REU_CTRL
+    lda #REU_TO_REU
+    sta REU_CMD
+    lda #0
+    sta REU_CTRL
+    plp
+    rts
 
 ; cmd_srenumber: *SRENUMBER n,m: sprite n becomes m (an old m goes)
 cmd_srenumber:

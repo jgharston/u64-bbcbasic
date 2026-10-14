@@ -1038,7 +1038,9 @@ colours, scrolling for big GXR sprites) with the palette and keys at the
 side and a VIC shape previewed at size as a real sprite; drawing (cursor
 keys, colours 0-F, SPACE, C, RETURN keeps, ESCAPE cancels), transforms
 (flip, shift), size and new sprites (GXR: width/height, another sprite
-copied in), fill. The previous mode is set again afterwards (cleared).
+copied in), fill. The previous mode is set again afterwards (cleared). Done
+2026-10-14 (DESIGN_SPRITES 7); colours are typed 0-9 or chosen with +/-
+(letters are commands), and M switches the VIC multicolour view.
 
 More GXR (owner, 2026-10-14, after the editor): PLOT 72-79 and 88-95
 (horizontal line fills), PLOT 184-191 (move/copy a rectangle), VDU 23,6

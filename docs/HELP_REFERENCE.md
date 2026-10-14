@@ -98,13 +98,13 @@ VDU          VPOS         WIDTH
 *MEMORY      *MKDIR       *MOUNT
 *NET         *PALETTE     *PARTITION
 *PARTITIONS  *PWD         *RECTANGLE
-*RENAME      *SAVE        *SETTIME
-*SGET        *SHADOW      *SID
-*SNAPSHOT    *SONG        *SOUND
-*SPRITE      *SRREAD      *SRWRITE
-*STATUS      *SWAP        *TIME
-*TURBO       *TYPE        *UNMOUNT
-*UPIC        *UVER
+*RENAME      *SAVE        *SEDIT
+*SETTIME     *SGET        *SHADOW
+*SID         *SNAPSHOT    *SONG
+*SOUND       *SPRITE      *SRREAD
+*SRWRITE     *STATUS      *SWAP
+*TIME        *TURBO       *TYPE
+*UNMOUNT     *UPIC        *UVER
 ```
 
 ## BBC
@@ -1522,7 +1522,7 @@ expressions:
 
 ## *SGET
 
-Also: `SGET`, `*SCHOOSE`, `SCHOOSE`, `*SDELETE`, `SDELETE`, `*SNEW`, `SNEW`, `*SRENUMBER`, `SRENUMBER`, `*SLOAD`, `SLOAD`, `*SMERGE`, `SMERGE`, `*SSAVE`, `SSAVE`, `*SSPACE`, `SSPACE`, `*SMASK`, `SMASK`, `*SEDIT`, `SEDIT`, `GXR`
+Also: `SGET`, `*SCHOOSE`, `SCHOOSE`, `*SDELETE`, `SDELETE`, `*SNEW`, `SNEW`, `*SRENUMBER`, `SRENUMBER`, `*SLOAD`, `SLOAD`, `*SMERGE`, `SMERGE`, `*SSAVE`, `SSAVE`, `*SSPACE`, `SSPACE`, `*SMASK`, `SMASK`, `GXR`
 
 ```
   *SGET n        the last 2 points' box
@@ -1569,12 +1569,51 @@ BBC Micro or Master (MODE 0, 1, 2, 4,
 5), decoded from their mode. *SSAVE
 writes our format. Sprites live in the
 REU (46K); *SSPACE is accepted for GXR
-programs. *SEDIT (the editor) is not
-there yet. Needs an REU.
+programs. Needs an REU. *SEDIT n edits
+sprite n (see SEDIT).
 
   MOVE 0,0:MOVE 63,63:*SGET 1
   *SCHOOSE 1
   GCOL 0,0:PLOT 237,640,512
+```
+
+## *SEDIT
+
+Also: `SEDIT`, `EDITOR`
+
+```
+  *SEDIT n       GXR sprite n (0-255)
+  *SEDIT VIC s   VIC-II shape s (0-63)
+
+The sprite editor, for both kinds: the
+GXR software sprites (SGET) and the
+VIC-II hardware sprites' shapes
+(SPRITE). Each pixel is a block on the
+text screen; a VIC shape is also shown
+at its real size. RETURN keeps the
+sprite, ESCAPE leaves it as it was; the
+screen mode before is set again
+(cleared). A new GXR sprite starts at
+16 x 16.
+
+  cursor keys  move
+  0-9 + -      choose the colour
+  SPACE        paint
+  P            pick the colour there
+  F            fill the area
+  C            clear
+  H V          flip across / down
+  I J K L      shift up/left/down/right
+  S            size (GXR)
+  G            copy another sprite in
+  M            multicolour (VIC shape)
+
+A VIC shape in multicolour shows 12
+double-wide pixels: 1 and 3 are the
+pair of *SPRITE COLOURS, 2 the sprite's
+own colour. GXR sprites have colours
+0-15 (as logical colours of the mode
+they are plotted in).
 ```
 
 ## *SRWRITE

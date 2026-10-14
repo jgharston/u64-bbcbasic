@@ -15,6 +15,8 @@
     icl 'netchan.s'
     .endl
 
+    icl 'sedit.s'
+
 bank7_end:
     .if bank7_end > $C000
     .error "Bank 7 overflows 16K"

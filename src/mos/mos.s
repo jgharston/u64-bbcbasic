@@ -79,7 +79,7 @@ cold:
     lda reu_banks               ; GXR sprites: none (with an REU)
     ora reu_banks+1
     beq cold_nogxr
-    farcall gxr.gxr_init, BANK_RD
+    farcall gxr.gxr_cold, BANK_RD
 cold_nogxr:
     farcall font_keepdef, BANK_FS ; and the start-up font for *FONT DEFAULT
     farcall snd_instinit, BANK_SND ; default instruments to the REU
@@ -1878,7 +1878,7 @@ cmd_table:
     dta 'ON', 0, a(bvc.cmd_on), BANK_UP
     dta 'SCHOOSE', 0, a(gxr.cmd_schoose), BANK_RD
     dta 'SDELETE', 0, a(gxr.cmd_sdelete), BANK_RD
-    dta 'SEDIT', 0, a(gxr.cmd_sedit), BANK_RD
+    dta 'SEDIT', 0, a(sed.cmd_sedit), BANK_NET
     dta 'SGET', 0, a(gxr.cmd_sget), BANK_RD
     dta 'SLOAD', 0, a(gxr.cmd_sload), BANK_RD
     dta 'SMASK', 0, a(gxr.cmd_smask), BANK_RD

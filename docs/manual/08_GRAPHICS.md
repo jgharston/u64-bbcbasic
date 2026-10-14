@@ -328,7 +328,7 @@ X%=640:Y%=512:R%=200
 
 ## 8.8 GXR software sprites
 
-#### `*SGET` (also `*SCHOOSE`, `SCHOOSE`, `*SDELETE`, `SDELETE`, `*SNEW`, `SNEW`, `*SRENUMBER`, `SRENUMBER`, `*SLOAD`, `SLOAD`, `*SMERGE`, `SMERGE`, `*SSAVE`, `SSAVE`, `*SSPACE`, `SSPACE`, `*SMASK`, `SMASK`, `*SEDIT`, `SEDIT`, `GXR`)
+#### `*SGET` (also `*SCHOOSE`, `SCHOOSE`, `*SDELETE`, `SDELETE`, `*SNEW`, `SNEW`, `*SRENUMBER`, `SRENUMBER`, `*SLOAD`, `SLOAD`, `*SMERGE`, `SMERGE`, `*SSAVE`, `SSAVE`, `*SSPACE`, `SSPACE`, `*SMASK`, `SMASK`, `GXR`)
 
 ```
 *SGET n        the last 2 points' box
@@ -348,10 +348,38 @@ Software sprites as the BBC Master's GXR: pictures taken from the screen and plo
 
 *SMASK n c (U64) leaves colour c out when sprite n is plotted, so it sits over a background without its box; *SMASK n OFF plots every pixel again (as the GXR).
 
-*SLOAD reads a sprite file (all sprites replaced), *SMERGE adds one: our own format, or real GXR sprite files from a BBC Micro or Master (MODE 0, 1, 2, 4, 5), decoded from their mode. *SSAVE writes our format. Sprites live in the REU (46K); *SSPACE is accepted for GXR programs. *SEDIT (the editor) is not there yet. Needs an REU.
+*SLOAD reads a sprite file (all sprites replaced), *SMERGE adds one: our own format, or real GXR sprite files from a BBC Micro or Master (MODE 0, 1, 2, 4, 5), decoded from their mode. *SSAVE writes our format. Sprites live in the REU (46K); *SSPACE is accepted for GXR programs. Needs an REU. *SEDIT n edits sprite n (see SEDIT).
 
 ```
 MOVE 0,0:MOVE 63,63:*SGET 1
 *SCHOOSE 1
 GCOL 0,0:PLOT 237,640,512
 ```
+
+
+## 8.9 The sprite editor
+
+#### `*SEDIT` (also `EDITOR`)
+
+```
+*SEDIT n       GXR sprite n (0-255)
+*SEDIT VIC s   VIC-II shape s (0-63)
+```
+
+The sprite editor, for both kinds: the GXR software sprites (SGET) and the VIC-II hardware sprites' shapes (SPRITE). Each pixel is a block on the text screen; a VIC shape is also shown at its real size. RETURN keeps the sprite, ESCAPE leaves it as it was; the screen mode before is set again (cleared). A new GXR sprite starts at 16 x 16.
+
+```
+cursor keys  move
+0-9 + -      choose the colour
+SPACE        paint
+P            pick the colour there
+F            fill the area
+C            clear
+H V          flip across / down
+I J K L      shift up/left/down/right
+S            size (GXR)
+G            copy another sprite in
+M            multicolour (VIC shape)
+```
+
+A VIC shape in multicolour shows 12 double-wide pixels: 1 and 3 are the pair of *SPRITE COLOURS, 2 the sprite's own colour. GXR sprites have colours 0-15 (as logical colours of the mode they are plotted in).

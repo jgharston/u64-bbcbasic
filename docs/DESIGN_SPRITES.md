@@ -198,3 +198,30 @@ read real GXR files (decoded by their mode) and our own format;
 - Code: the store and commands in bank 5 (gxr.s; bank 8 is full), the
   plot in the shapes' bank 3 copy (bs_sprite) with its loop run from
   MOSBUF; Upic Lite's engine routes group 29 there.
+
+## 7. The sprite editor *SEDIT (2026-10-14)
+
+`src/mos/sedit.s`, bank 7 (`.local sed`). `*SEDIT n` edits GXR sprite n,
+`*SEDIT VIC s` the VIC-II shape s.
+
+- **Buffer**: REU bank `GXR_SCR` (the GXR file scratch), one byte per
+  pixel, a row every 256 bytes (pixel x,y at y*256+x). GXR sprites go in
+  and out through `gxr_edload` / `gxr_edstore` in bank 5 (farcall);
+  `edstore` keeps the sprite's mask colour. A VIC shape (REU bank 1,
+  `$1000 + s*64`) is unpacked to 24 x 21 bytes of 0/1 and packed again.
+- **Multicolour view** (VIC, `M`): pixel pairs as one logical pixel with
+  value 0-3 (01 `$D025`, 10 the sprite colour, 11 `$D026`); the buffer
+  stays in bits, so switching the view loses nothing.
+- **Screen**: MODE 100. The grid takes columns 0-23 and rows 1-23, with one
+  cell per pixel (a reversed space in the pixel's colour, colour 0 a grey
+  dot, the cursor `+`). It scrolls to keep the cursor in view (GXR sprites
+  up to 192 x 255). The panel is from column 25. A VIC shape is also shown as
+  hardware sprite 0 (its shape at `$FF00`), so the multiplexer is
+  removed first. The mode before is set again on leaving.
+- **Fill**: a scan-line fill with its stack of (x, y) pairs in REU bank
+  `$0B` (up to 16K pairs; when the stack is full, pairs are dropped).
+- **Variables**: `MOSBUF+$80-$9F`; gxr's helpers use `MOSBUF+$00-$3F`
+  meanwhile.
+- **Cold start**: the VIC shapes in the REU are now cleared (`gxr_cold`),
+  as the REU holds random data at power-on. `*SNEW` clears only the GXR
+  store.

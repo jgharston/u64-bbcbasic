@@ -1630,6 +1630,70 @@ def test_gxr(t):
     rm.run_lines(["MODE 100", "*SNEW", "*DELETE GXRT", "*DELETE GXRF"])
 
 
+def sedit_keys(rm, codes):
+    """PETSCII codes into the keyboard buffer, one at a time."""
+    for c in codes:
+        deadline = time.time() + 10
+        while rm.read(0xC6, 1)[0] and time.time() < deadline:
+            time.sleep(0.05)
+        rm.write(0x0277, [c])
+        rm.write(0xC6, [1])
+        time.sleep(0.2)
+
+
+def test_sedit(t):
+    # the sprite editor: a new GXR sprite sized, painted, filled, flipped,
+    # shifted and kept (checked with POINT); an edit left with ESCAPE
+    # changes nothing; a VIC shape keeps a painted pixel (the editor's
+    # grid shows it when it is opened again)
+    if t.is_vice:
+        run_line(t, "*SEDIT 1", "Sprites need an REU")
+        return
+    import threading
+    rm = u64remote.Remote(t.host)       # (REST: many small writes, which
+    rm.run_lines(["MODE 100", "*SDELETE 9"])   # the bridge did not take)
+    RIGHT, DOWN, RET, STOP = 0x1D, 0x11, 0x0D, 0x03
+
+    def edit(cmd, keys):
+        th = threading.Thread(target=lambda: u64remote.Remote(t.host).run_lines(
+            [cmd], timeout=60))
+        th.start()
+        time.sleep(2)
+        sedit_keys(rm, keys)
+        th.join(30)
+    edit("*SEDIT 9", [ord("S"), ord("4"), RET, ord("3"), RET,      # 4 x 3
+                      ord("2"), 32,                                # (0,0)=2
+                      ord("5"), RIGHT, ord("F"),                   # fill 5
+                      ord("H"), ord("K"), RET])                    # flip, shift
+    prog = "\n".join([
+        "10 MODE 2:*SCHOOSE 9",
+        "20 GCOL 0,0:PLOT 237,0,0",
+        '30 A$="":FOR Y%=0 TO 2:FOR X%=0 TO 3',
+        "40 A$=A$+CHR$(48+POINT(X%*8+4,(2-Y%)*4+2)):NEXT:NEXT",
+        '50 MODE 100:PRINT "E=";A$', ""])
+    r = rm.send_program(prog, run=True, timeout=30)
+    assert "E=555555525555" in r["output"], r
+    edit("*SEDIT 9", [ord("1"), 32, RIGHT, 32])                    # then
+    rm.stop()                                                      # ESCAPE
+    time.sleep(1)
+    r = rm.send_program(prog, run=True, timeout=30)
+    assert "E=555555525555" in r["output"], r
+    edit("*SEDIT 10", [ord("G"), ord("9"), RET, ord("J"), RET])    # 9, left
+    r = rm.send_program(prog.replace("SCHOOSE 9", "SCHOOSE 10"), run=True,
+                        timeout=30)
+    assert "E=555555255555" in r["output"], r
+    rm.run_lines(["*SDELETE 9", "*SDELETE 10"])
+    edit("*SEDIT VIC 6", [ord("C"), ord("1"), 32, RET])            # (0,0) set
+    th = threading.Thread(target=lambda: u64remote.Remote(t.host).run_lines(
+        ["*SEDIT VIC 6"], timeout=60))
+    th.start()
+    time.sleep(3)
+    cell = rm.read(0xC000 + 40, 2)                                 # row 1, col 0/1
+    rm.stop()
+    th.join(30)
+    assert cell[0] in (0xA0, 0xAB) and cell[1] == 0x2E, cell.hex()
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -2050,7 +2114,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_net, test_json, test_netchan, test_classics,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_sedit, test_net, test_json, test_netchan, test_classics,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,
