@@ -63,8 +63,13 @@ The VIC-II reads sprite shapes only from its bank, here bank 3
   before the band (64 bytes a sprite by DMA, about 64 cycles each). With
   2 blocks, at most 2 different shapes per band; more needs room taken
   from somewhere (options below).
-- **Upic Lite (MODE 1, 2, 4, 5, 6 on 64 MHz machines):** whether VIC-II
-  sprites show over the Upic picture is to be tested on the U64.
+- **Upic Lite (MODE 1, 2, 4, 5, 6 on 64 MHz machines):** tested on the
+  U64 (2026-10-14): VIC-II sprites do **not** show; the Upic picture
+  replaces the VIC-II's whole output. The same sprite in MODE 132 (MODE 4
+  on the VIC-II, `*SHADOW`) shows, from the free block at $FF40. So on a
+  64 MHz machine a program with sprites uses MODE 128+n (or `*SHADOW`),
+  as BBC Master programs choose shadow modes; `*SPRITE` in a Upic Lite
+  mode gives an error that says so.
 
 Options for the bitmap modes, to decide:
 
