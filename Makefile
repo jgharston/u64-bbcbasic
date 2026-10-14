@@ -27,7 +27,9 @@ BASICDIR  = $(BUILD)/basic
 MOS_SRCS  = $(wildcard src/mos/*.s)
 GEN       = $(BUILD)/gen/tables.s $(BUILD)/gen/ul_r1.s $(BUILD)/gen/ul_r2.s \
             $(BUILD)/gen/ul_r3.s $(BUILD)/gen/ul_r4.s $(BUILD)/gen/sound_tables.s \
-            $(BUILD)/gen/sound_inst.s $(BUILD)/gen/list_tokens.s
+            $(BUILD)/gen/sound_inst.s $(BUILD)/gen/list_tokens.s \
+            $(BUILD)/gen/upic_r64.s $(BUILD)/gen/upic_r48.s \
+            $(BUILD)/gen/font4x6.s
 
 ULTIP1   ?= <set_ULTIP1_in_.env>
 ULTPATH   = /Temp/
@@ -78,6 +80,20 @@ $(BUILD)/gen/ul_r4.s: tools/upiclite_gen.py
 	@$(MKDIR) $(dir $@)
 	$(PYTHON) $< --bpp 4 --width 160 --dots 2 --cols '$$3000' --tables '$$E900' --delay 172 --label ul4_line -o $@
 
+# MODE 1 on the VIC-II: the 4x6 font (X11 misc-fixed, public domain)
+$(BUILD)/gen/font4x6.s: tools/genfont4x6.py src/fonts/4x6.bdf
+	@$(MKDIR) $(dir $@)
+	$(PYTHON) $< src/fonts/4x6.bdf -o $@
+
+# Upic full line renderers (tools/upic_gen.py, after ultimate-uci-oscar64's
+# Upic module; columns at $1000, nybble table at $0E00, run at $0400)
+$(BUILD)/gen/upic_r64.s: tools/upic_gen.py
+	@$(MKDIR) $(dir $@)
+	$(PYTHON) $< --path 64 --nyb '$$0E00' --label upr64 -o $@
+$(BUILD)/gen/upic_r48.s: tools/upic_gen.py
+	@$(MKDIR) $(dir $@)
+	$(PYTHON) $< --path 48 --nyb '$$0E00' --label upr48 -o $@
+
 # banks 0 and 2 in one assembly (src/mos/cart.s): 32K, bank 0 then bank 2
 $(BUILD)/mos-ef.bin: $(MOS_SRCS) $(GEN)
 	$(MADS) -d:CART_EF=1 -i:src/mos -i:$(BUILD)/gen -l:$(BUILD)/mos-ef.lst -o:$@ src/mos/cart.s >/dev/null || \
@@ -91,7 +107,7 @@ $(BUILD)/mos-tmb.bin: $(MOS_SRCS) $(GEN)
 
 $(BUILD)/help.bin: src/help/help.txt tools/genhelp.py src/mos/mos.s Makefile
 	@$(MKDIR) $(BUILD)
-	$(PYTHON) tools/genhelp.py --first 8 --commands src/mos/mos.s src/help/help.txt $@ docs/HELP_REFERENCE.md
+	$(PYTHON) tools/genhelp.py --first 9 --commands src/mos/mos.s src/help/help.txt $@ docs/HELP_REFERENCE.md
 
 docs/HELP_REFERENCE.md: $(BUILD)/help.bin
 
@@ -105,10 +121,10 @@ manual: $(BUILD)/manual.stamp
 # --- Cartridges
 
 $(BUILD)/$(NAME)-ef.crt: $(BUILD)/mos-ef.bin $(BUILD)/basic.rom $(BUILD)/help.bin tools/mkcrt.py
-	$(PYTHON) tools/mkcrt.py --type ef --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-ef.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-ef.bin:1 $(BUILD)/mos-ef.bin:2 $(BUILD)/mos-ef.bin:3 $(BUILD)/mos-ef.bin:4 $(BUILD)/mos-ef.bin:5 $(BUILD)/mos-ef.bin:6 $(BUILD)/help.bin
+	$(PYTHON) tools/mkcrt.py --type ef --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-ef.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-ef.bin:1 $(BUILD)/mos-ef.bin:2 $(BUILD)/mos-ef.bin:3 $(BUILD)/mos-ef.bin:4 $(BUILD)/mos-ef.bin:5 $(BUILD)/mos-ef.bin:6 $(BUILD)/mos-ef.bin:7 $(BUILD)/help.bin
 
 $(BUILD)/$(NAME)-tmb.crt: $(BUILD)/mos-tmb.bin $(BUILD)/basic.rom $(BUILD)/help.bin tools/mkcrt.py
-	$(PYTHON) tools/mkcrt.py --type tmb --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-tmb.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-tmb.bin:1 $(BUILD)/mos-tmb.bin:2 $(BUILD)/mos-tmb.bin:3 $(BUILD)/mos-tmb.bin:4 $(BUILD)/mos-tmb.bin:5 $(BUILD)/mos-tmb.bin:6 $(BUILD)/help.bin
+	$(PYTHON) tools/mkcrt.py --type tmb --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-tmb.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-tmb.bin:1 $(BUILD)/mos-tmb.bin:2 $(BUILD)/mos-tmb.bin:3 $(BUILD)/mos-tmb.bin:4 $(BUILD)/mos-tmb.bin:5 $(BUILD)/mos-tmb.bin:6 $(BUILD)/mos-tmb.bin:7 $(BUILD)/help.bin
 
 # --- Ultimate settings, loaded with the cartridge when it is started from
 # the Ultimate's file browser (firmware 3.15+: same name, same directory)
@@ -119,6 +135,10 @@ $(BUILD)/%.cfg: src/cfg/$(NAME).cfg
 
 checkcfg:
 	$(PYTHON) tools/checkcfg.py src/cfg/$(NAME).cfg $(ULTIP1) $(ULTIP2)
+
+# the cartridge's settings on the devices (after lending a U64 out)
+applycfg:
+	$(PYTHON) tools/applycfg.py src/cfg/$(NAME).cfg $(ULTIP1) $(ULTIP2)
 
 # --- The unpatched interpreter must still match Ivo's reference ROM
 

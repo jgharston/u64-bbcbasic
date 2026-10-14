@@ -16,11 +16,14 @@
 ;
 ; ----------------------------------------------------------------------------
 
-; Assembled twice (GXUL, set by the wrapper): GXUL = 0 for the VIC-II
-; bitmap modes (gfx_vic.s, bank 0), GXUL = 1 for Upic Lite (gfx_ul.s,
-; bank 3): a column-major buffer below HIMEM (byte column c at
+; Assembled three times (GXUL, GXUP, set by the wrapper): GXUL = 0 for
+; the VIC-II bitmap modes (gfx_vic.s, bank 0), GXUL = 1 for Upic Lite
+; (gfx_ul.s, bank 3): a column-major buffer below HIMEM (byte column c at
 ; vmode_bufhi + c pages, row y = offset y), leftmost pixel in the lowest
-; bit(s), 256 lines (docs/DESIGN_GRAPHICS.md section 10.8).
+; bit(s), 256 lines (docs/DESIGN_GRAPHICS.md section 10.8); GXUL = 1 and
+; GXUP = 1 for Upic full (gfx_up.s, bank 8, MODE 110/111): the picture in
+; the REU in the same column-major layout (4 bits per pixel), reached
+; through the stub at UP_STUB; text on the VIC-II text screen (10.12).
 
 ; Entry points (jump table, offsets used by core.s: GX_*)
     jmp e_mode                  ; +0  set up the current mode, clear
@@ -56,6 +59,12 @@ crowhi:
 ;   Input:   vmode_* (core), pal[] already set by the core.
 ;   Output:  bitmap clear; state reset.  Uses: A, X, Y, gzp.
 e_mode:
+    .if GXUP
+    lda #0                      ; Upic full: the picture all colour 0,
+    jsr US_FILLALL              ; the console clear
+    jsr e_defaults
+    jmp e_cls
+    .endif
     .if GXUL
     lda vmode_bufhi             ; Upic Lite: buffer up to $7FFF, 0
     sta gzp+1
@@ -1032,6 +1041,9 @@ er_c5:
     eor #$80
 er_c6:
     bmi er_none
+    .if GXUP
+    jmp eup_rect                ; Upic full: per byte column, in the REU
+    .endif
     lda ery0
     sta ey
     lda #0
@@ -1195,6 +1207,12 @@ e_bytepix:
     sta emask
     jmp ep_addr
 e_pixel:
+    .if GXUP
+    jsr eup_map                 ; Upic full: column and nybble(s) of ex
+    lda ey
+    sta gzp
+    jmp ep_value
+    .endif
     lda vmode_mc
     bne epx_mc
     lda ex
@@ -1291,6 +1309,46 @@ epv_2:
 epv_set:
     sta evrep
 ep_apply:
+    .if GXUP
+    jsr US_RD                   ; Upic full: the byte from the REU, the
+    sta eup_b                   ; action, the byte back
+    ldx eact
+    beq eupa_store
+    dex
+    beq eupa_or
+    dex
+    beq eupa_and
+    dex
+    beq eupa_eor
+    lda eup_b                   ; 4 (and above): invert
+    eor emask
+    jmp US_WR
+eupa_store:
+    lda emask
+    eor #$FF
+    and eup_b
+    sta etmp
+    lda evrep
+    and emask
+    ora etmp
+    jmp US_WR
+eupa_or:
+    lda evrep
+    and emask
+    ora eup_b
+    jmp US_WR
+eupa_and:
+    lda emask
+    eor #$FF
+    ora evrep
+    and eup_b
+    jmp US_WR
+eupa_eor:
+    lda evrep
+    and emask
+    eor eup_b
+    jmp US_WR
+    .else
     ldy #0
     ldx eact
     beq eap_store
@@ -1333,6 +1391,7 @@ eap_eor:
     eor (gzp),y
     sta (gzp),y
     rts
+    .endif
 
     .if GXUL = 0
 ; ----------------------------------------------------------------------------
@@ -1630,6 +1689,22 @@ eci_wr:
     .else
 ; ept_byte (Upic Lite): A = logical colour of the pixel ex/ey
 ept_byte:
+    .if GXUP
+    jsr eup_map                 ; Upic full: its nybble from the REU (the
+    lda ey                      ; low one when the pixel is the whole
+    sta gzp                     ; byte: MODE 111's first of three)
+    jsr US_RD
+    ldx emask
+    cpx #$F0
+    bne eptu_lo
+    lsr
+    lsr
+    lsr
+    lsr
+eptu_lo:
+    and #15
+    rts
+    .endif
     jsr ep_addr_only
     ldy #0
     lda (gzp),y
@@ -1802,6 +1877,9 @@ em8_next:
 ;            pixel of the cell: the glyph bit chooses tfg or tbg. 4-pixel
 ;            wide cells OR adjacent glyph bit pairs.
 e_char:
+    .if GXUP
+    jmp eup_char                ; Upic full: the VIC-II text screen
+    .endif
     jsr e_txy
     jsr e_glyphcell
     jmp e_advance
@@ -1877,6 +1955,17 @@ egc_x:
 ;            tip of > and <, the strokes of Z).
 ;   Input:   glyph[].  Output: erows[0..5] = row numbers.  Uses: A, X, Y.
 e_rows6:
+    lda vmode_cw                ; MODE 1's 4-pixel cells: the 4x6 font,
+    cmp #4                      ; rows 0-5 as they are
+    bne er6_pick
+    ldx #5
+er6_46:
+    txa
+    sta erows,x
+    dex
+    bpl er6_46
+    rts
+er6_pick:
     lda #7
     ldx glyph+7
     beq er6_a
@@ -2138,6 +2227,9 @@ egp_none:
 ;            the bottom row: per byte column of the window, the bytes of
 ;            its lines move up 8 (column-major buffer).
 e_scroll:
+    .if GXUP
+    jmp US_SCROLL               ; Upic full: the console (stub)
+    .endif
     jsr eus_cols
     lda twt                     ; first line, and the last row's first
     jsr e_rowtop
@@ -2213,6 +2305,9 @@ eus_x   dta 0
 ; e_clearrow: text row A, window columns, in the text background (and its
 ; gap line, if any)
 e_clearrow:
+    .if GXUP
+    jmp US_CLROW                ; Upic full: the console row (stub)
+    .endif
     .if GXUL = 0
     pha
     jsr e_gapclear
@@ -2359,6 +2454,9 @@ ept_n13:
 
 ; e_cursor: invert the bottom line of the cursor's cell (shown/hidden)
 e_cursor:
+    .if GXUP
+    jmp eup_cursor
+    .endif
     jsr e_txy
     lda ey
     clc
@@ -2379,6 +2477,329 @@ ecu_x:
     dec ecount
     bne ecu_loop
     rts
+
+    .if GXUP
+; ----------------------------------------------------------------------------
+; Upic full (GXUP): the picture's pixels and the console's characters
+
+; eup_map
+;   Summary: device x (ex) -> the REU page of its byte column (gzp+1 =
+;            column + 1: the picture starts at page 1) and its bits
+;            (emask).
+;   Function: MODE 110 (vmode_rend = 0): column x / 2, the low nybble for
+;            even x. MODE 111 (1): logical x = 3m + k: column 2m (k = 0:
+;            the whole byte, pixels 4m and 4m+1, as the 48 MHz renderer
+;            shows 4m two dots wide) or 2m + 1 (k = 1 low, 2 high).
+;            m = x * 171 >> 9 (exact below 512).
+;   Uses:    A, X, etmp, eup_t.
+eup_map:
+    lda vmode_rend
+    bne eum_111
+    lda ex+1
+    lsr
+    lda ex
+    ror                         ; x / 2 (x < 384)
+    tax
+    lda #$0F
+    bcc eum_set
+    lda #$F0
+    bne eum_set
+eum_111:
+    lda ex                      ; eup_t (24 bits) = x * 171 = x * (128 +
+    sta etmp                    ; 32 + 8 + 2 + 1)
+    lda ex+1
+    sta etmp+1
+    lda #0
+    sta eup_t
+    sta eup_t+1
+    sta eup_t+2
+    ldx #7                      ; bits of 171 from 0 up: 1,1,0,1,0,1,0,1
+    lda #171
+    sta eup_m
+eum_bit:
+    lsr eup_m
+    bcc eum_shift
+    lda eup_t
+    clc
+    adc etmp
+    sta eup_t
+    lda eup_t+1
+    adc etmp+1
+    sta eup_t+1
+    bcc eum_shift
+    inc eup_t+2
+eum_shift:
+    asl etmp
+    rol etmp+1
+    dex
+    bpl eum_bit
+    lda eup_t+2                 ; m = eup_t >> 9
+    lsr
+    lda eup_t+1
+    ror
+    sta eup_m                   ; m (0-95)
+    asl                         ; k = x - 3m
+    adc eup_m
+    sta etmp
+    lda ex
+    sec
+    sbc etmp
+    tax                         ; k
+    lda eup_m
+    asl                         ; column 2m (+ 1 for k > 0)
+    cpx #0
+    beq eum_k0
+    ora #1
+eum_k0:
+    pha
+    lda eum_masks,x
+    tay
+    pla
+    tax
+    tya
+eum_set:
+    sta emask
+    inx                         ; page = column + 1
+    stx gzp+1
+    rts
+eum_masks:
+    dta $FF, $0F, $F0
+
+; eup_rect
+;   Summary: e_rect's fill for Upic full, after clipping: per byte column
+;            of erx0..erx1 (the bits of that column's pixels in the range
+;            together), rows ery0..ery1: "store" of whole bytes as one fill
+;            DMA, anything else read, changed and written back through the
+;            stub's buffer. With an ECF pattern: pixel by pixel.
+;   Uses:    A, X, Y, ex, ey, gzp, emask, evrep, eur_*.
+eup_rect:
+    lda epat
+    beq eur_cols
+    lda ery0                    ; pattern: per pixel
+    sta ey
+eurp_row:
+    lda erx0
+    sta ex
+    lda erx0+1
+    sta ex+1
+eurp_px:
+    jsr e_pixel
+    lda ex
+    cmp erx1
+    lda ex+1
+    sbc erx1+1
+    bcs eurp_next
+    inc ex
+    bne eurp_px
+    inc ex+1
+    bne eurp_px
+eurp_next:
+    jsr gx_yield
+    lda ey
+    cmp ery1
+    beq eur_rts
+    inc ey
+    bne eurp_row
+eur_rts:
+    rts
+eur_cols:
+    lda ecol                    ; colour x $11
+    and #15
+    sta etmp
+    asl
+    asl
+    asl
+    asl
+    ora etmp
+    sta evrep
+    lda ery1                    ; rows: count (256 = 0)
+    sec
+    sbc ery0
+    clc
+    adc #1
+    sta US_N
+    lda erx0
+    sta ex
+    lda erx0+1
+    sta ex+1
+    lda #0
+    sta eur_mask
+    lda #$FF
+    sta eur_col
+eur_x:
+    jsr eup_map                 ; gzp+1 = page, emask
+    lda gzp+1
+    cmp eur_col
+    beq eur_same
+    sta eur_new                 ; a new column: the one before first (the
+    lda emask                   ; flush uses gzp and emask)
+    sta eur_newm
+    jsr eur_flush
+    lda eur_new
+    sta eur_col
+    lda eur_newm
+    sta eur_mask
+    jmp eur_next
+eur_same:
+    lda emask
+    ora eur_mask
+    sta eur_mask
+eur_next:
+    lda ex
+    cmp erx1
+    lda ex+1
+    sbc erx1+1
+    bcs eur_last
+    inc ex
+    bne eur_xj
+    inc ex+1
+eur_xj:
+    jmp eur_x
+eur_last:
+eur_flush:                      ; column eur_col with eur_mask (if any)
+    lda eur_mask
+    bne euf_go
+    rts
+euf_go:
+    lda eur_col
+    sta gzp+1
+    lda ery0
+    sta gzp
+    lda eact
+    bne euf_rmw
+    lda eur_mask
+    cmp #$FF
+    bne euf_rmw
+    lda evrep                   ; store, whole bytes: one fill
+    jsr US_FILL
+    jmp gx_yield
+euf_rmw:
+    jsr US_GET                  ; the segment into the buffer
+    lda eur_mask
+    sta emask
+    eor #$FF
+    sta eur_nm
+    lda evrep
+    and emask
+    sta eur_vm
+    ldy ery0
+euf_byte:
+    lda UP_BUF,y
+    ldx eact
+    beq euf_store
+    dex
+    beq euf_or
+    dex
+    beq euf_and
+    dex
+    beq euf_eor
+    eor emask                   ; invert
+    jmp euf_put
+euf_store:
+    and eur_nm
+    ora eur_vm
+    jmp euf_put
+euf_or:
+    ora eur_vm
+    jmp euf_put
+euf_and:
+    sta etmp
+    lda eur_nm
+    ora evrep
+    and etmp
+    jmp euf_put
+euf_eor:
+    eor eur_vm
+euf_put:
+    sta UP_BUF,y
+    cpy ery1
+    beq euf_done
+    iny
+    bne euf_byte
+euf_done:
+    jsr US_PUT
+    jmp gx_yield
+
+; eup_char: ASCII character A (the core's argument) on the console at
+; the text cursor, in the text colour (COLOUR 128+n: reversed), then on
+eup_char:
+    tax
+    lda asc2pet,x
+    beq euch_none
+    jsr pet2scr
+    ldx tbg
+    beq euch_n
+    ora #$80
+euch_n:
+    pha
+    jsr eup_cell
+    pla
+euch_st:
+    sta SCREEN
+    ldx tfg
+    lda bbc2c64,x
+    jsr io_colput
+    jmp e_advance
+euch_none:
+    rts
+
+; eup_cursor: the cursor's character reversed (shown / hidden)
+eup_cursor:
+    jsr eup_cell
+eucu_ld:
+    lda SCREEN
+    eor #$80
+eucu_st:
+    sta SCREEN
+    rts
+
+; eup_cell: ecell = tcy * 40 + tcx, and the screen address in euch_st,
+; eucu_ld, eucu_st
+eup_cell:
+    lda tcy
+    asl
+    asl
+    asl                         ; * 8 (< 200)
+    sta etmp
+    lda #0
+    sta etmp+1
+    lda etmp
+    asl
+    rol etmp+1
+    asl
+    rol etmp+1                  ; * 32
+    clc
+    adc etmp                    ; + * 8
+    sta ecell
+    lda etmp+1
+    adc #0
+    sta ecell+1
+    lda ecell
+    clc
+    adc tcx
+    sta ecell
+    sta euch_st+1
+    sta eucu_ld+1
+    sta eucu_st+1
+    lda ecell+1
+    adc #0
+    sta ecell+1
+    adc #>SCREEN
+    sta euch_st+2
+    sta eucu_ld+2
+    sta eucu_st+2
+    rts
+
+eup_b       dta 0
+eup_t       dta 0, 0, 0
+eup_m       dta 0
+eur_col     dta 0
+eur_mask    dta 0
+eur_nm      dta 0
+eur_vm      dta 0
+eur_new     dta 0
+eur_newm    dta 0
+    .endif
 
 engine_end:
     .if engine_end > ENGINE+$1000

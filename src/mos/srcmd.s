@@ -166,8 +166,8 @@ src_c64ok:
     bne src_cmp
     dex
 src_cmp:
-    cpx #SNAP_BANK-1+1          ; not into the snapshot slots (&B0000-
-    bcs sr_bad                  ; &FFFFF, snapshot.s)
+    cpx #UPIC_BANK-1+1          ; not into Upic (&90000-&AFFFF, upic.s) or
+    bcs sr_bad                  ; the snapshot slots (&B0000-&FFFFF)
     lda reu_banks+1             ; 256 banks or more (16M): every bank
     bne src_go
     cpx reu_banks

@@ -95,7 +95,7 @@ NEW
 *SNAPSHOT LOAD 1
 ```
 
-Slots 1-9 lie at &B8000-&FFFFF (*SRWRITE and OSWORD &42 stop below &B0000) and go when the power goes off; SAVE copies a slot to a file on the Ultimate's drives, LOAD with a name reads one back. Needs an REU of 1 MB or more.
+Slots 1-9 lie at &B8000-&FFFFF (*SRWRITE and OSWORD &42 stop below &90000) and go when the power goes off; SAVE copies a slot to a file on the Ultimate's drives, LOAD with a name reads one back. Needs an REU of 1 MB or more.
 
 
 ## 12.2 Strings and memory
@@ -130,6 +130,8 @@ build strings can therefore end with "No room". What helps:
 | bank 0, $4000-$7FFF | HTTP replies (`*NET GET`, `*JSON GET`, http:// channels) |
 | bank 0, $8000-$FFFF | the line editor's history (127 lines) |
 | banks 1-3 | the song (`*SONG`) |
-| &40000-&AFFFF | programs' data (`*SRWRITE`, OSWORD &42) |
+| &40000-&8FFFF | programs' data (`*SRWRITE`, OSWORD &42) |
+| &90000-&9FFFF | the Upic full picture (`*UPIC`, MODE 110/111) |
+| &A0000-&AFFFF | BASIC's RAM while the Upic picture is shown |
 | &B0000-&FFFFF | snapshots: working slot 0, slots 1-9 (`*SNAPSHOT`) |
 | &100000 up | the RAM disk `/REU` |

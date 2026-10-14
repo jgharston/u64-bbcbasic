@@ -11,9 +11,12 @@
 ; Mode table: type, mc, cols, rows, ncol, xsh, ysc, cw, ch, palette
 MT_LEN = 10
 mode_nums:
-    dta 1, 2, 4, 5, 6, 7, 100, 103, 104, $FF
+    dta 1, 2, 4, 5, 6, 7, 100, 103, 104, 110, 111, $FF
+upx_lo:
+    dta <383, <287              ; Upic full: the last x (MODE 110, 111)
 mode_tab:
-    dta 1, 1, 40, 32,  4, 3, 0, 4, 6, pal_bbc4-pal_sets   ; 1
+    dta 1, 1, 40, 32,  4, 3, 0, 4, 6, pal_bbc4-pal_sets   ; 1 (VIC-II: the
+                                ; 4x6 font in its 4-pixel cells, fnt46)
     dta 1, 1, 20, 32, 16, 3, 0, 8, 6, pal_bbc16-pal_sets  ; 2
     dta 1, 0, 40, 32,  2, 2, 0, 8, 6, pal_bbc2-pal_sets   ; 4
     dta 1, 1, 20, 32,  4, 3, 0, 8, 6, pal_bbc4-pal_sets   ; 5
@@ -22,6 +25,8 @@ mode_tab:
     dta 0, 0, 40, 25, 16, 0, 1, 8, 8, pal_c64-pal_sets    ; 100 text
     dta 1, 0, 40, 25, 16, 2, 1, 8, 8, pal_c64-pal_sets    ; 103 hires
     dta 1, 1, 20, 25, 16, 3, 1, 8, 8, pal_c64-pal_sets    ; 104 multicolour
+    dta 1, 2, 40, 25, 16, 2, 1, 8, 8, pal_bbc16-pal_sets  ; 110 Upic 64
+    dta 1, 2, 40, 25, 16, 2, 1, 8, 8, pal_bbc16-pal_sets  ; 111 Upic 48
 pal_sets:
 pal_bbc2:
     dta 0, 1
@@ -148,7 +153,23 @@ vm_ppb:
     sta vmode_ymax
     lda #$80
     sta vmode_himem
+    lda vmode                   ; Upic full: 384 (MODE 110) or 288 logical
+    cmp #110                    ; (111) by 256; the console 40 x 25
+    bcc vm_nup
+    sbc #110
+    sta vmode_rend
+    tax
+    lda upx_lo,x
+    sta vmode_xmax
+    lda #1
+    sta vmode_xmax+1
+    lda #255
+    sta vmode_ymax
+    lda #1                      ; VDU 19 takes BBC colour numbers (as
+    sta vmode_bbc               ; MODE 2), though y scales as a C64 mode
+vm_nup:
     jsr ul_choose               ; MODE 0/1/4: Upic Lite when possible
+    farcall fnt46, BANK_UP      ; VIC-II MODE 1: the 4x6 font (or back)
     jsr pal_default
     lda ul_active               ; leaving Upic Lite?
     beq vm_noleave
@@ -156,6 +177,15 @@ vm_ppb:
     bne vm_noleave
     jsr ul_leave
 vm_noleave:
+    lda eng_kind                ; leaving Upic full: the VIC-II engine back
+    cmp #3                      ; (the console used the C64 palette)
+    bne vm_nup2
+    lda vmode
+    cmp #110
+    bcs vm_nottx
+    farcall engine_init, BANK_MOS
+    jmp vm_nottx
+vm_nup2:
     lda eng_kind                ; leaving teletext: the VIC-II engine back
     cmp #2
     bne vm_nottx
@@ -211,6 +241,12 @@ vm_noblink:
     bne vm_ntt
     jmp tt_enter
 vm_ntt:
+    lda vmode                   ; MODE 110/111: Upic full (bank 8)
+    cmp #110
+    bcc vm_nupf
+    farcall up_enter, BANK_UP
+    rts
+vm_nupf:
     lda vmode_ul
     beq vm_vic
     farcall ul_enter, BANK_UL
@@ -321,6 +357,12 @@ bc_off:
 ;            with 2 or 4 colours show the change at once (cells and
 ;            colour RAM); 16-colour modes use it for new drawing.
 bk_pal:
+    lda eng_kind                ; Upic full: the picture's palette (bank 8)
+    cmp #3
+    bne bkp_n3
+    farcall up_vdu19, BANK_UP
+    rts
+bkp_n3:
     lda vdubuf+1                ; VDU 19,l,16,r,g,b: an RGB colour
     cmp #16
     bcc vp_phys
@@ -406,7 +448,11 @@ bk_defcol:
 vdc_fg:
     stx tfg
     stx gfg
-    jmp vp_show
+    lda eng_kind                ; Upic full: all 16 entries of the picture
+    cmp #3
+    bne vp_show
+    farcall up_palall, BANK_UP
+    rts
 
 
 ; ----------------------------------------------------------------------------

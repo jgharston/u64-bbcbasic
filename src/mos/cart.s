@@ -34,3 +34,6 @@
 
     org $8000, $C000            ; bank 7 (network)
     icl 'netbank.s'
+
+    org $8000, $C000            ; bank 8 (Upic full)
+    icl 'upbank.s'

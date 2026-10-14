@@ -33,7 +33,8 @@ BANK_UL     = 4                 ; Upic Lite RAM images (ulbank.s)
 BANK_RD     = 5                 ; the REU RAM disk (reudisk.s)
 BANK_SND    = 6                 ; sound: engine images, commands (sndbank.s)
 BANK_NET    = 7                 ; network (netbank.s)
-BANK_HELP   = 8                 ; first help bank: index + texts (tools/genhelp.py)
+BANK_UP     = 8                 ; Upic full: *UPIC, MODE 110/111 (upbank.s)
+BANK_HELP   = 9                 ; first help bank: index + texts (tools/genhelp.py)
 BANK_RAM    = $FF               ; cartridge off: BASIC runs from its RAM
                                 ; copy at $8000-$BFFF. The Ultimate 64 runs
                                 ; cartridge ROM fetches at 1 MHz, RAM at
@@ -264,9 +265,44 @@ mode_shadow = shadow+1          ; 1: the current mode is a shadow mode
 tbgon       = mode_shadow+1     ; text mode: COLOUR 128+n set (reverse video)
 ttfg        = tbgon+1           ; text mode: C64 colour of COLOUR n
 ramvars_end = ttfg+1
+UP_STUB     = $E000             ; Upic full (MODE 110/111): the engine's
+US_RD       = UP_STUB+0         ; REU and console stub (upstub.s), with
+US_WR       = UP_STUB+3         ; text on the VIC-II screen $E000-$EFFF
+US_FILL     = UP_STUB+6         ; is free
+US_GET      = UP_STUB+9
+US_PUT      = UP_STUB+12
+US_SCROLL   = UP_STUB+15
+US_CLROW    = UP_STUB+18
+US_FILLALL  = UP_STUB+21
+UP_BUF      = $E200             ; a column segment (256 bytes)
+US_N        = $E3FE             ; stub: bytes to move (0 = 256)
+US_BYTE     = $E3FF             ; stub: the byte read, written or filled
+UP_DIRTY    = $0335             ; Upic full: bit 0 drawn since the last
+                                ; show (the stub sets it), bit 7 *UPIC
+                                ; AUTO OFF (0 at the MOS's cold start)
+FONT46      = $033B             ; 1: the 4x6 font is in the REU font
+                                ; (VIC-II MODE 1, gxbank.s fnt46)
+f46_c1      = MOSBUF+$F8        ; fnt46's moves: commands, REU addresses,
+f46_c2      = MOSBUF+$F9        ; the chunk (MOSBUF+0-$FF carries the data:
+f46_a1      = MOSBUF+$FA        ; these are past its last 248-byte chunk)
+f46_a2      = MOSBUF+$FB
+f46_h1      = MOSBUF+$FC
+f46_h2      = MOSBUF+$FD
+f46_n       = MOSBUF+$FE
+up_kind     = $0336             ; Upic full's show (upic.s): its kind,
+up_lim      = $0337             ; time limit (2, frames), key mode and how
+up_norel    = $0339             ; it ended (RAM: bank 8 is ROM; $0336-
+up_bykey    = $033A             ; $033B: unused by the KERNAL)
+UP_SIG      = $0334             ; Upic full ($0334-$0335: unused by the
+                                ; KERNAL; not $03FE/F: the JSON handles):
+                                ; UP_SHOWING while a picture
+UP_SHOWING  = $55               ; shows (the mailbox is swapped out then);
+UP_ENDSHOW  = $AA               ; a host writes UP_ENDSHOW to end it as a
+                                ; key does (upic.s, u64remote endshow)
 snd_8sid    = $03FD             ; the 8SID layout was loaded (*SID SETUP):
                                 ; the SID list is set, not probed ($03FC-
-                                ; $03FF: free on the C64; RAMTAS clears it)
+                                ; $03FF: free on the C64; RAMTAS clears it;
+                                ; $03FE/F: the JSON handles, netcmd.s)
     .if ramvars_end > $03FC
     .error "MOS RAM variables overflow the cassette buffer"
     .endif

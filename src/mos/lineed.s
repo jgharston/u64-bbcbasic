@@ -638,8 +638,9 @@ egk_blink:
     sec
     sbc ed_bt
     bmi egk_none                ; (not yet: the refresh catches up)
-    lda JIFFY
-    and #16
+    lda JIFFY                   ; started: keep the start up to date (the
+    sta ed_bt                   ; signed difference turned negative after
+    and #16                     ; 128 jiffies and the blinking stopped)
     cmp ed_bph
     beq egk_none
     sta ed_bph

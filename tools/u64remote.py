@@ -55,6 +55,7 @@ DBG_CONTINUE, DBG_STEP, DBG_STOP = 1, 2, 3
 MB_PROMPT, MB_ERRNUM, MB_ERRCNT, MB_LINE, MB_RING = 17, 18, 19, 20, 110
 MB_SIZE, MB_LINEMAX, RING = 238, 74, 128
 REQ_LINE, REQ_CAPTURE, REQ_PROGRAM = 1, 3, 4
+UP_SIG, UP_SHOWING, UP_ENDSHOW = 0x0334, 0x55, 0xAA   # Upic full show (defs.s)
 PAGE, HIMEM = 0x1D00, 0x8000            # defaults; read from BASIC when needed
 ESCFLG = 0x00FF
 SCREEN = 0xC000
@@ -64,6 +65,10 @@ EXIT_OK, EXIT_BASIC_ERROR, EXIT_TIMEOUT, EXIT_CONNECTION = 0, 1, 2, 3
 
 class RemoteError(Exception):
     """Cannot talk to the machine, or the cartridge is not running."""
+
+
+class ShowingError(RemoteError):
+    """A Upic full picture is showing: the mailbox is swapped out."""
 
 
 class Remote:
@@ -123,14 +128,27 @@ class Remote:
         is a DMA that stops the C64's CPU while it runs; long reads during
         serial-bus transfers (*STATUS, *CP) break their timing (measured:
         *CP 0.4 s -> 11 s and more), so polls stay short."""
-        mb = self.read(MBOX, MB_SIZE if full else MB_LINE)
-        if mb[:4] != b"BBCR":
+        for attempt in range(3):
+            mb = self.read(MBOX, MB_SIZE if full else MB_LINE)
+            if mb[:4] == b"BBCR":
+                return mb
+            if self.read(UP_SIG, 1)[0] == UP_SHOWING:
+                raise ShowingError("a Upic picture is showing (endshow "
+                                   "or stop ends it)")
+            time.sleep(0.05)                # (a show may just have ended:
+        if mb[:4] != b"BBCR":               # the signal goes after the RAM)
             raise RemoteError("U64 BBC BASIC is not running on %s "
                               "(no mailbox at $%04X)" % (self.host, MBOX))
         return mb
 
     def state(self, mb=None):
-        mb = mb or self.mailbox()
+        if mb is None:
+            try:
+                mb = self.mailbox()
+            except ShowingError:
+                return {"state": "showing", "line": 0, "debug": False,
+                        "error_count": 0, "last_error": 0, "capture": False,
+                        "protocol": 0}
         status = mb[MB_STATUS]
         waiting = status == 1
         return {
@@ -247,7 +265,14 @@ class Remote:
         first_error = None              # (number, message) of the first
         err_seen = errors_before        # error, taken when it happened
         while True:
-            mb = self.mailbox()
+            try:
+                mb = self.mailbox()
+            except ShowingError:            # *UPIC SHOW: wait for its end,
+                if time.time() > deadline:  # rarely: every read stops the
+                    state = "timeout"       # CPU, which in Upic shows as a
+                    break                   # disturbed line
+                time.sleep(1.0)
+                continue
             out += self.drain(mb)
             st = self.state(mb)
             if st["error_count"] != err_seen and first_error is None and \
@@ -326,6 +351,14 @@ class Remote:
 
     def stop(self):
         self.write(ESCFLG, [0x80])
+
+    def end_show(self):
+        """End a Upic full show as a key press would (*UPIC SHOW). False
+        if no picture is showing."""
+        if self.read(UP_SIG, 1)[0] != UP_SHOWING:
+            return False
+        self.write(UP_SIG, [UP_ENDSHOW])
+        return True
 
     # --- debugger (TRACE hook, docs/REMOTE_DEV.md) ----------------------------
 
@@ -496,6 +529,7 @@ def main():
     p = sub.add_parser("input")
     p.add_argument("text")
     sub.add_parser("stop")
+    sub.add_parser("endshow")
     sub.add_parser("screen")
     sub.add_parser("list")
     p = sub.add_parser("debug")
@@ -526,6 +560,8 @@ def main():
         elif args.cmd == "stop":
             remote.stop()
             result = {"ok": True}
+        elif args.cmd == "endshow":
+            result = {"ok": remote.end_show()}
         elif args.cmd == "screen":
             result = {"screen": [r.rstrip() for r in remote.screen()]}
         elif args.cmd == "list":

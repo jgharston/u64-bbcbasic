@@ -73,6 +73,9 @@ cold:
     farcall sid_auto, BANK_FS   ; fewer than 8 SIDs: the 8SID layout
     jsr font_to_reu             ; fonts for MODE changes and bitmap text
     jsr key_init                ; no *KEY texts
+    lda #0                      ; Upic full: auto-show on, nothing drawn
+    sta UP_DIRTY
+    sta FONT46                  ; (the REU font: the normal glyphs)
     farcall font_keepdef, BANK_FS ; and the start-up font for *FONT DEFAULT
     farcall snd_instinit, BANK_SND ; default instruments to the REU
     farcall rd_boot, BANK_RD    ; the REU RAM disk
@@ -227,6 +230,7 @@ uld_again:
     bne uld_probe
     rts
 uld_decided:
+    sta cpu_class               ; (Upic full picks its renderer by it)
     cmp #2
     bne uld_done
     lda pal_ok
@@ -842,8 +846,10 @@ dl_resume:
 ;   Uses:    A, X, Y; BLNSW and the KERNAL cursor state.
 
 waitkey:
-    lda curson
-    beq wk_loop
+    lda curson                  ; the KERNAL's cursor: text screen only (in
+    beq wk_loop                 ; the graphics modes $C000 is the colour
+    lda vtype                   ; matrix, or Upic full's console, whose
+    bne wk_loop                 ; cursor is the engine's)
     lda #0
     sta BLNSW
 wk_loop:
@@ -888,6 +894,8 @@ wk_hidden:
 mos_rdch:
     stx rd_x
     sty rd_y
+    lda #1                      ; GET: Upic full shows its picture first
+    farcall upic.up_auto, BANK_UP ; (if it changed; upic.s)
 rd_loop:
     bit ESCFLG
     bmi rd_esc
@@ -1042,8 +1050,12 @@ by_himem85:                     ; &85: HIMEM for mode X (BASIC's MODE)
     farcall bk_himem, BANK_GFX
     lda spr_on                  ; *SPRITE ON: 5 pages lower in the VIC-II
     beq bh85_rts                ; modes (HIMEM &8000 or &7C00; not Upic
-    cpy #$7C                    ; Lite's)
+    cpy #$7C                    ; Lite's, not Upic full's: no sprites)
     bcc bh85_rts
+    txa
+    and #$7F
+    cmp #110
+    bcs bh85_rts
     tya
     sec
     sbc #5
@@ -1209,6 +1221,8 @@ ink_wait:
     lda mostime+1
     sta inkey_t0+1
     cli
+    lda #2                      ; a long INKEY: Upic full shows its picture
+    farcall upic.up_auto, BANK_UP ; (TIME goes on meanwhile)
 ink_loop:
     bit ESCFLG
     bmi ink_esc
@@ -1350,6 +1364,11 @@ word0:
     sta MB_STATUS               ; remote: at the prompt
     lda mosPTR2+1
     sta MB_PROMPT               ; remote: prompt (&07) or INPUT (&06)
+    cmp #>$0700                 ; the prompt: Upic full shows a changed
+    bne w0_noshow               ; picture (a program ended, upic.s)
+    lda #0
+    farcall upic.up_auto, BANK_UP
+w0_noshow:
     jsr w0_waitkey              ; a key, or a remote request handled
     bcc w0_key
     jmp w0_end                  ; remote line is in the buffer
@@ -1467,11 +1486,22 @@ w0b_cursor:
 ;   Output:  C = 1: mosCNT characters in the buffer, echoed on screen.
 ;   Uses:    A, X, Y, mosCNT.
 w0_waitkey:
-    lda curson
+    lda #0                      ; the graphics modes: the engine's cursor,
+    sta ed_blk                  ; blinking as in the line editor (from 8
+    lda JIFFY                   ; jiffies on; egk_blink, lineed.s)
+    clc
+    adc #8
+    sta ed_bt
+    lda #$FF
+    sta ed_bph
+    lda curson                  ; the text screen: the KERNAL's
     beq wk0_poll
+    lda vtype
+    bne wk0_poll
     lda #0
     sta BLNSW
 wk0_poll:
+    jsr egk_blink
     jsr key_avail
     bne wk0_key
     lda EDMODE                  ; the line editor: CTRL+cursor keys (the
@@ -1488,7 +1518,7 @@ wk0_nocopy:
     lda MB_HSEQ
     cmp MB_CSEQ
     beq wk0_poll
-    jsr wk_hide
+    jsr egk_hide                ; (either cursor)
     lda MB_REQ
     cmp #REQ_LINE
     beq wk0_line
@@ -1508,7 +1538,7 @@ wk0_ack:
     sta MB_CSEQ
     jmp w0_waitkey
 wk0_key:
-    jsr wk_hide
+    jsr egk_hide
     clc
     rts
 
@@ -1831,6 +1861,16 @@ cmd_table:
     dta 'SHADOW', 0, a(cmd_shadow), BANK_MOS
     dta 'SNAPSHOT', 0, a(snap.cmd_snapshot), BANK_RD
     dta 'SPRITE', 0, a(spr.cmd_sprite), BANK_RD
+    dta 'UPIC', 0, a(upic.cmd_upic), BANK_UP
+    dta 'RECTANGLE', 0, a(bvc.cmd_rectangle), BANK_UP
+    dta 'CIRCLE', 0, a(bvc.cmd_circle), BANK_UP
+    dta 'ELLIPSE', 0, a(bvc.cmd_ellipse), BANK_UP
+    dta 'LINE', 0, a(bvc.cmd_line), BANK_UP
+    dta 'POINT', 0, a(bvc.cmd_point), BANK_UP
+    dta 'COLOUR', 0, a(bvc.cmd_colour), BANK_UP
+    dta 'GCOL', 0, a(bvc.cmd_gcol), BANK_UP
+    dta 'OFF', 0, a(bvc.cmd_off), BANK_UP
+    dta 'ON', 0, a(bvc.cmd_on), BANK_UP
     dta 'SONG', 0, a(cmd_song), BANK_SND
     dta 'SOUND', 0, a(cmd_sound), BANK_SND
     dta 'SRREAD', 0, a(cmd_srread), BANK_FS

@@ -202,3 +202,14 @@ the C64 side, so the C64 connects out.
 - Tokeniser for the extension: port `tools/bbctok.py` (itself a port of
   the interpreter's MATCH routine, verified byte-for-byte by the E2E test
   `remote_tokeniser`) to TypeScript, or run the Python one.
+
+## Upic full shows (2026-10-14)
+
+While `*UPIC SHOW` shows a picture, BASIC's RAM &0400-&CFFF, the mailbox
+included, is in the REU. The MOS sets `$0334` = `$55` meanwhile (before
+the swap, cleared after it); `u64remote` then reports the state
+`showing` instead of a missing mailbox, and its poll loops wait (once a
+second: every memory read stops the CPU for a moment, which in Upic
+shows as a disturbed line). `endshow` (MCP: `bbc_endshow`) writes `$AA`
+there: the show ends as with a key press and the program goes on;
+`stop` ends it with ESCAPE.

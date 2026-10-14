@@ -2,5 +2,6 @@
 ; and copied to ENGINE when a Upic Lite mode starts.
     .local gxul
 GXUL = 1
+GXUP = 0
     icl 'gfx.s'
     .endl

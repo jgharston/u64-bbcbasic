@@ -379,6 +379,8 @@ kx_key      dta 0               ; the keys 1-8 set (bits; keys.s)
 kx_def      dta 0
 spr_on      dta 0               ; *SPRITE ON: the multiplexer wanted,
 spr_page    dta 0               ; its page in RAM (0: not there; sprite.s)
+cpu_class   dta 0               ; the speed probe: 2 = 64 MHz, 1 = 48 MHz,
+                                ; 0 = unknown or no turbo (Upic full)
 tcx         dta 0               ; bitmap modes: text cursor
 tcy         dta 0
 twl         dta 0               ; text window (characters)
@@ -924,9 +926,10 @@ oc_bitmap:
     ldx #GX_CHAR
     jmp gx_call
 oc_glyph:
-    jsr glyph_get
+    jsr glyph_get               ; (X = the character with an REU)
     lda vdu5
     bne oc_vdu5
+    txa                         ; the character: Upic full's console
     ldx #GX_CHAR
     jmp gx_call
 oc_vdu5:                        ; VDU 5: at the graphics cursor

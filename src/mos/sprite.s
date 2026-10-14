@@ -495,9 +495,12 @@ sp_on:
     brk
     dta 254, 'Sprites need an REU', 0
 spo_reu:
-    lda eng_kind                ; Upic Lite: the VIC-II's picture is not
-    cmp #1                      ; shown
+    lda eng_kind                ; Upic Lite and Upic full: the VIC-II's
+    cmp #1                      ; picture is not shown
+    beq spo_upic
+    cmp #3
     bne spo_vic
+spo_upic:
     brk
     dta 249, 'Sprites need a VIC-II mode: MODE 128+n', 0
 spo_vic:
@@ -699,6 +702,8 @@ spr_modehook:
 smh_in:
     lda eng_kind
     cmp #1
+    beq smh_rts
+    cmp #3
     beq smh_rts
     jmp sp_install
 smh_rts:

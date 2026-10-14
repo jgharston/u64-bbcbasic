@@ -555,6 +555,98 @@ dot wide, so the 320 pixels are centred with a 32-dot border on each side
 - Not yet: conceal, the SAA5050's smoothed glyphs and its character set
   differences (# / pound / _).
 
+### 10.11 Upic full: the picture in the REU (step 1, 2026-10-14)
+
+Owner's decisions (PLAN.md section 26): split output (a live VIC-II
+console for text, the picture for graphics), automatic showing plus
+`*UPIC SHOW`, the picture at REU &90000 and the swap area at &A0000.
+
+- **Picture**: REU bank 9 holds a Upic v1.3 file image: the 256-byte
+  header (palette at $D0) at &90000, byte column c at &90100 + c * 256.
+  `*UPIC LOAD` takes v1.3 files (49408 bytes) or bare bitmaps (49152:
+  a header is made, C64 palette); `*UPIC SAVE` writes v1.3; `*UPIC
+  CLEAR c` makes a header and fills the bitmap by REU DMA from one byte
+  (fixed C64 address).
+- **Showing** (`*UPIC SHOW`, upic.s): interrupts off; &0400-&0FFF to
+  the swap bank; the renderer for the machine's speed (`cpu_class` from
+  the start-up probe) to &0400 (2440 bytes, from tools/upic_gen.py:
+  Aleksi Eeben's renderer via ultimate-uci-oscar64's Upic module, the
+  48 MHz path by Christian Gleissner), the frame loop and variables to
+  &0D90 (in the gap before the table), the nybble table to &0E00, the
+  viewer to &0F00; the picture's palette (UCI). The viewer switches the
+  cartridge off (RAM to &CFFF), moves &1000-&CFFF to the swap bank and
+  the picture in, shows frames until a key is pressed and released (or
+  ESCAPE, or a host's `$0334` = `$AA`), and puts everything back; then
+  &0400-&0FFF, the mode's palette, and TIME on by 2 cs per frame.
+  About 0.1 s each way.
+- **Measured** on the U64-II (64 MHz): a picture of 16 bars of 24
+  pixels shows every bar on its 24 dots on all 256 lines; the program
+  goes on with its variables after the show; SAVE writes the loaded
+  file's bytes; CLEAR 3 gives 98,304 cyan dots (E2E test `upic`). The
+  48 MHz path is generated as the library's (tested there on a U64
+  Elite) but not yet seen here.
+- **Remote**: the mailbox is out during a show; `$0334` tells hosts
+  (REMOTE_DEV.md). Each REST read stops the CPU: a disturbed Upic line.
+
+### 10.12 Upic full: MODE 110/111 (step 2, built 2026-10-14)
+
+- **Routing without core space**: the core (2 bytes free) decides text
+  vs graphics by `vtype`; MODE 110/111 are graphics modes to it (vtype
+  1, `eng_kind` 3), so every VDU code goes to the engine. A third
+  engine variant (gfx.s with GXUL = 1 and GXUP = 1) sends text to the
+  VIC-II text screen (screen codes at $C000, colour RAM through the
+  core's io_colput) and graphics to the REU picture. The only core
+  change: `oc_glyph` passes the ASCII code (glyph_get leaves it in X
+  with an REU) as the engine's argument (`txa`, 1 byte).
+- **The console**: the VIC-II text mode (font at $F000, as MODE 100),
+  40 x 25; the BBC line editor works there as in every graphics mode;
+  the cursor is a reversed character; COLOUR n sets the character's
+  colour (BBC colours as MODE 100), COLOUR 128+n reverses (one
+  background, $D021, as the VIC-II's text mode).
+- **The picture**: x >> 2 and y >> 2 of the OS units (1536 x 1024 for
+  MODE 110: 384 x 256; 1152 x 1024 for MODE 111: 288 logical). A
+  logical pixel x of MODE 111 is byte column 2 (x div 3) + (x mod 3 >
+  0): mod 0 the whole byte (pixels 4m and 4m+1, so it looks the same on
+  64 MHz machines), 1 the low nybble, 2 the high one.
+- **REU access**: a stub image at $E000 (free with a text console; run
+  with $01 = $35, I/O in, KERNAL out) reads and writes picture bytes
+  (REU page = column + 1, offset = row: the engine's column-major
+  addressing as Upic Lite's), fills, and moves column segments through a
+  256-byte buffer; the engine (under I/O) calls it. A pixel is a read
+  and a write: about 20 us. Rectangles (CLG, PLOT 101, the shape
+  module's spans) go per byte column: one fill DMA per column for
+  "store", a read-modify-write of the segment otherwise.
+- **Space**: the variant engine, the stub and the Upic renderers in a
+  new cartridge bank 8 (the help moves to 9).
+- **Not**: VIC-II sprites (Upic shows none: an error, as in Upic Lite).
+- **Measured** on the U64-II (E2E `upic_mode`): MODE 110 rectangle
+  24,576 dots (192 x 128), a 192-dot line, POINT 1/0/2; MODE 111 144
+  logical pixels = 192 dots a line; CLG in colour 1; mode changes in
+  every direction; HIMEM &8000 (no sprite pages: sprites are refused).
+- **Palette**: the picture's header palette follows the mode's logical
+  colours (entry l = the C64 colour pal[l], as MODE 2); VDU 19,l,p and
+  VDU 19,l,16,r,g,b change entry l, VDU 20 all (upbank.s).
+- **Found on the way**: the KERNAL's cursor blink was switched on at
+  waits in every mode (in the graphics modes it toggled a colour-matrix
+  byte, in Upic full a console character); now text screen only, and
+  the prompt shows the engine's cursor in the graphics modes (it was
+  missing until the first key; its blink also stopped after 128
+  jiffies).
+
+### 10.13 Upic full: automatic showing (step 3, 2026-10-14)
+
+- The stub sets bit 0 of UP_DIRTY ($0335) on every picture write; a
+  show, a MODE and the start clear it; bit 7 is *UPIC AUTO OFF.
+- With the picture changed, MODE 110/111 shows it by itself (owner's
+  decision): at the BASIC prompt (a program ended; until a key, not
+  typed), in OSRDCH (GET: until a key, which a KERNAL SCNKEY then puts
+  in the buffer for GET) and in OSBYTE &81 with 50 cs or more (INKEY:
+  at most that long; TIME advances by the frames shown, so INKEY times
+  out after it). `*UPIC SHOW n` shows for at most n centiseconds.
+- The show's variables are in page 3 ($0334-$033A, unused by the
+  KERNAL): bank code is ROM, and writes to it land in BASIC's RAM copy
+  under the cartridge (found when the first version corrupted BASIC).
+
 ### 10.6 Order of work
 
 1. RAM kernel at `$C800-$DFFF`, font moved to `$F000`, RAM vectors; the

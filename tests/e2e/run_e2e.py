@@ -1304,6 +1304,234 @@ def test_sprite_gfx(t):
     assert "8000" in out, out
 
 
+def upic_bars():
+    """A Upic v1.3 file: 16 bars of 24 pixels in colours 0-15."""
+    import struct
+    hdr = bytearray(256)
+    hdr[0:8] = b"Upic1.3\xae"
+    hdr[8:16] = struct.pack("<4H", 384, 256, 16, 49152)
+    hdr[0x30:0xD0] = b" " * 160
+    hdr[0xD0:0x100] = bytes(range(48))
+    bm = bytearray(49152)
+    for c in range(192):
+        v = (c * 2) // 24
+        bm[c * 256:(c + 1) * 256] = bytes([v | v << 4]) * 256
+    return bytes(hdr) + bytes(bm)
+
+
+def upic_show(t, rm, program, check):
+    """Run program (which shows the picture); while it shows, check(rows)
+    on a frame from the video stream, with no memory reads meanwhile (each
+    stops the CPU: a disturbed line in Upic); then end the show. Returns
+    the program's result."""
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import u64shot
+    image = bbctok.tokenise_program(program)
+    page, _ = rm.page_himem()
+    st = rm.ensure_prompt()
+    rm.errors_before = st["error_count"]
+    rm.capture(True)
+    rm.drain()
+    rm.write(page, image)
+    rm.post(u64remote.REQ_PROGRAM, bytes([1]))
+    deadline = time.time() + 20
+    while rm.read(u64remote.UP_SIG, 1)[0] != u64remote.UP_SHOWING:
+        assert time.time() < deadline, "no show"
+        time.sleep(0.2)
+    time.sleep(1.0)
+    try:
+        check(u64shot.grab(t.host, 11002))
+    finally:
+        rm.end_show()
+    return rm.run_lines([], timeout=20, prepared=True)
+
+
+def test_upic(t):
+    # Upic full's picture: *UPIC LOAD (v1.3), SHOW from a program (the
+    # bars in the video stream, pixel-exact; the program goes on with its
+    # variables), SAVE (the same bytes), CLEAR c (every pixel c)
+    if t.is_vice:
+        run_line(t, "*UPIC CLEAR", "REU of 1 MB")
+        return
+    if not ult(t):
+        return
+    data = upic_bars()
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", "")
+        ftp.storbinary("STOR /Temp/BARS.UPIC", io.BytesIO(data))
+    rm = remote(t)
+    rm.run_lines(["MODE 100", "*UPIC LOAD BARS.UPIC"])
+
+    def bars(rows):
+        shown = [row for row in rows if row.count(1) == 24]
+        assert len(shown) == 256, len(shown)    # every picture line
+        for row in shown:
+            runs, prev = [], None
+            for c in row:
+                if c == prev:
+                    runs[-1][1] += 1
+                else:
+                    runs.append([c, 1])
+                    prev = c
+            assert runs == [[i, 24] for i in range(16)], runs
+    r = upic_show(t, rm, "10 A$=\"intact\"\n20 *UPIC SHOW\n30 PRINT A$\n", bars)
+    assert "intact" in r.get("output", ""), r
+    rm.run_lines(["*UPIC SAVE COPY.UPIC"])
+    got = io.BytesIO()
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", "")
+        ftp.retrbinary("RETR /Temp/COPY.UPIC", got.write)
+    assert got.getvalue() == data, (len(got.getvalue()), len(data))
+    rm.run_lines(["*UPIC CLEAR 3"])
+
+    def cyan(rows):
+        n = sum(row.count(3) for row in rows)
+        assert n == 384 * 256, n
+    upic_show(t, rm, "10 *UPIC SHOW\n", cyan)
+    rm.run_lines(["*DELETE BARS.UPIC", "*DELETE COPY.UPIC"])
+
+
+def test_upic_mode(t):
+    # MODE 110/111: text on the console, graphics into the REU picture;
+    # dot counts per colour in the video stream while it shows; POINT;
+    # MODE 111's 288 logical pixels (3 of every 4); back to MODE 100
+    if t.is_vice:
+        return                                  # (no REU in VICE)
+    rm = remote(t)
+
+    def counts(rows):
+        from collections import Counter
+        return Counter(c for row in rows for c in row)
+    got = {}
+    prog = "\n".join([
+        "10 MODE 110",
+        "20 GCOL 0,1:MOVE 0,0:PLOT 101,767,511",
+        "30 GCOL 0,2:MOVE 768,1023:DRAW 1535,512",
+        "40 PRINT \"P=\";POINT(100,100);\",\";POINT(1000,100);\",\";POINT(1532,515)",
+        "50 *UPIC SHOW",
+        "60 PRINT \"back\"", ""])
+    r = upic_show(t, rm, prog, lambda rows: got.update(counts(rows)))
+    assert "P=1,0,2" in r["output"] and "back" in r["output"], r
+    assert got[1] == 24576 and got[2] == 192, got   # 192 x 128; 192 dots
+    got.clear()
+    prog = "\n".join([
+        "10 MODE 111",
+        "20 GCOL 0,129:CLG",
+        "30 GCOL 0,3:MOVE 0,0:PLOT 101,575,511",
+        "40 *UPIC SHOW", ""])
+    upic_show(t, rm, prog, lambda rows: got.update(counts(rows)))
+    # 144 logical pixels = 48 groups of 4 = 192 dots, x 128 lines
+    assert got[3] == 24576 and got[1] == 98304 - 24576, got
+    out = rm.run_lines(["*SPRITE ON"])["output"]
+    assert "VIC-II mode" in out, out
+    out = rm.run_lines(["MODE 100", "PRINT ~HIMEM"])["output"]
+    assert "8000" in out, out
+
+
+def test_upic_auto(t):
+    # MODE 110's automatic shows: in GET (a key ends it and is GET's), in a
+    # long INKEY (at most that long; TIME goes on, so INKEY times out),
+    # nothing at the prompt when nothing new was drawn; *UPIC AUTO OFF
+    if t.is_vice:
+        return
+    rm = remote(t)
+    prog = "\n".join([
+        "10 MODE 110",
+        "20 GCOL 0,1:PLOT 69,100,100",
+        "30 K%=GET",
+        "40 PLOT 69,200,200",
+        "50 T%=TIME:I%=INKEY(100)",
+        '60 PRINT "R=";K%;",";I%;",";TIME-T%', ""])
+    image = bbctok.tokenise_program(prog)
+    page, _ = rm.page_himem()
+    st = rm.ensure_prompt()
+    rm.errors_before = st["error_count"]
+    rm.capture(True)
+    rm.drain()
+    rm.write(page, image)
+    rm.post(u64remote.REQ_PROGRAM, bytes([1]))
+
+    def showing(timeout):
+        end = time.time() + timeout
+        while time.time() < end:
+            if rm.read(u64remote.UP_SIG, 1)[0] == u64remote.UP_SHOWING:
+                return True
+            time.sleep(0.3)
+        return False
+    assert showing(20), "no show in GET"
+    rm.end_show()
+    time.sleep(0.5)
+    rm.write(0x0277, [0x41])                    # the key GET then reads
+    rm.write(0xC6, [1])
+    assert showing(10), "no show in INKEY"
+    r = rm.run_lines([], timeout=20, prepared=True)
+    m = re.search(r"R=(\d+),(-?\d+),(\d+)", r["output"])
+    assert m and m.group(1) == "97" and m.group(2) == "-1", r
+    assert 95 <= int(m.group(3)) <= 130, r     # INKEY(100): about 1 s
+    assert rm.state()["state"] == "prompt", "shown at the prompt"
+    out = rm.run_lines(["*UPIC AUTO OFF", "PLOT 69,300,300",
+                        "PRINT \"none\""])["output"]
+    assert "none" in out and rm.state()["state"] == "prompt", out
+    rm.run_lines(["MODE 100", "*UPIC AUTO ON"])    # (on in MODE 110: the
+                                                # PLOT above would show)
+
+
+def test_bv_cmds(t):
+    # BASIC V graphics as * commands: each shape where POINT finds it,
+    # arguments as numbers or A%-Z%; *GCOL c TINT t the nearest palette
+    # colour (REU: the Ultimates only)
+    prog = "\n".join([
+        "10 MODE 132",
+        "20 *RECTANGLE FILL 100,100,200,100",
+        "30 *CIRCLE FILL 640,512,100",
+        "40 *LINE 0,900,1279,900",
+        "50 X%=1000:Y%=700:*POINT X%,Y%",
+        "60 *ELLIPSE FILL 1000,300,100,50",
+        "70 *RECTANGLE 400,100,100",
+        "80 *COLOUR 1,255,255,255",
+        "90 PRINT \"R=\";POINT(150,150);POINT(50,50);POINT(640,512);"
+        "POINT(640,900);POINT(1000,700);POINT(1000,300);POINT(400,150);"
+        "POINT(450,150)", ""])
+    r = remote(t).send_program(prog, run=True, timeout=30)["output"]
+    assert "R=10111110" in r.replace(" ", ""), r
+    if t.is_vice:
+        r = remote(t).run_lines(["MODE 100", "*GCOL 3 TINT 0"])
+        assert r["error"] and "TINT needs an REU" in r["error"]["message"], r
+        return
+    prog = "\n".join([
+        "10 MODE 129",
+        "20 *GCOL 3 TINT 192",
+        "30 PLOT 69,100,100",
+        "40 *GCOL 0,63 TINT 192",
+        "50 PLOT 69,200,200",
+        "60 PRINT \"G=\";POINT(100,100);POINT(200,200)", ""])
+    r = remote(t).send_program(prog, run=True, timeout=30)["output"]
+    assert "G=13" in r.replace(" ", ""), r
+    remote(t).run_lines(["MODE 100"])
+
+
+def test_mode1_font(t):
+    # MODE 1 on the VIC-II (MODE 129): the 4x6 font in the REU font while
+    # it is on (OSWORD 10 reads the glyph the graphics modes draw), the
+    # normal glyphs back after it (REU: the Ultimates only)
+    if t.is_vice:
+        return
+    prog = "\n".join([
+        "10 DIM B% 9",
+        "20 MODE 132:PROCa:N$=G$",
+        "30 MODE 129:PROCa:F$=G$",
+        "40 MODE 132:PROCa:M$=G$",
+        "50 MODE 100",
+        '60 PRINT "F=";F$;" ";N$=M$;" ";N$=F$',
+        "70 END",
+        "80 DEF PROCa",
+        "90   ?B%=65:A%=10:X%=B% MOD 256:Y%=B% DIV 256:CALL &C7F1",
+        '100   G$="":FOR I%=1 TO 8:G$=G$+STR$~B%?I%+",":NEXT',
+        "110 ENDPROC", ""])
+    r = remote(t).send_program(prog, run=True, timeout=30)["output"]
+    assert "F=40,A0,E0,A0,A0,0,0,0," in r and "-1 0" in r, r
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -1724,7 +1952,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_net, test_json, test_netchan, test_classics,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_net, test_json, test_netchan, test_classics,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

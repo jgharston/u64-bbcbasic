@@ -55,8 +55,13 @@ TOOLS = [
     {"name": "bbc_stop",
      "description": "Press ESCAPE: stop the running program.",
      "inputSchema": {"type": "object", "properties": dict(**HOST_PROP)}},
+    {"name": "bbc_endshow",
+     "description": "End a Upic full picture shown by *UPIC SHOW, as a key press "
+                    "does (state 'showing'); the program goes on.",
+     "inputSchema": {"type": "object", "properties": dict(**HOST_PROP)}},
     {"name": "bbc_status",
-     "description": "State of the machine: prompt, input, running; last error.",
+     "description": "State of the machine: prompt, input, running, showing "
+                    "(a Upic picture: endshow ends it); last error.",
      "inputSchema": {"type": "object", "properties": dict(**HOST_PROP)}},
     {"name": "bbc_screen",
      "description": "The 40x25 text screen as lines of text.",
@@ -150,6 +155,8 @@ def call_remote(r, name, args):
     if name == "bbc_stop":
         r.stop()
         return {"ok": True}
+    if name == "bbc_endshow":
+        return {"ok": r.end_show()}
     if name == "bbc_status":
         return r.state()
     if name == "bbc_screen":

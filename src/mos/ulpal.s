@@ -30,6 +30,8 @@ REU_PAL64   = $1800             ; 48: C64 colours, current
 REU_PALBOOT = $1830             ; 48: C64 colours at start-up
 REU_LRGB    = $1860             ; 48: logical colours (Upic Lite, teletext)
 REU_PALTMP  = $1890             ; 48: a .vpl file while it is read
+REU_FONTSAVE = $1900            ; 760: characters 32-126 of REU_FONT while
+                                ; MODE 1 on the VIC-II has the 4x6 font
 
 PALBUF      = errbuf+1          ; 48 bytes composed / read here
 

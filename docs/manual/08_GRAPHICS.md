@@ -29,13 +29,17 @@ MODE size     col text  U64
 100  C64 text     40x25
 103  320x200  16  40x25 hires
 104  160x200  16  20x25 multicol.
+110  384x256  16  40x25 Upic full
+111  288x256  16  40x25 Upic 48 MHz
 ```
 
 MODE 7 is teletext, as on the BBC: screen memory at &7C00 (HIMEM &7C00), colour codes 129-135 (text) and 145-151 (mosaic graphics), 141 double height, 154 separated graphics, 157 new background, 156 black background, 158 hold graphics, 136 flashing. Writing to &7C00 directly (?&7C00=...) shows within a few frames. The machine starts in the C64 text screen; MODE 100 returns to it.
 
-There are no 80-column modes: MODE 0 is MODE 4 and MODE 3 is MODE 6, their 40-column twins, so BBC programs run with a narrower text layout. MODE 6 uses rows of 10 lines (250 lines), as on the BBC; without Upic Lite they are the 40x25 text screen. MODE 103: 2 colours per 8x8 cell, MODE 104: 4 per 4x8 cell, as the VIC-II does.
+There are no 80-column modes: MODE 0 is MODE 4 and MODE 3 is MODE 6, their 40-column twins, so BBC programs run with a narrower text layout. MODE 1 on the VIC-II (MODE 129, *SHADOW) uses a 4x6 font (X11 misc-fixed, public domain) for its 40 columns: its 160 double-wide pixels leave 4 per character. MODE 6 uses rows of 10 lines (250 lines), as on the BBC; without Upic Lite they are the 40x25 text screen. MODE 103: 2 colours per 8x8 cell, MODE 104: 4 per 4x8 cell, as the VIC-II does.
 
 Upic Lite: a live picture of 320x256 (MODE 2 and 5: 160x256 with double-width pixels, 16 or 4 colours anywhere) with square pixels, as on the BBC, on 64 MHz machines (Ultimate 64 Elite II, C64 Ultimate) with firmware 3.15+. The screen memory lies below HIMEM as on the BBC (MODE 4, 5, 6: &5800; MODE 1 and 2: &3000), and BASIC runs at about 1/6 of its speed while the picture is shown. Elsewhere these modes use the VIC-II (200 lines, 32 rows of 6-line text).
+
+Upic full (MODE 110, 111): graphics go into a 16-colour picture in the REU (OS units 1536 x 1024 for 110, 1152 x 1024 for 111, 4 per pixel), text to a 40x25 console on the screen; the picture shows with *UPIC SHOW (see UPIC). MODE 111 has 288 pixels: 3 of every 4 that a 48 MHz Ultimate shows; MODE 110 needs 64 MHz. HIMEM stays &8000.
 
 #### `*SHADOW`
 
@@ -264,3 +268,59 @@ In the graphics modes and MODE 7 the bitmap leaves room for two shapes: the mult
 OSWORD &71 does it from programs without command parsing: block +0 sprite, +1 action (0 hide, 1 show at +2/+3 x, +4/+5 y, 2 shape +6, 3 colour +6, 4 collisions into +6: bit 0 another sprite, bit 1 the picture, cleared when read).
 
 Upic Lite cannot show VIC-II sprites: use MODE 128+n there. Needs an REU.
+
+
+## 8.6 Upic full: 384 x 256 in 16 colours
+
+#### `*UPIC`
+
+```
+*UPIC SHOW [n]    show the picture
+*UPIC LOAD file   a Upic file
+*UPIC SAVE file   the picture
+*UPIC CLEAR [c]   new, colour c
+*UPIC AUTO ON|OFF automatic shows
+```
+
+Upic (Aleksi Eeben): 384 x 256 pixels in 16 colours, every pixel its own colour, drawn by the CPU at 48 or 64 MHz. The picture is kept in the REU (&90000) and shown on request: SHOW moves BASIC's memory aside, shows the picture until a key is pressed, and puts everything back (the program goes on where it was; TIME counts on). On a 48 MHz Ultimate 3 of every 4 pixels show.
+
+LOAD reads Upic v1.3 files (as Upic Paint and the Upic Image Converter save them, with their palette) or a bare 49152-byte picture; SAVE writes v1.3. CLEAR starts a new picture in colour c with the C64 palette.
+
+```
+*UPIC LOAD harbour.upic
+*UPIC SHOW
+```
+
+SHOW n shows it for n centiseconds at most (a key ends it earlier): progress views while a program draws.
+
+MODE 110 and 111 draw into this picture: graphics there, text on a 40x25 console; colours are the mode's logical colours (as MODE 2), VDU 19 changes them (VDU 19,l,16,r,g,b any RGB). When the picture has changed it is shown by itself: when a program ends (until a key), in GET (the key is GET's) and in INKEY of half a second or more (at most that long). AUTO OFF leaves only SHOW.
+
+Needs an REU of 1 MB; SHOW needs a 48 or 64 MHz Ultimate.
+
+
+## 8.7 BASIC V graphics commands
+
+#### `*RECTANGLE` (also `*CIRCLE`, `CIRCLE`, `*ELLIPSE`, `ELLIPSE`, `*LINE`, `*POINT`, `*COLOUR`, `*GCOL`, `*OFF`, `OFF`, `*ON`, `BASICV`, `BASIC V`)
+
+```
+*RECTANGLE [FILL] x,y,w[,h]
+*CIRCLE [FILL] x,y,r
+*ELLIPSE [FILL] x,y,a,b
+*LINE x1,y1,x2,y2
+*POINT x,y
+*COLOUR n,r,g,b
+*GCOL [a,]c TINT t
+*OFF   *ON
+```
+
+The Archimedes' BASIC V graphics as MOS commands, for new programs (the interpreter is BBC BASIC 3.10). Each becomes the BBC's PLOT or VDU: RECTANGLE from x,y w wide and h high (h = w if left out; outline or FILL), CIRCLE centre and radius, ELLIPSE centre and half-axes a (across) and b (up), LINE and POINT, COLOUR n,r,g,b is VDU 19,n,16,r,g,b (any RGB for logical colour n), OFF and ON hide and show the text cursor.
+
+GCOL c TINT t takes an Archimedes 256-colour (c 0-63: red bits 0-1, green 2-3, blue 4-5; tint 0, 64, 128, 192) and uses the nearest of the mode's palette colours: set the palette with *COLOUR first for exact colours (needs an REU).
+
+Arguments are numbers (decimal, &hex, negative) or the variables A%-Z%; no expressions:
+
+```
+X%=640:Y%=512:R%=200
+*CIRCLE FILL X%,Y%,R%
+*RECTANGLE 0,0,1279,100
+```

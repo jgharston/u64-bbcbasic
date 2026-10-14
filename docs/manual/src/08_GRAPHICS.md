@@ -25,3 +25,11 @@ C64's text screen, MODE 103 and 104 the C64's own bitmap modes.
 ## 8.5 Sprites
 
 @@help *SPRITE
+
+## 8.6 Upic full: 384 x 256 in 16 colours
+
+@@help *UPIC
+
+## 8.7 BASIC V graphics commands
+
+@@help *RECTANGLE

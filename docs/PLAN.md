@@ -994,6 +994,43 @@ MODE 110/111, with its own colour depth and resolution; owner,
 section 3), and run Master programs that use them. No 8-per-line limit, but drawing costs
 time. Separate from `*SPRITE` (the VIC-II's, C64 only).
 
+Upic full (MODE 110/111), decisions of 2026-10-14 (owner): **split
+output**: PRINT, INPUT, the prompt, errors and the line editor use a live
+VIC-II text console (40x25, as MODE 100); graphics and VDU 5 text go into
+the Upic picture (in the REU). **Showing**: automatic when a program ends
+(until a key) and while it waits in GET or a long INKEY, plus `*UPIC
+SHOW` at any time; `*UPIC AUTO OFF` leaves only the latter. Continuous
+display while BASIC runs is impossible here: the 48K picture must be in
+C64 RAM at $1000-$CFFF to be rendered (the library's IRQ viewer does
+that, with 18% of the CPU left), which is BASIC's and the MOS's RAM; from
+the REU one line takes three raster lines. 16 colours live remain MODE 2
+(Upic Lite, 160x256).
+
+Demos (owner, 2026-10-14): the ArchBAS demos (github.com/xahmol/ArchBAS:
+Eric Schraf's graphical demos and Aurel's Christmas tree, converted by
+the owner to Archimedes BASIC) converted to BBC BASIC 3.10, with a
+choice per demo: live (MODE 2, Upic Lite 160x256, the picture grows as
+it is drawn) or full (MODE 110, 384x256, time-lapse progress views with
+`*UPIC SHOW n`, the finished picture at the end); 16-colour palettes per
+demo through VDU 19 RGB. And a graphics demo: a menu (GFXDEMO) chaining
+one part per area (BBC modes, C64 modes, MODE 7, Upic full, sprites).
+
+BASIC V graphics as * commands (owner, 2026-10-14; not BASIC V itself:
+the interpreter stays the reference ROM): *RECTANGLE [FILL] x,y,w,h,
+*CIRCLE [FILL] x,y,r, *ELLIPSE [FILL] x,y,a,b, *LINE x1,y1,x2,y2,
+*POINT x,y become the PLOT codes; *COLOUR n,r,g,b is VDU 19,n,16,r,g,b;
+*OFF / *ON the cursor (VDU 23,1); *GCOL c TINT t picks the nearest of the
+mode's current palette entries to the Archimedes 256-colour RGB.
+Arguments: numbers (decimal, &hex, negative) or BASIC's resident integer
+variables A%-Z% (read from &0400+), no expressions. A host-side BASIC V
+translator (bbctok) stays an option for converting whole programs.
+
+MODE 1 on the VIC-II (owner, 2026-10-14, after a mock-up of both): 40
+columns with the 4x6 font (X11 misc-fixed, Janne V. Kujala, public
+domain) in its 4-pixel cells, swapped into the REU font while the mode is
+on; the 8x8 glyphs drawn there showed only their left halves. Upic Lite's
+MODE 1 keeps its 40 sharp columns.
+
 Garbage collection (owner): not in the interpreter (it stays the
 reference ROM, `make compare-core`); instead a manual section on keeping
 the string heap from filling (manual chapter 12).
