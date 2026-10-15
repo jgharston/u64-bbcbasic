@@ -97,19 +97,19 @@ VDU          VPOS         WIDTH
 *EXEC        *FLOOD       *FONT
 *FX          *HELP        *INFO
 *INSTRUMENT  *JSON        *KEY
-*LIST        *LOAD        *MEMORY
-*MKDIR       *MOUNT       *NET
-*PALETTE     *PARTITION   *PARTITIONS
-*PWD         *RECTANGLE   *RENAME
-*RUN         *SAVE        *SEARCH
-*SEDIT       *SETTIME     *SGET
-*SHADOW      *SID         *SNAPSHOT
-*SONG        *SOUND       *SPEECH
-*SPOOL       *SPRITE      *SRREAD
-*SRWRITE     *STATUS      *SWAP
-*TIME        *TURBO       *TYPE
-*UNMOUNT     *UPIC        *UVER
-*XREF
+*LIST        *LOAD        *MAP
+*MEMORY      *MKDIR       *MOUNT
+*NET         *PALETTE     *PARTITION
+*PARTITIONS  *PWD         *RECTANGLE
+*RENAME      *RUN         *SAVE
+*SEARCH      *SEDIT       *SETTIME
+*SGET        *SHADOW      *SID
+*SNAPSHOT    *SONG        *SOUND
+*SPEECH      *SPOOL       *SPRITE
+*SRREAD      *SRWRITE     *STATUS
+*SWAP        *TIME        *TURBO
+*TYPE        *UNMOUNT     *UPIC
+*UVER        *XREF
 ```
 
 ## BBC
@@ -940,7 +940,8 @@ file when the spool ends (also by
 CLOSE#0 or another *SPOOL), so it is
 fast and safe while the MOS prints
 during file operations. Needs an REU;
-the RAM disk ends below that last 64K.
+the RAM disk ends below the REU's last
+128K (this 64K and *MAP's).
 
   *SPOOL listing
   LIST
@@ -1197,6 +1198,12 @@ Also: `FONT`
   *FONT DEFAULT  the start-up font
 fmt: C64 (default), BBC or ASCII.
 
+A CharPad project (.ctm, versions 6-9)
+is recognised by its contents: its
+first 256 characters become the font
+(needs an REU). *MAP LOAD also loads
+its map.
+
 C64 is a C64 charset: 2048 bytes in
 screen-code order (2050 with a load
 address also loads). BBC is 768 bytes,
@@ -1214,6 +1221,41 @@ teletext glyphs from the font when it
 starts. VDU 23 changes single
 characters. The BBC characters are
 Acorn's (see CREDITS).
+```
+
+## *MAP
+
+Also: `MAP`
+
+```
+  *MAP LOAD <file>  load
+  *MAP DRAW mx,my,w,h AT col,row
+                    show a part
+  *MAP GET mx,my    M% = char
+  *MAP              its size
+
+Maps from CharPad (.ctm project files,
+versions 6-9; needs an REU). LOAD makes
+the project's characters the font, sets
+the screen colour and keeps the map in
+the REU: tiles become characters, each
+with its colour (per project, tile or
+character). At most 255 x 255
+characters and 30720 in all. The RAM
+disk then ends 128K before the REU's
+end.
+
+DRAW copies w x h characters from map
+column mx, row my to the text screen at
+col, row (text modes only, e.g. MODE
+100), with their colours, cut at the
+edges of the map and the screen.
+Arguments are numbers or A%-Z%, so a
+loop scrolls: *MAP DRAW X%,0,40,25 AT
+0,0.
+
+GET puts the character code at mx,my in
+M% (0 outside the map).
 ```
 
 ## *MEMORY

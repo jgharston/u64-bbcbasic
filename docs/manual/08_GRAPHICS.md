@@ -194,7 +194,7 @@ Windows, the graphics codes and the palette act in the graphics modes (MODE 1, 2
 VDU 23,c,r1,...,r8 (c = 32-255) defines a character: 8 rows, top first, bit 7 left. The text screen shows codes 32-127; graphics modes show all of them with an REU (the Ultimates; kept over MODE changes). MODE 7 keeps its teletext glyphs. OSWORD 10 reads a definition.
 
 
-## 8.4 Colours, palettes and fonts
+## 8.4 Colours, palettes, fonts and CharPad maps
 
 #### `COLOURS`
 
@@ -238,9 +238,27 @@ Needs firmware 3.15a or later; all but C64 need an REU. Upic Lite and MODE 7 use
 
 fmt: C64 (default), BBC or ASCII.
 
+A CharPad project (.ctm, versions 6-9) is recognised by its contents: its first 256 characters become the font (needs an REU). *MAP LOAD also loads its map.
+
 C64 is a C64 charset: 2048 bytes in screen-code order (2050 with a load address also loads). BBC is 768 bytes, characters 32-127 in ASCII order, as in a BBC Micro MOS ROM at &C000. ASCII is 2048 bytes, characters 0-255 in ASCII order.
 
 With an REU (the Ultimates) the font shows on the text screen and in the graphics modes and stays over MODE changes. Without one only the text screen changes. MODE 7 builds its teletext glyphs from the font when it starts. VDU 23 changes single characters. The BBC characters are Acorn's (see CREDITS).
+
+#### `*MAP`
+
+```
+*MAP LOAD <file>  load
+*MAP DRAW mx,my,w,h AT col,row
+                  show a part
+*MAP GET mx,my    M% = char
+*MAP              its size
+```
+
+Maps from CharPad (.ctm project files, versions 6-9; needs an REU). LOAD makes the project's characters the font, sets the screen colour and keeps the map in the REU: tiles become characters, each with its colour (per project, tile or character). At most 255 x 255 characters and 30720 in all. The RAM disk then ends 128K before the REU's end.
+
+DRAW copies w x h characters from map column mx, row my to the text screen at col, row (text modes only, e.g. MODE 100), with their colours, cut at the edges of the map and the screen. Arguments are numbers or A%-Z%, so a loop scrolls: *MAP DRAW X%,0,40,25 AT 0,0.
+
+GET puts the character code at mx,my in M% (0 outside the map).
 
 
 ## 8.5 Sprites

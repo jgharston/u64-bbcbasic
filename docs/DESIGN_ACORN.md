@@ -108,6 +108,8 @@ again then).
   - The file is opened when the spool starts, so a bad name fails at
     once.
   - The RAM disk now ends below the REU's last 64K (`rd_lastbank`).
+    Since `*MAP` (DESIGN_GRAPHICS 12) below its last 128K
+    (`rd_resbank`).
     `*SPOOL` refuses if the RAM disk already has data in that bank
     (`rd_spoolok`).
 - **\*EXEC**: `key_avail` reports a key while `DF_EXEC` is set, and

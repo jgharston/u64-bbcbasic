@@ -1094,3 +1094,11 @@ COPY key in the bitmap modes (2026-10-15, from the open items): the
 character under the copy cursor, and OSBYTE &87, are recognised from
 the pixels (DESIGN_GRAPHICS 11.1). The Hanoi classic (MODE 3) is back
 in demos/classics now that the 80 columns are.
+
+CharPad (owner, 2026-10-15): fonts and maps, not the multicolour/ECM
+text modes. `*FONT LOAD` recognises CTM files (the charset); a new
+`*MAP` command loads a CTM map into the REU (tiles expanded to
+characters, the per-character colours) and draws any part of it on the
+C64 text screen (`*MAP DRAW mx,my,w,h AT col,row`); `*MAP GET mx,my`
+puts the cell's character in M% for game logic; `*MAP` alone shows the
+sizes. Text screen only (fast enough to redraw a window each frame).

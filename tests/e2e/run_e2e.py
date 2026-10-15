@@ -20,6 +20,7 @@ import io
 import json
 import os
 import re
+import struct
 import subprocess
 import sys
 import time
@@ -1466,6 +1467,159 @@ def upic_show(t, rm, program, check):
     return rm.run_lines([], timeout=20, prepared=True)
 
 
+def ctm_file(ver, meth, chars, ccols=None, tiles=None, tcols=None,
+             mapw=1, maph=1, cells=(0,), bg=6, colr=1, disp=0):
+    # A CharPad CTM file (versions 6-9, 82 = 8) as the help's "File Format
+    # - CTM (Vn)" describes it: header, then the blocks with markers
+    v = 8 if ver == 82 else ver
+    flag = (2 if v == 6 else 1) if tiles else 0
+    if v == 6:
+        head = [6, bg, 0, 0, colr, meth, flag]
+    elif v == 7:
+        head = [7, bg, 0, 0, 0, colr, meth, disp, flag]
+    elif v == 8:
+        head = [ver, disp, meth, flag, bg, 0, 0, 0, colr, 0, 0]
+    else:
+        head = [9, disp, meth, flag, 0, 0, 0, 0, 0, bg, 0, 0, 0, colr, 0, 0]
+    out = bytearray(b"CTM" + bytes(head))
+    blk = [0]
+
+    def mark():
+        out.extend([0xDA, 0xB0 + blk[0]])
+        blk[0] += 1
+    bpx = disp - 1 if v >= 8 and disp >= 3 else 1
+    n = len(chars)
+    mark()
+    out.extend(struct.pack("<H", n - 1))
+    for c in chars:
+        out.extend(c)
+    mark()
+    if v < 8 and meth == 2:
+        out.extend(ccols)
+    else:
+        out.extend([0x30] * n)                          # (materials)
+    if v >= 8 and meth == 2:
+        mark()
+        for c in ccols:
+            out.extend([c] + [0] * (bpx - 1))
+    if tiles:
+        tw, th, tl = tiles
+        mark()
+        out.extend(struct.pack("<HBB", len(tl) - 1, tw, th))
+        for tile in tl:
+            out.extend(struct.pack("<%dH" % len(tile), *tile))
+        if meth == 1:
+            mark()
+            for c in tcols:
+                out.extend([c] + [0] * ((bpx if v >= 8 else 1) - 1))
+        mark()
+        out.extend(range(len(tl)))                      # tags
+        mark()
+        for i in range(len(tl)):
+            out.extend(b"T%d\0" % i)                    # names
+    mark()
+    out.extend(struct.pack("<HH", mapw, maph))
+    out.extend(struct.pack("<%dH" % len(cells), *cells))
+    return bytes(out)
+
+
+def ctm_expand(meth, ccols, tiles, tcols, mapw, maph, cells, colr):
+    # the map in characters: rows of (character, colour), as *MAP LOAD
+    # makes it (cmap.s)
+    tw, th, tl = tiles if tiles else (1, 1, None)
+    rows = []
+    for y in range(maph * th):
+        row = []
+        for x in range(mapw * tw):
+            cell = cells[(y // th) * mapw + x // tw]
+            ch = (tl[cell][(y % th) * tw + x % tw] if tl else cell) & 255
+            if meth == 1 and tl:
+                col = tcols[cell] & 15
+            elif meth == 2 and ch < len(ccols):
+                col = ccols[ch] & 15
+            else:
+                col = colr
+            row.append((ch, col))
+        rows.append(row)
+    return rows
+
+
+def test_map(t):
+    # CharPad CTM files (*MAP, *FONT LOAD): four projects, versions 6, 7,
+    # 82 (8) and 9, with and without tiles and with each colour method;
+    # each map read back with *MAP GET (a checksum over all cells) and
+    # drawn with *MAP DRAW (checksums over the screen and colour RAM); the
+    # font (OSWORD 10 row 0 of "A", screen code 65), the screen colour,
+    # clipping, a non-CTM file and a graphics mode
+    if not ult(t):
+        return
+    chars = [bytes([i * 7 & 255] + [i] * 7) for i in range(128)]
+    cases = [
+        (9, 1, None, (2, 2, [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]),
+         [3, 4, 5], 3, 2, [0, 1, 2, 2, 1, 0], 0),
+        (6, 2, [i % 16 for i in range(128)], None, None, 5, 3,
+         list(range(1, 16)), 0),
+        (82, 2, [(15 - i) % 16 for i in range(128)],
+         (1, 2, [[1, 2], [3, 4], [20, 30]]), None, 4, 2,
+         [0, 1, 2, 1, 2, 2, 1, 0], 4),
+        (7, 0, None, (3, 1, [[1, 5, 9], [2, 6, 10]]), None, 2, 3,
+         [0, 1, 1, 0, 0, 1], 0),
+    ]
+    rm = remote(t)
+    rm.run_lines(["MODE 100"])
+    prog = "\n".join([
+        "10 DEF FNG(C%):?B%=C%:A%=10:X%=B% MOD 256:Y%=B% DIV 256:"
+        "CALL &C7F1:=B%?1",
+        "20 DEF PROCG(W%,H%):S%=0:FOR Y%=0 TO H%-1:FOR X%=0 TO W%-1",
+        '30 OSCLI "MAP GET "+STR$X%+","+STR$Y%:S%=S%+M%*(X%+7*Y%+1)',
+        "40 NEXT:NEXT:ENDPROC",
+        "50 DEF PROCD(W%,H%):S%=0:C%=0:FOR Y%=0 TO H%-1:FOR X%=0 TO W%-1",
+        "60 A%=Y%*40+X%+83:S%=S%+A%?(?&288*256)*(X%+7*Y%+1)",
+        "70 C%=C%+(A%?&D800 AND 15)*(X%+7*Y%+1):NEXT:NEXT:ENDPROC", ""])
+    r = rm.send_program(prog)
+    assert r["ok"], r
+    run_line(t, "DIM B% 9", ">")
+    for ver, meth, ccols, tiles, tcols, mw, mh, cells, disp in cases:
+        f = ctm_file(ver, meth, chars, ccols, tiles, tcols, mw, mh, cells,
+                     bg=ver % 16, colr=7, disp=disp)
+        with ftplib.FTP(t.host, timeout=20) as ftp:
+            ftp.login("anonymous", "")
+            ftp.storbinary("STOR /Temp/M.CTM", io.BytesIO(f))
+        exp = ctm_expand(meth, ccols, tiles, tcols, mw, mh, cells, 7)
+        w, h = len(exp[0]), len(exp)
+        run_line(t, "*MAP LOAD M.CTM", ">")
+        run_line(t, "*MAP", "Map %d x %d characters" % (w, h))
+        run_line(t, 'PRINT "R=";FNG(65);",";?&D021 AND 15',
+                 "R=%d,%d" % (chars[65][0], ver % 16))
+        want = sum(c * (x + 7 * y + 1) for y, r in enumerate(exp)
+                   for x, (c, _) in enumerate(r))
+        run_line(t, 'PROCG(%d,%d):PRINT "R=";S%%' % (w, h), "R=%d" % want)
+        sc = sum(c * (x + 7 * y + 1) for y, r in enumerate(exp)
+                 for x, (c, _) in enumerate(r))
+        co = sum(k * (x + 7 * y + 1) for y, r in enumerate(exp)
+                 for x, (_, k) in enumerate(r))
+        run_line(t, 'OSCLI "MAP DRAW 0,0,40,25 AT 3,2":PROCD(%d,%d):'
+                 'PRINT "R=";S%%;",";C%%' % (w, h), "R=%d,%d" % (sc, co))
+    # (the last map: 6 x 3) clipped at the screen's corner: one cell
+    run_line(t, 'OSCLI "MAP DRAW 5,2,9,9 AT 39,24":'
+                'PRINT "R=";?(?&288*256+999);",";?&DBE7 AND 15',
+             "R=%d,%d" % exp[2][5])
+    run_line(t, "*MAP GET 99,99", ">")
+    run_line(t, 'PRINT "R=";M%', "R=0")
+    run_line(t, "*FONT DEFAULT", ">")
+    run_line(t, "*FONT LOAD M.CTM", ">")
+    run_line(t, 'PRINT "R=";FNG(65)', "R=%d" % chars[65][0])
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", "")
+        ftp.storbinary("STOR /Temp/NOMAP.SPD", io.BytesIO(b"SPD" + bytes(80)))
+    run_line(t, "*MAP LOAD NOMAP.SPD", "Not a CharPad file")
+    out = rm.run_lines(["MODE 1", "*MAP DRAW 0,0,1,1 AT 0,0"])
+    assert "text modes only" in (out["error"] or {}).get("message", ""), out
+    out = rm.run_lines(["MODE 100", "*FONT DEFAULT", "*DELETE M.CTM",
+                        "*DELETE NOMAP.SPD"])
+    assert not out["error"], out
+
+
 def test_upic(t):
     # Upic full's picture: *UPIC LOAD (v1.3), SHOW from a program (the
     # bars in the video stream, pixel-exact; the program goes on with its
@@ -2482,7 +2636,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_sprite_spd5, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_acorn, test_dfs, test_toolkit, test_speech, test_net, test_json, test_netchan, test_classics, test_hanoi,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_sprite_spd5, test_map, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_acorn, test_dfs, test_toolkit, test_speech, test_net, test_json, test_netchan, test_classics, test_hanoi,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

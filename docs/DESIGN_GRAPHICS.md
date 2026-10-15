@@ -748,3 +748,48 @@ Limits:
   the ROM glyphs, which are not unique ("C" matches "@" first).
 - Cells outside the graphics window read as set (`GX_POINTDEV` answers
   &FF there).
+
+## 12. CharPad fonts and maps (owner, 2026-10-15)
+
+`*MAP` and `*FONT LOAD` read CharPad's CTM project files, versions 6-9
+(82 is an early 8), as the CharPad C64 3.69 Pro help describes them
+("File Format - CTM (V6)" to "(V9)"). The code is `src/mos/cmap.s` in
+bank 8 (BANK_UP).
+
+- The file is loaded whole into the REU's scratch bank (`$0A`, the
+  Upic swap bank, as `*SPRITE LOAD` and the GXR use it) with one
+  `LOAD_REU` (or a copy from `/REU`: `fs_reuopen0`, `rd_xopen0`) and
+  parsed there with 1- and 2-byte DMA reads. The blocks come in a fixed
+  order; their markers are skipped, not checked.
+- The character set: the first 256 images become the text font
+  (`put_scr` per glyph, then `fo_mkascii`), as `*FONT LOAD` of a C64
+  font. `*FONT LOAD` tries CTM first when there is an REU (the file's
+  first bytes, not its name).
+- The map is expanded once, at load: each cell is a character, tiles
+  replaced by their cells. Each cell gets its colour by the project's
+  colour method: per project (`COLR_CHR` / the base colour), per tile
+  (the tile's colour) or per character (V6/V7: the attribute's low
+  nybble; V8/V9: the first byte of each character's colour entry, 1-3
+  bytes by display mode). The screen colour (BG0) goes to `$D021`.
+  Multicolour, ECM and the bitmap modes' screen-matrix colours are not
+  used: the C64 text screen shows the characters hires.
+- The map lives in the REU's last bank but one (the last is `*SPOOL`'s
+  and speech's), so the RAM disk ends 128K before the REU's end
+  (`rd_resbank`). Layout: `&0000` header ("MAP", width, height),
+  `&0100` the character colours, `&0200` page `&0700` saved during a
+  load (the colour table is built there), `&1000` the characters and
+  `&8800` the colours, a row of width bytes per map row: at most 255 x
+  255 and 30720 characters. Of CharPad's own examples (1814 files) 976
+  fit; most others are wide scrolling levels (over 255 characters).
+- `*MAP DRAW mx,my,w,h AT col,row` clips to the map and the 40 x 25
+  screen and copies each row twice by DMA (characters to the screen
+  at `HIBASE`, colours to `$D800`): a full screen is 50 transfers, well
+  within a frame, so a program can scroll by redrawing. Text modes only.
+- `*MAP GET mx,my` sets M% to the character (0 outside the map).
+  Arguments are numbers or A%-Z% (as the BASIC V commands, bvcmd.s).
+- Tiles may have at most 127 cells (the offsets in a tile stay 8-bit).
+- Loading runs in bank 8 at 1 MHz: one DMA per character, the map
+  cell read once per tile row. CharPad's Foodroid (V9, 112 x 44, 4 x 4
+  tiles) loads in 2.4 s, Hexagone (40 x 25) in 1.2 s; the largest map
+  takes about 10 s. Checked against a Python model of the format on
+  both, and on 1814 example files for the parsing.

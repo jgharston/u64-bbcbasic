@@ -18,9 +18,9 @@ C64's text screen, MODE 103 and 104 the C64's own bitmap modes.
 
 @@help VDU VDUCODES
 
-## 8.4 Colours, palettes and fonts
+## 8.4 Colours, palettes, fonts and CharPad maps
 
-@@help COLOURS *PALETTE *FONT
+@@help COLOURS *PALETTE *FONT *MAP
 
 ## 8.5 Sprites
 

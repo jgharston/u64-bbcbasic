@@ -19,6 +19,8 @@
 ;   BBC    768 bytes, characters 32-127 in ASCII order (as in a BBC MOS
 ;          ROM at &C000)
 ;   ASCII  2048 bytes, characters 0-255 in ASCII order (the REU font)
+; and, recognised by its contents, CharPad's CTM (versions 6-9, cmap.s):
+; its first 256 characters as a C64 font
 ;
 ; ----------------------------------------------------------------------------
 
@@ -131,7 +133,8 @@ has_reu:
 ; ----------------------------------------------------------------------------
 ; fo_load
 ;   Summary: *FONT LOAD <file> [C64|BBC|ASCII].
-;   Function: checks the size against the format, reads 8 bytes at a time
+;   Function: a CharPad CTM file (with an REU): its characters (cmap.s);
+;            else checks the size against the format, reads 8 bytes at a time
 ;            and installs each glyph (fo_put); a C64 font also rebuilds
 ;            the ASCII-order font from the new text font.
 ;   Input:   mosPTR/Y after LOAD.  Output: the font; raises on errors.
@@ -140,6 +143,22 @@ fo_load:
     jsr uci_need
     jsr arg_name
     jsr fo_fmt
+    lda fsPTR                   ; a CharPad CTM file? (bank 8, cmap.s)
+    pha
+    lda fsPTR+1
+    pha
+    lda fsLEN
+    pha
+    farcall cmap.ct_fontfile, BANK_UP
+    pla
+    sta fsLEN
+    pla
+    sta fsPTR+1
+    pla
+    sta fsPTR
+    bcs fl_other
+    rts
+fl_other:
     jsr fo_need
     jsr fs_free_target
     lda #FA_READ

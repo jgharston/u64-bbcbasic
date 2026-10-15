@@ -169,10 +169,23 @@ fs_open:
 ;            5). Errors raise.
 ;   Uses:    A, X, Y, fs*, MOSBUF+$E0-$E7 (the command's arguments).
 FR_ONREU     = MOSBUF+$EE        ; 1: the file is on the RAM disk
+FR_WHOLE    = MOSBUF+$EF        ; 1: fs_reuopen0 (no address bytes)
+fs_reuopen0:                    ; (a whole file: *MAP, *FONT of CTM)
+    lda #1
+    bne fro_go
 fs_reuopen:
+    lda #0
+fro_go:
+    sta FR_WHOLE
     jsr rd_route                ; the REU RAM disk: copied within the REU
     bcc fro_ult                 ; (bank 5)
+    lda FR_WHOLE
+    bne fro_x0
     farcall rd_xopen, BANK_RD
+    jmp fro_xd
+fro_x0:
+    farcall rd_xopen0, BANK_RD
+fro_xd:
     bcc fro_reu
     brk
     dta 214, 'File not found', 0
@@ -191,6 +204,11 @@ fro_ult:
     bcc fro_open
     jmp uci_error
 fro_open:
+    lda FR_WHOLE                ; (the whole file: nothing read yet)
+    beq fro_addr
+    clc
+    rts
+fro_addr:
     lda #DOS_READ               ; the two address bytes
     jsr fs_hdr2
     lda #2

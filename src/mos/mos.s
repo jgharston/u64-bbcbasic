@@ -1924,6 +1924,7 @@ cmd_table:
     dta 'SNAPSHOT', 0, a(snap.cmd_snapshot), BANK_RD
     dta 'SPRITE', 0, a(spr.cmd_sprite), BANK_RD
     dta 'UPIC', 0, a(upic.cmd_upic), BANK_UP
+    dta 'MAP', 0, a(cmap.cmd_map), BANK_UP
     dta 'RECTANGLE', 0, a(bvc.cmd_rectangle), BANK_UP
     dta 'CIRCLE', 0, a(bvc.cmd_circle), BANK_UP
     dta 'ELLIPSE', 0, a(bvc.cmd_ellipse), BANK_UP

@@ -182,7 +182,7 @@ Loads machine code and calls it. A file with a load address (*SAVE on /REU) goes
 *SPOOL          end
 ```
 
-Copies everything printed into a file, as on a BBC Micro: *SPOOL name, then for example LIST, then *SPOOL alone. The output is collected in the REU's last 64K (up to 47K) and written to the file when the spool ends (also by CLOSE#0 or another *SPOOL), so it is fast and safe while the MOS prints during file operations. Needs an REU; the RAM disk ends below that last 64K.
+Copies everything printed into a file, as on a BBC Micro: *SPOOL name, then for example LIST, then *SPOOL alone. The output is collected in the REU's last 64K (up to 47K) and written to the file when the spool ends (also by CLOSE#0 or another *SPOOL), so it is fast and safe while the MOS prints during file operations. Needs an REU; the RAM disk ends below the REU's last 128K (this 64K and *MAP's).
 
 ```
 *SPOOL listing

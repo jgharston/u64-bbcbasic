@@ -427,7 +427,7 @@ rd_room:
     adc #0
     bcs rrm_full                ; past 16 MB
     pha
-    jsr rd_lastbank             ; the end's bank < the spool's bank (an
+    jsr rd_resbank              ; the end's bank < the map's bank (an
     sta fsCNT                   ; end on its boundary: equal is fine
     pla                         ; only with no bytes in that bank)
     cmp fsCNT
@@ -472,6 +472,19 @@ rac_rts:
 ;   Output:  rd_xopen: C = 1 not found.  Uses: A, X, Y, fs*, RD_*,
 ;            rd_gap (the destination).
 rd_xopen:
+    jsr rd_xopen0
+    bcs rxx_rts
+    lda #2                      ; the address bytes
+    jsr rx_take
+    lda RD_BUF
+    sta fsADDR
+    lda RD_BUF+1
+    sta fsADDR+1
+    clc
+    rts
+; rd_xopen0: RD_NAME looked up, RD_POS/RD_LEFT its data (all of it;
+; *MAP LOAD, *FONT LOAD of CTM files). C = 1 not found.
+rd_xopen0:
     jsr rd_lookup
     bcs rxx_rts
     ldx #2
@@ -482,12 +495,6 @@ rxo_c:
     sta RD_LEFT,x
     dex
     bpl rxo_c
-    lda #2                      ; the address bytes
-    jsr rx_take
-    lda RD_BUF
-    sta fsADDR
-    lda RD_BUF+1
-    sta fsADDR+1
     clc
 rxx_rts:
     rts
@@ -605,14 +612,23 @@ rlb_16:
     lda #$FF
     rts
 
-; rd_spoolok (from *SPOOL, dfs.s): C = 0 if the RAM disk's data ends
-; below the REU's last bank (or there is no RAM disk), C = 1 if not
+; rd_resbank: A = the first bank kept off the RAM disk: the REU's last
+; but one (*MAP's map, cmap.s; the last: *SPOOL and speech)
+rd_resbank:
+    jsr rd_lastbank
+    sec
+    sbc #1
+    rts
+
+; rd_spoolok (from *SPOOL, dfs.s, and *MAP LOAD, cmap.s): C = 0 if the
+; RAM disk's data ends below its reserved banks (the REU's last two; or
+; there is no RAM disk), C = 1 if not
 rd_spoolok:
     clc
     lda rd_ok
     beq rso_rts
     jsr rd_hdrget
-    jsr rd_lastbank
+    jsr rd_resbank
     sta fsCNT
     lda RD_HDR+14               ; data end's bank (an end exactly at the
     cmp fsCNT                   ; bank's start is fine)
@@ -1094,9 +1110,9 @@ rc_next:
     lda reu_banks+1
     sbc #0
     sta rd_n+2
-    lda rd_n+1                  ; less *SPOOL's 64K (0 if the data is
-    sec                         ; already in it)
-    sbc #1
+    lda rd_n+1                  ; less the reserved 128K (*MAP, *SPOOL;
+    sec                         ; 0 if the data is already in it)
+    sbc #2
     sta rd_n+1
     lda rd_n+2
     sbc #0
