@@ -1640,13 +1640,15 @@ in the REU:
   *SPRITE 0 ON 640,512
 
 *SPRITE LOAD reads SpritePad files (SPD
-version 1), files with a 3-byte header,
-or plain 64-byte shapes. Multicolour
-sprites have 12 x 21 double-wide dots
-in 4 colours: transparent, the sprite's
-own, and the pair *SPRITE COLOURS sets
-for all sprites (the VIC-II has one
-pair).
+versions 1 to 5, SpritePad 1.8 to Pro
+3; their sprites, not tiles or
+animations), files with a 3-byte
+header, or plain 64-byte shapes.
+Multicolour sprites have 12 x 21
+double-wide dots in 4 colours:
+transparent, the sprite's own, and the
+pair *SPRITE COLOURS sets for all
+sprites (the VIC-II has one pair).
 
 In the graphics modes and MODE 7 the
 bitmap leaves room for two shapes: the

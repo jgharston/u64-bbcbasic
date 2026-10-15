@@ -142,8 +142,17 @@ Options for the bitmap modes, to decide:
   per sprite; `*SPRITE COLOURS a,b` sets the pair the VIC-II shares
   between all sprites ($D025, $D026). `COLOUR` only ever sets a
   sprite's own colour.
-- Not yet: `*SPRITE LOAD` does not take SPD's colours; SPD versions 2+
-  (SpritePad 2) give an error.
+- SPD versions 1-5 (2026-10-15; layouts from SpritePad Pro 3.20's help,
+  "File Format - SPD (V1)" to "(V5)"): the header is 9 bytes (V1), 16
+  (V2, V3) or 20 (V4, V5), and the sprites follow it in every version.
+  The count is byte 4 + 1 (V1) or the 16-bit value at bytes 5-6 (V2-V5).
+  The count matters because tiles and animations can come after the
+  sprites. The multicolours are at bytes 7/8 (V1) or &0E/&0F (V2-V5).
+  Each shape's 64th byte is SpritePad's attribute (`MYXVCCCC`: multicolour,
+  Y/X expand from V5, overlay, colour) and stays in the REU with the shape.
+- Not yet: `*SPRITE LOAD` does not apply SPD's colours or the
+  attribute bytes (the owner's decision is open: shapes carry no colour
+  in this sprite model).
 
 ## 6. GXR software sprites (owner, 2026-10-14)
 

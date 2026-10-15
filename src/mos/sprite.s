@@ -1023,7 +1023,8 @@ spc_2:
 ;   Summary: LOAD s file: shapes from s on, from a file.
 ;   Function: reads up to 17 pages into REU_SCRATCH, then copies the
 ;            shapes (64 bytes each) to REU_SHAPES: a SpritePad file
-;            ('SPD', version 1: 9-byte header, the count in byte 4), a
+;            ('SPD', versions 1-5: a 9, 16 or 20-byte header, the count in
+;            byte 4 (V1, count - 1) or bytes 5-6 (V2-V5)), a
 ;            file with a 3-byte header (its length 64n + 3), or plain
 ;            64-byte shapes (the last may be 63 bytes).
 ;   Input:   mosPTR/Y = 's file'.
@@ -1067,10 +1068,10 @@ spl_size:
     sta mosTMP+2
     pla
     sta mosTMP                  ; the shape to fill
-    lda #0                      ; the first 5 bytes: the header?
+    lda #0                      ; the first 7 bytes: the header?
     sta fsCNT
     sta fsCNT+1
-    lda #5
+    lda #7
     jsr spl_get
     ldx #0                      ; offset: 0, 3 or 9
     lda MOSBUF
@@ -1082,14 +1083,21 @@ spl_size:
     lda MOSBUF+2
     cmp #'D'
     bne spl_raw
-    lda MOSBUF+3
-    cmp #1
-    beq spl_v1
+    lda MOSBUF+3                ; the header's length by version
+    ldx #9                      ; (SpritePad's help: V1 9 bytes, V2/V3
+    cmp #1                      ; 16, V4/V5 20; the sprites follow it)
+    beq spl_off
+    ldx #16
+    cmp #2
+    bcc spl_badv
+    cmp #4
+    bcc spl_off
+    ldx #20
+    cmp #6
+    bcc spl_off
+spl_badv:
     brk
-    dta 247, 'SPD version 1 only', 0
-spl_v1:
-    ldx #9
-    bne spl_off
+    dta 247, 'SPD version 1-5 only', 0
 spl_raw:
     lda mosTMP+2
     and #63
@@ -1118,12 +1126,19 @@ spl_div6:
     bne spl_div6
     lda mosTMP+2
     sta mosTMP+1
-    lda fsCNT
-    cmp #9
-    bne spl_copy
-    ldx MOSBUF+4
+    lda fsCNT                   ; SPD: its sprite count (tiles and
+    cmp #9                      ; animations may follow the sprites)
+    bcc spl_copy
+    bne spl_v2
+    ldx MOSBUF+4                ; V1: count - 1
     inx
     beq spl_copy                ; (256: the file decides)
+    bne spl_cap
+spl_v2:
+    lda MOSBUF+6                ; V2-V5: 16 bits
+    bne spl_copy                ; (256 or more: the file decides)
+    ldx MOSBUF+5
+spl_cap:
     cpx mosTMP+1
     bcs spl_copy
     stx mosTMP+1

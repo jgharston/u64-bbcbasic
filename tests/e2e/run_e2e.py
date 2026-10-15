@@ -1377,6 +1377,53 @@ def test_sprite_gfx(t):
     assert "8000" in out, out
 
 
+def test_sprite_spd5(t):
+    # SpritePad V2-V5 files (*SPRITE LOAD): a V5 file, 20-byte header,
+    # three sprites (left half, full, top rows), then animation data and
+    # a block that would be a fourth (full) shape if the header's sprite
+    # count were not kept; dots counted per colour in the video stream
+    if not ult(t):
+        return
+    full = bytes([255] * 63 + [0])
+    left = bytes([255, 240, 0] * 21 + [0x81])            # (attribute byte)
+    top = bytes([255] * 30 + [0] * 33 + [0])
+    head = b"SPD" + bytes([5, 2, 3, 0, 0, 0, 0, 0, 1, 1, 0, 5, 6,
+                           1, 0, 1, 0])
+    spd = head + left + full + top + bytes([0, 0, 2, 0, 5, 0]) + full
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", "")
+        ftp.storbinary("STOR /Temp/SHAPES5.SPD", io.BytesIO(spd))
+    rm = remote(t)
+    rm.run_lines(["MODE 100", "*SPRITE ON", "MODE 129"])
+    prog = "\n".join([
+        "10 *SPRITE LOAD 40 SHAPES5.SPD",
+        "20 *SPRITE 0 SHAPE 40",
+        "30 *SPRITE 0 COLOUR 1",
+        "40 *SPRITE 0 ON 100,800",
+        "50 *SPRITE 1 SHAPE 41",
+        "60 *SPRITE 1 COLOUR 2",
+        "70 *SPRITE 1 ON 400,600",
+        "80 *SPRITE 2 SHAPE 42",
+        "90 *SPRITE 2 COLOUR 3",
+        "100 *SPRITE 2 ON 700,400",
+        "110 *SPRITE 3 SHAPE 43",
+        "120 *SPRITE 3 COLOUR 4",
+        "130 *SPRITE 3 ON 1000,200", ""])
+    r = rm.send_program(prog, run=True, timeout=20)
+    assert r["ok"], r
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import u64shot
+    time.sleep(0.5)
+    rows = u64shot.grab(t.host, 11002)
+    count = {c: sum(row.count(c) for row in rows) for c in (2, 5, 7, 6)}
+    assert 240 <= count[2] <= 265, count                 # red: left half
+    assert 480 <= count[5] <= 530, count                 # green: full
+    assert 230 <= count[7] <= 250, count                 # yellow: top rows
+    assert count[6] < 20, count                          # blue: none loaded
+    out = rm.run_lines(["MODE 100", "*SPRITE OFF", "*DELETE SHAPES5.SPD"])
+    assert not out["error"], out
+
+
 def upic_bars():
     """A Upic v1.3 file: 16 bars of 24 pixels in colours 0-15."""
     import struct
@@ -2435,7 +2482,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_acorn, test_dfs, test_toolkit, test_speech, test_net, test_json, test_netchan, test_classics, test_hanoi,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_sprite_spd5, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_acorn, test_dfs, test_toolkit, test_speech, test_net, test_json, test_netchan, test_classics, test_hanoi,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

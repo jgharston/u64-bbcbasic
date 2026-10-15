@@ -273,7 +273,7 @@ x,y are BBC graphics coordinates (0-1279, 0-1023), of the sprite's bottom left c
 *SPRITE 0 ON 640,512
 ```
 
-*SPRITE LOAD reads SpritePad files (SPD version 1), files with a 3-byte header, or plain 64-byte shapes. Multicolour sprites have 12 x 21 double-wide dots in 4 colours: transparent, the sprite's own, and the pair *SPRITE COLOURS sets for all sprites (the VIC-II has one pair).
+*SPRITE LOAD reads SpritePad files (SPD versions 1 to 5, SpritePad 1.8 to Pro 3; their sprites, not tiles or animations), files with a 3-byte header, or plain 64-byte shapes. Multicolour sprites have 12 x 21 double-wide dots in 4 colours: transparent, the sprite's own, and the pair *SPRITE COLOURS sets for all sprites (the VIC-II has one pair).
 
 In the graphics modes and MODE 7 the bitmap leaves room for two shapes: the multiplexer copies each sprite's shape in as it comes, so sprites on the same lines can have at most 2 different shapes (the text screen holds all 64).
 
