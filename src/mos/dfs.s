@@ -26,6 +26,7 @@ DF_DBUF     = $0248             ; 8: *DUMP's line; *BUILD's digits
 DF_LINE     = $0700             ; *BUILD's line (BASIC's input line: the
                                 ; command was read from it already)
 DF_LMAX     = 238
+SP_MAX      = $BCF0             ; *SPOOL's room in the REU's last bank
 
 ; ----------------------------------------------------------------------------
 ; cmd_spool
@@ -33,8 +34,8 @@ DF_LMAX     = 238
 ;            alone ends it (the file written and closed).
 ;   Function: an open spool is written and closed first; the file is
 ;            opened (created) now, so a bad name fails at once; the REU's
-;            last bank collects the output (up to 65535 bytes; more is
-;            lost) through the stub on WRCHV.
+;            last bank collects the output (up to 48368 bytes, &BCF0; more
+;            is lost) through the stub on WRCHV.
 ;   Input:   mosPTR/Y.  Output: DF_SPCH, WRCHV.  Uses: A, X, Y, DF_T.
 cmd_spool:
     sty DF_T+6                  ; (the line position: the calls below
@@ -174,12 +175,20 @@ sp_put:
     lda #REU_TO_REU
     sta REU_CMD
     plp
-    inc DF_SPLEN
-    bne spp_rts
+    inc DF_SPLEN                ; on, up to &BCF0 (the bank's rest is
+    bne spp_chk                 ; speech's: SAM's image, speech.s)
     inc DF_SPLEN+1
-    bne spp_rts
-    dec DF_SPLEN                ; full: stays at 65535
-    dec DF_SPLEN+1
+spp_chk:
+    lda DF_SPLEN+1
+    cmp #>SP_MAX
+    bcc spp_rts
+    lda DF_SPLEN
+    cmp #<SP_MAX
+    bcc spp_rts
+    lda #<[SP_MAX-1]            ; full: the last byte overwritten
+    sta DF_SPLEN
+    lda #>[SP_MAX-1]
+    sta DF_SPLEN+1
 spp_rts:
     lda DF_BYTE
     rts

@@ -153,6 +153,120 @@ fs_open:
     jmp uci_finish
 
 ; ----------------------------------------------------------------------------
+; fs_reuopen / fs_reurest / fs_reuclose (*SPEECH LOAD, speech.s, bank 6)
+;   Summary: a C64 program file from the Ultimate's drives into the REU
+;            in one DOS command (LOAD_REU) instead of byte by byte.
+;   Function: fs_reuopen opens the file at fsPTR and reads its 2 address
+;            bytes; the caller checks them, then fs_reurest loads the rest
+;            with LOAD_REU (DOS command &21: REU address, length; the
+;            firmware stops at the file's end and answers "02,REQUEST
+;            TRUNCATED", which is fine here) and closes the file;
+;            fs_reuclose closes it after a refused address.
+;   Input:   fs_reuopen: fsPTR = name. fs_reurest: fsTMP/+1/+2 = REU
+;            address, fsCNT = the room there (16 bits).
+;   Output:  fs_reuopen: C = 0, fsADDR = the load address. Files on the
+;            RAM disk are copied within the REU (rd_xopen, rd_xrest, bank
+;            5). Errors raise.
+;   Uses:    A, X, Y, fs*, MOSBUF+$E0-$E7 (the command's arguments).
+FR_ONREU     = MOSBUF+$EE        ; 1: the file is on the RAM disk
+fs_reuopen:
+    jsr rd_route                ; the REU RAM disk: copied within the REU
+    bcc fro_ult                 ; (bank 5)
+    farcall rd_xopen, BANK_RD
+    bcc fro_reu
+    brk
+    dta 214, 'File not found', 0
+fro_reu:
+    lda #1
+    sta FR_ONREU
+    clc
+    rts
+fro_ult:
+    lda #0
+    sta FR_ONREU
+    jsr uci_need
+    jsr fs_free_target
+    lda #FA_READ
+    jsr fs_open
+    bcc fro_open
+    jmp uci_error
+fro_open:
+    lda #DOS_READ               ; the two address bytes
+    jsr fs_hdr2
+    lda #2
+    sta uciHDR+2
+    lda #0
+    sta uciHDR+3
+    sta fsLEN
+    sta fsLEN+1
+    lda #4
+    sta uciHLEN
+    jsr uci_send
+    jsr fro_byte
+    sta fsADDR
+    jsr fro_byte
+    sta fsADDR+1
+    jsr uci_finish
+    clc
+    rts
+fro_byte:                       ; a reply byte (none: 0)
+    lda UCI_STAT
+    bpl frb_none
+    lda UCI_RESP
+    rts
+frb_none:
+    lda #0
+    rts
+
+fs_reurest:
+    lda FR_ONREU
+    beq frr_ult
+    farcall rd_xrest, BANK_RD
+    rts
+frr_ult:
+    ldx #2                      ; arguments: REU address (4), length (4)
+frr_a:
+    lda fsTMP,x
+    sta MOSBUF+$E0,x
+    dex
+    bpl frr_a
+    lda #0
+    sta MOSBUF+$E3
+    sta MOSBUF+$E6
+    sta MOSBUF+$E7
+    lda fsCNT
+    sta MOSBUF+$E4
+    lda fsCNT+1
+    sta MOSBUF+$E5
+    lda #$21                    ; LOAD_REU
+    jsr fs_hdr2
+    lda #<[MOSBUF+$E0]
+    sta fsPTR
+    lda #>[MOSBUF+$E0]
+    sta fsPTR+1
+    lda #8
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    jsr uci_send
+    jsr uci_finish
+    bcc fs_reuclose
+    lda errbuf+1                ; "02": the file ended first (fine)
+    cmp #'0'
+    bne frr_err
+    lda errbuf+2
+    cmp #'2'
+    beq fs_reuclose
+frr_err:
+    jmp uci_error               ; (the status: closing would replace it)
+fs_reuclose:
+    lda FR_ONREU                 ; (the RAM disk: nothing open)
+    bne frc_rts
+    jmp fs_close_tgt
+frc_rts:
+    rts
+
+; ----------------------------------------------------------------------------
 ; fs_close_tgt
 ;   Summary: close the file of target fsTGT; errors are ignored.
 ;   Uses:    A, X, Y, fsLEN.

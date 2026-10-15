@@ -11,13 +11,16 @@
 ; Mode table: type, mc, cols, rows, ncol, xsh, ysc, cw, ch, palette
 MT_LEN = 10
 mode_nums:
-    dta 1, 2, 4, 5, 6, 7, 100, 103, 104, 110, 111, $FF
+    dta 0, 1, 2, 3, 4, 5, 6, 7, 100, 103, 104, 110, 111, $FF
 upx_lo:
     dta <383, <287              ; Upic full: the last x (MODE 110, 111)
 mode_tab:
+    dta 1, 0, 80, 32,  2, 2, 0, 4, 6, pal_bbc2-pal_sets   ; 0 (80 columns:
+                                ; the 4x6 font in 4-pixel cells, fnt46)
     dta 1, 1, 40, 32,  4, 3, 0, 4, 6, pal_bbc4-pal_sets   ; 1 (VIC-II: the
                                 ; 4x6 font in its 4-pixel cells, fnt46)
     dta 1, 1, 20, 32, 16, 3, 0, 8, 6, pal_bbc16-pal_sets  ; 2
+    dta 1, 0, 80, 25,  2, 2, 0, 4, 8, pal_bbc2-pal_sets   ; 3 (80x25)
     dta 1, 0, 40, 32,  2, 2, 0, 8, 6, pal_bbc2-pal_sets   ; 4
     dta 1, 1, 20, 32,  4, 3, 0, 8, 6, pal_bbc4-pal_sets   ; 5
     dta 0, 0, 40, 25, 16, 0, 0, 8, 8, pal_bbc16-pal_sets  ; 6
@@ -45,8 +48,8 @@ pal_ulb4:
 ; ----------------------------------------------------------------------------
 ; bk_mode (VDU 22, from the core's vdu_mode)
 ;   Summary: VDU 22,n (MODE n).
-;   Function: MODE 0 and 3 (80 columns: dropped, owner 2026-10-10) are
-;            their 40-column twins MODE 4 and 6; looks n up in mode_nums
+;   Function: looks n up in mode_nums (MODE 0 and 3: 80 columns with
+;            the 4x6 font, owner 2026-10-15)
 ;            (an unknown number uses n AND 7, as the BBC Model B does),
 ;            switches the cursor on (as the BBC: a program's VDU 23,1,0
 ;            ends with the mode), sets the vmode_* variables and the
@@ -79,15 +82,6 @@ bk_mode0:
     sta mode_shadow
 vm_look:
     lda vdubuf
-    cmp #3                      ; 80 columns: the 40-column twin
-    bne vm_n3
-    lda #6
-vm_n3:
-    cmp #0
-    bne vm_n0
-    lda #4
-vm_n0:
-    sta vdubuf
     ldx #0
 vm_find:
     ldy mode_nums,x
@@ -170,7 +164,7 @@ vm_ppb:
     sta vmode_bbc               ; MODE 2), though y scales as a C64 mode
 vm_nup:
     jsr ul_choose               ; MODE 0/1/4: Upic Lite when possible
-    farcall fnt46, BANK_UP      ; VIC-II MODE 1: the 4x6 font (or back)
+    farcall fnt46, BANK_UP      ; 4-pixel cells: the 4x6 font (or back)
     jsr pal_default
     lda ul_active               ; leaving Upic Lite?
     beq vm_noleave
@@ -490,8 +484,10 @@ uc_n2:
     jmp uc_160
 uc_n5:
     lda #0                      ; bits per pixel - 1
-    ldy #8                      ; cell width
-    cpx #4
+    ldy #8                      ; cell width (MODE 0 and 3 stay on the
+    cpx #4                      ; VIC-II: Upic Lite's 320-wide picture
+                                ; fringes 1-pixel strokes in colour, which
+                                ; the 4x6 font does not survive)
     beq uc_go
     cpx #6
     beq uc_go
@@ -647,9 +643,9 @@ bh_n7:
     bne bh_done
     txa
     and #$7F
-    beq bh_58
+    beq bh_done                 ; (MODE 0, 3: the VIC-II, &8000)
     cmp #3
-    beq bh_58
+    beq bh_done
     cmp #4
     beq bh_58
     cmp #6

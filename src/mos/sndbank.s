@@ -162,6 +162,7 @@ stb_nn:
 
     icl 'sndcmd.s'
     icl 'songcmd.s'
+    icl 'speech.s'
 
 bank6_end:
     .if bank6_end > $C000

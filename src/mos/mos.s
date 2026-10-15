@@ -1939,6 +1939,9 @@ cmd_table:
     dta 'SEARCH', 0, a(tk.cmd_search), BANK_NET
     dta 'VARLIST', 0, a(tk.cmd_varlist), BANK_NET
     dta 'XREF', 0, a(tk.cmd_xref), BANK_NET
+    dta 'SPEECH', 0, a(spch.cmd_speech), BANK_SND
+    dta 'SAY', 0, a(spch.cmd_say), BANK_SND
+    dta 'SPEAK', 0, a(spch.cmd_speak), BANK_SND
     dta 'FLOOD', 0, a(gxr.cmd_accept), BANK_RD
     dta 'NOFLOOD', 0, a(gxr.cmd_accept), BANK_RD
     dta 'GXR', 0, a(gxr.cmd_accept), BANK_RD

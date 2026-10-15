@@ -1083,3 +1083,9 @@ Acorn compatibility decisions (owner, 2026-10-14):
 - Built 2026-10-15 (DESIGN_ACORN.md): keys, ADVAL and *FX (commit
   412a316); the DFS commands; the toolkit. Speech (*SAY with the user's
   SAM) follows.
+
+80 columns back (owner, 2026-10-15), now with the 4x6 font in 4-pixel
+cells (the squeezed 8-pixel glyphs of before were what read badly):
+MODE 0 (80 columns, 2-colour graphics: 80x32 on the VIC-II with 6-line
+rows as MODE 4, 80x32 in Upic Lite) and MODE 3 (80x25 text); the
+mapping to MODE 4 / 6 goes.

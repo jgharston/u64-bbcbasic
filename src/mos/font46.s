@@ -6,21 +6,20 @@
 ;
 ; ----------------------------------------------------------------------------
 ; fnt46
-;   Summary: MODE 1 on the VIC-II gets the 4x6 font, any other mode the
-;            glyphs it had (owner, 2026-10-14: 40 readable columns in its
-;            160 double-wide pixels).
+;   Summary: modes with 4-pixel cells get the 4x6 font, any other mode
+;            the glyphs it had: MODE 1 on the VIC-II (owner, 2026-10-14: 40
+;            readable columns in its 160 double-wide pixels), MODE 0 and 3
+;            (2026-10-15: 80 columns).
 ;   Function: with an REU: on entering, characters 32-126 of the REU font
 ;            (REU_FONT + 32 * 8, 760 bytes) go to REU_FONTSAVE and the 4x6
 ;            glyphs (font4x6, bank 8) take their place; on leaving they
 ;            come back. FONT46 says which is in. Characters defined (VDU
-;            23) while MODE 1 is on are lost when it ends.
+;            23) while such a mode is on are lost when it ends.
 ;   Input:   vmode, vmode_ul.  Output: FONT46.  Uses: A, X, Y, fs*, MOSBUF.
 fnt46:
-    ldx #0
-    lda vmode
-    cmp #1
-    bne f46_want
-    lda vmode_ul
+    ldx #0                      ; wanted with 4-pixel cells: VIC-II MODE 1,
+    lda vmode_cw                ; MODE 0 and 3 (VIC-II and Upic Lite)
+    cmp #4
     bne f46_want
     inx
 f46_want:

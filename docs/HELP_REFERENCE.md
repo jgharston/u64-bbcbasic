@@ -104,11 +104,12 @@ VDU          VPOS         WIDTH
 *RUN         *SAVE        *SEARCH
 *SEDIT       *SETTIME     *SGET
 *SHADOW      *SID         *SNAPSHOT
-*SONG        *SOUND       *SPOOL
-*SPRITE      *SRREAD      *SRWRITE
-*STATUS      *SWAP        *TIME
-*TURBO       *TYPE        *UNMOUNT
-*UPIC        *UVER        *XREF
+*SONG        *SOUND       *SPEECH
+*SPOOL       *SPRITE      *SRREAD
+*SRWRITE     *STATUS      *SWAP
+*TIME        *TURBO       *TYPE
+*UNMOUNT     *UPIC        *UVER
+*XREF
 ```
 
 ## BBC
@@ -930,13 +931,12 @@ Copies everything printed into a file,
 as on a BBC Micro: *SPOOL name, then
 for example LIST, then *SPOOL alone.
 The output is collected in the REU's
-last 64K (up to 65535 bytes) and
-written to the file when the spool ends
-(also by CLOSE#0 or another *SPOOL), so
-it is fast and safe while the MOS
-prints during file operations. Needs an
-REU; the RAM disk ends below that last
-64K.
+last 64K (up to 47K) and written to the
+file when the spool ends (also by
+CLOSE#0 or another *SPOOL), so it is
+fast and safe while the MOS prints
+during file operations. Needs an REU;
+the RAM disk ends below that last 64K.
 
   *SPOOL listing
   LIST
@@ -1104,6 +1104,42 @@ joined on. Strings, DATA, * commands
 and assembler stay as they are. A
 computed GOTO's target is not known:
 use C there. Needs an REU.
+```
+
+## *SPEECH
+
+Also: `SPEECH`, `*SAY`, `SAY`, `*SPEAK`, `SPEAK`, `SAM`
+
+```
+  *SPEECH LOAD f [f]  your SAM files
+  *SPEECH             what is loaded
+  *SPEECH SPEED n     (also PITCH,
+                       THROAT, MOUTH)
+  *SAY text           English
+  *SPEAK phonemes     SAM's spelling
+
+Speech with S.A.M. (Software Automatic
+Mouth, Don't Ask Software 1982), which
+is not part of U64 BBC BASIC: load your
+own copy of the C64 package once, its
+".sam 1" (SAM, loads at &9500) and
+".sam 2" (Reciter, &7D00, for English),
+copied as files without spaces in their
+names; they are told apart by their
+load address and kept in the REU (its
+last 64K, with *SPOOL). *SAY speaks
+English through Reciter, *SPEAK SAM's
+phonemes (e.g. HEH4LOW). Defaults:
+speed 72 (bigger is slower), pitch 64
+(smaller is higher), throat and mouth
+128. The screen is blank while SAM
+speaks, at 1 MHz; the program then goes
+on. Up to 230 characters; a word
+without a vowel (BBC) is spelt out.
+Needs an REU.
+
+  *SPEECH LOAD sam1.prg sam2.prg
+  *SAY Hello, I am a BBC Micro.
 ```
 
 ## *UVER
@@ -2656,8 +2692,10 @@ The remainder of integer division.
 Selects a screen mode and clears it.
 
   MODE size     col text  U64
+  0    320x200  2   80x32 VIC-II
   1    320x256  4   40x32 Upic Lite
   2    160x256  16  20x32 Upic Lite
+  3    text     2   80x25 VIC-II
   4    320x256  2   40x32 Upic Lite
   5    160x256  4   20x32 Upic Lite
   6    text         40x25 Upic Lite
@@ -2680,20 +2718,23 @@ within a few frames. The machine starts
 in the C64 text screen; MODE 100
 returns to it.
 
-There are no 80-column modes: MODE 0 is
-MODE 4 and MODE 3 is MODE 6, their
-40-column twins, so BBC programs run
-with a narrower text layout. MODE 1 on
-the VIC-II (MODE 129, *SHADOW) uses a
+MODE 0 and MODE 3 have 80 columns in a
 4x6 font (X11 misc-fixed, public
-domain) for its 40 columns: its 160
-double-wide pixels leave 4 per
-character. MODE 6 uses rows of 10 lines
-(250 lines), as on the BBC; without
-Upic Lite they are the 40x25 text
-screen. MODE 103: 2 colours per 8x8
-cell, MODE 104: 4 per 4x8 cell, as the
-VIC-II does.
+domain), each character 4 pixels wide:
+MODE 0 with graphics as MODE 4 (rows of
+6 lines), MODE 3 text in rows of 8.
+They stay on the VIC-II (HIMEM &8000):
+Upic Lite blurs such thin letters.
+*HELP texts stay 40 wide; *CAT uses the
+width. MODE 1 on the VIC-II (MODE 129,
+*SHADOW) uses the same font for its 40
+columns: its 160 double-wide pixels
+leave 4 per character. MODE 6 uses rows
+of 10 lines (250 lines), as on the BBC;
+without Upic Lite they are the 40x25
+text screen. MODE 103: 2 colours per
+8x8 cell, MODE 104: 4 per 4x8 cell, as
+the VIC-II does.
 
 Upic Lite: a live picture of 320x256
 (MODE 2 and 5: 160x256 with

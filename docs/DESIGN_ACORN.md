@@ -167,3 +167,78 @@ The commands follow Beebug's Toolkit Plus manual (scanned at 8bs.com,
     and DATA lines are not joined onto the line before.
   - Named lines that are only a REM are kept whole.
   - At the end the variables are cleared (`SETFSA`).
+
+## 4. Speech: *SPEECH, *SAY, *SPEAK (`src/mos/speech.s`, bank 6)
+
+SAM (Software Automatic Mouth, Don't Ask Software, 1982) is not part of
+the project (owner, 2026-10-14). `*SPEECH LOAD` reads the user's copy of
+the C64 package into the REU. Tested with the package from CSDb (release
+234771, "S.A.M."):
+
+| File | Load range | Contents |
+|---|---|---|
+| `.sam 1` | &9500-&BFFF | SAM, its BASIC wedge at &9500 |
+| `.sam 2` | &7D00-&947F | Reciter, English to phonemes |
+
+The two files are told apart by their load address.
+
+### SAM's interface
+
+Found in the binary, with groepaz's disassembly of the C64 SAM (hitmen,
+2007) for orientation:
+
+- **Text**: at &9A15, ended by &9B.
+- **Entries**: `JSR &9A03` speaks phonemes; `JSR &9A09` runs Reciter on
+  the text first.
+- **Settings**: speed at &BC18 (default &48), pitch at &BA3F (&40),
+  throat at &97E0 and mouth at &97E1 (&80 each). `JSR &97E2` applies
+  throat and mouth.
+
+### REU layout
+
+| Place | Contents |
+|---|---|
+| Last bank &BCF0-&FFEF | the image of &7D00-&BFFF |
+| Last bank &FFF0 | header: "SAM", what is loaded, speed, pitch, throat, mouth |
+| Bank 0 &3880 | the saved zero page (254 bytes) |
+| Bank 0 &3980 | the saved &7D00-&7FFF |
+
+`*SPOOL` now stops at &BCF0 (about 47K).
+
+### Speaking (`sv`, copied to MOSBUF, called through `farcall`)
+
+The routine runs with BANK_RAM mapped (cartridge off):
+
+1. Save zero page &02-&FF and &7D00-&7FFF to the REU.
+2. DMA the image in.
+3. Put the text at &9A15 (prepared at &0600), set the four settings and
+   `JSR &97E2`.
+4. Go to 1 MHz, through the U64 turbo register or the enable bit. SAM's
+   timing needs it, and it blanks the screen itself.
+5. Call the entry.
+6. Restore the turbo and &D011.
+7. `copy_basic` puts BBC BASIC back from cartridge bank 1.
+8. Restore &7D00-&7FFF and the zero page.
+
+Bank 6 then clears SID registers &D400-&D417 and sets &D418 to &0F,
+as the sound engine's reset does. SAM leaves its last sample and voice
+settings there: a constant level under the next SOUND.
+
+### Limits
+
+- Loading takes about 2 seconds:
+  - From the Ultimate's drives, `fs_reuopen` (bank 2) opens the file and
+    reads its two address bytes; after the check, `fs_reurest` loads the
+    rest with the DOS's LOAD_REU in one command. "02,REQUEST TRUNCATED"
+    is expected: the room given is larger than the file.
+  - From /REU, bank 5 copies the file within the REU in 128-byte pieces
+    (`rd_xopen`, `rd_xrest`).
+  - Byte by byte through OSBGET, as at first, took 15 seconds: each byte
+    is a UCI command or a bank-5 call at 1 MHz.
+- File names can't contain spaces, so copy the package's files under
+  other names.
+- Up to 230 characters of text; the header is at &06F0 (MOSBUF+$F0 is
+  the RAM disk's register save).
+- `*SAY` spells out words without a vowel ("BBC" -> "B B C"), which
+  Reciter would skip.
+- TIME stops while SAM speaks: interrupts are off.

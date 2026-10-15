@@ -1920,6 +1920,38 @@ def test_toolkit(t):
     assert "ABC3" in out, out
 
 
+SAM_DIR = "/SD/idi8b/u64bbcbasic/sam"   # the owner's own SAM (not in the repo)
+
+
+def test_speech(t):
+    # *SPEECH LOAD of the user's SAM and Reciter (on the Ultimate, not in
+    # the repository: skipped without them); *SPEECH shows them; *SPEAK
+    # and *SAY inside a program leave its variables and loop intact
+    if t.is_vice:
+        run_line(t, "*SAY hello", "needs an REU")
+        return
+    r = remote(t)
+    out = r.run_lines(["*DIR " + SAM_DIR, "*SPEECH LOAD sam1.prg sam2.prg",
+                       "*SPEECH", "*DIR /Temp"], timeout=120)["output"]
+    if "Not found" in out:
+        t.notes.append("speech: no SAM files in " + SAM_DIR)
+        return
+    assert "SAM loaded, Reciter loaded" in out and "Speed 72" in out, out
+    prog = """10 A$="keep":X=1.5:T%=0
+20 FOR I%=1 TO 3
+30   *SPEAK WAH4N
+40   T%=T%+I%
+50 NEXT
+60 OSCLI "SAY Done."
+70 PRINT "R=";A$;" ";X;" ";T%;" ";I%;" ";HIMEM
+"""
+    out = r.send_program(prog, run=True, timeout=60)["output"]
+    assert "R=keep 1.5 6 4 32768" in out, out
+    out = r.run_lines(["*SPEECH SPEED 90", "*SPEECH", "*SPEECH SPEED 72"],
+                      timeout=30)["output"]
+    assert "Speed 90" in out, out
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -2099,13 +2131,18 @@ def test_gfx_vdu5(t):
 
 
 def test_gfx_mode3(t):
-    # 80 columns are dropped (owner, 2026-10-10): MODE 3 is MODE 6 and MODE 0
-    # is MODE 4, their 40-column twins (OSBYTE &87 gives the mode in Y)
+    # 80 columns with the 4x6 font (owner, 2026-10-15): MODE 3 80x25 and
+    # MODE 0 80x32, on the VIC-II (HIMEM &8000); TAB(79,last row) is on
+    # the screen (OSBYTE &87 gives the mode in Y)
     out = remote(t).run_lines([
-        "MODE 3:A%=&87:M%=(USR&C7F4 AND &FF0000) DIV &10000:C%=POS",
+        "MODE 3:A%=&87:M%=(USR&C7F4 AND &FF0000) DIV &10000:C%=HIMEM",
+        "PRINT TAB(79,24);:P%=POS:V%=VPOS",
         "MODE 0:A%=&87:N%=(USR&C7F4 AND &FF0000) DIV &10000",
-        "MODE 100", 'PRINT "M=";M%;",";N%'])["output"]
-    assert "M=6,4" in out, out
+        "PRINT TAB(79,31);:Q%=POS:W%=VPOS",
+        "MODE 100",
+        'PRINT "M=";M%;",";N%;",";C%;",";P%;",";V%;",";Q%;",";W%'],
+        timeout=30)["output"]
+    assert "M=3,0,32768,79,24,79,31" in out, out
 
 
 def test_gfx_teletext(t):
@@ -2340,7 +2377,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_acorn, test_dfs, test_toolkit, test_net, test_json, test_netchan, test_classics,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_acorn, test_dfs, test_toolkit, test_speech, test_net, test_json, test_netchan, test_classics,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

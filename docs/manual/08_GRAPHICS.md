@@ -20,8 +20,10 @@ Selects a screen mode and clears it.
 
 ```
 MODE size     col text  U64
+0    320x200  2   80x32 VIC-II
 1    320x256  4   40x32 Upic Lite
 2    160x256  16  20x32 Upic Lite
+3    text     2   80x25 VIC-II
 4    320x256  2   40x32 Upic Lite
 5    160x256  4   20x32 Upic Lite
 6    text         40x25 Upic Lite
@@ -35,7 +37,7 @@ MODE size     col text  U64
 
 MODE 7 is teletext, as on the BBC: screen memory at &7C00 (HIMEM &7C00), colour codes 129-135 (text) and 145-151 (mosaic graphics), 141 double height, 154 separated graphics, 157 new background, 156 black background, 158 hold graphics, 136 flashing. Writing to &7C00 directly (?&7C00=...) shows within a few frames. The machine starts in the C64 text screen; MODE 100 returns to it.
 
-There are no 80-column modes: MODE 0 is MODE 4 and MODE 3 is MODE 6, their 40-column twins, so BBC programs run with a narrower text layout. MODE 1 on the VIC-II (MODE 129, *SHADOW) uses a 4x6 font (X11 misc-fixed, public domain) for its 40 columns: its 160 double-wide pixels leave 4 per character. MODE 6 uses rows of 10 lines (250 lines), as on the BBC; without Upic Lite they are the 40x25 text screen. MODE 103: 2 colours per 8x8 cell, MODE 104: 4 per 4x8 cell, as the VIC-II does.
+MODE 0 and MODE 3 have 80 columns in a 4x6 font (X11 misc-fixed, public domain), each character 4 pixels wide: MODE 0 with graphics as MODE 4 (rows of 6 lines), MODE 3 text in rows of 8. They stay on the VIC-II (HIMEM &8000): Upic Lite blurs such thin letters. *HELP texts stay 40 wide; *CAT uses the width. MODE 1 on the VIC-II (MODE 129, *SHADOW) uses the same font for its 40 columns: its 160 double-wide pixels leave 4 per character. MODE 6 uses rows of 10 lines (250 lines), as on the BBC; without Upic Lite they are the 40x25 text screen. MODE 103: 2 colours per 8x8 cell, MODE 104: 4 per 4x8 cell, as the VIC-II does.
 
 Upic Lite: a live picture of 320x256 (MODE 2 and 5: 160x256 with double-width pixels, 16 or 4 colours anywhere) with square pixels, as on the BBC, on 64 MHz machines (Ultimate 64 Elite II, C64 Ultimate) with firmware 3.15+. The screen memory lies below HIMEM as on the BBC (MODE 4, 5, 6: &5800; MODE 1 and 2: &3000), and BASIC runs at about 1/6 of its speed while the picture is shown. Elsewhere these modes use the VIC-II (200 lines, 32 rows of 6-line text).
 

@@ -47,6 +47,24 @@ IF ADVAL(0) AND 1 THEN PROCfire
 X%=ADVAL(1) DIV 256
 ```
 
+#### `*SPEECH` (also `*SAY`, `SAY`, `*SPEAK`, `SPEAK`, `SAM`)
+
+```
+*SPEECH LOAD f [f]  your SAM files
+*SPEECH             what is loaded
+*SPEECH SPEED n     (also PITCH,
+                     THROAT, MOUTH)
+*SAY text           English
+*SPEAK phonemes     SAM's spelling
+```
+
+Speech with S.A.M. (Software Automatic Mouth, Don't Ask Software 1982), which is not part of U64 BBC BASIC: load your own copy of the C64 package once, its ".sam 1" (SAM, loads at &9500) and ".sam 2" (Reciter, &7D00, for English), copied as files without spaces in their names; they are told apart by their load address and kept in the REU (its last 64K, with *SPOOL). *SAY speaks English through Reciter, *SPEAK SAM's phonemes (e.g. HEH4LOW). Defaults: speed 72 (bigger is slower), pitch 64 (smaller is higher), throat and mouth 128. The screen is blank while SAM speaks, at 1 MHz; the program then goes on. Up to 230 characters; a word without a vowel (BBC) is spelt out. Needs an REU.
+
+```
+*SPEECH LOAD sam1.prg sam2.prg
+*SAY Hello, I am a BBC Micro.
+```
+
 
 ## 9.2 The sound engine
 

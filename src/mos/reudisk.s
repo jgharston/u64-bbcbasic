@@ -463,6 +463,136 @@ rd_access:
 rac_rts:
     rts
 
+; rd_xopen / rd_xrest (*SPEECH LOAD through fs_reuopen/fs_reurest, bank 2)
+;   Summary: a program file on the RAM disk straight into another REU
+;            place: rd_xopen looks RD_NAME up and reads its 2 address bytes
+;            (fsADDR), rd_xrest copies the rest (at most fsCNT bytes) to
+;            the REU address fsTMP/+1/+2, 128 bytes at a time through
+;            RD_BUF (the REU cannot copy within itself).
+;   Output:  rd_xopen: C = 1 not found.  Uses: A, X, Y, fs*, RD_*,
+;            rd_gap (the destination).
+rd_xopen:
+    jsr rd_lookup
+    bcs rxx_rts
+    ldx #2
+rxo_c:
+    lda RDE_START,x
+    sta RD_POS,x
+    lda RDE_LEN,x
+    sta RD_LEFT,x
+    dex
+    bpl rxo_c
+    lda #2                      ; the address bytes
+    jsr rx_take
+    lda RD_BUF
+    sta fsADDR
+    lda RD_BUF+1
+    sta fsADDR+1
+    clc
+rxx_rts:
+    rts
+
+rd_xrest:
+    ldx #2
+rxr_d:
+    lda fsTMP,x
+    sta rd_gap,x
+    dex
+    bpl rxr_d
+rxr_piece:
+    lda #128                    ; n = min(128, left, room)
+    ldx RD_LEFT+2
+    bne rxr_l
+    ldx RD_LEFT+1
+    bne rxr_l
+    cmp RD_LEFT
+    bcc rxr_l
+    lda RD_LEFT
+rxr_l:
+    ldx fsCNT+1
+    bne rxr_r
+    cmp fsCNT
+    bcc rxr_r
+    lda fsCNT
+rxr_r:
+    cmp #0
+    beq rxr_rts
+    pha
+    jsr rx_take                 ; into RD_BUF
+    pla
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    ldx #2
+rxr_t:
+    lda rd_gap,x
+    sta fsTMP,x
+    dex
+    bpl rxr_t
+    lda #<RD_BUF
+    sta fsADDR
+    lda #>RD_BUF
+    sta fsADDR+1
+    lda #REU_TO_REU
+    jsr rd_dma
+    lda fsLEN                   ; destination on, room less
+    clc
+    adc rd_gap
+    sta rd_gap
+    bcc rxr_g
+    inc rd_gap+1
+    bne rxr_g
+    inc rd_gap+2
+rxr_g:
+    lda fsCNT
+    sec
+    sbc fsLEN
+    sta fsCNT
+    bcs rxr_piece
+    dec fsCNT+1
+    jmp rxr_piece
+rxr_rts:
+    rts
+
+; rx_take: A bytes (1-128) from RD_POS into RD_BUF; RD_POS on, RD_LEFT less
+rx_take:
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    ldx #2
+rxt_p:
+    lda RD_POS,x
+    sta fsTMP,x
+    dex
+    bpl rxt_p
+    lda #<RD_BUF
+    sta fsADDR
+    lda #>RD_BUF
+    sta fsADDR+1
+    lda #REU_TO_C64
+    jsr rd_dma
+    lda RD_POS
+    clc
+    adc fsLEN
+    sta RD_POS
+    bcc rxt_l
+    inc RD_POS+1
+    bne rxt_l
+    inc RD_POS+2
+rxt_l:
+    lda RD_LEFT
+    sec
+    sbc fsLEN
+    sta RD_LEFT
+    bcs rxt_rts
+    lda RD_LEFT+1
+    bne rxt_m
+    dec RD_LEFT+2
+rxt_m:
+    dec RD_LEFT+1
+rxt_rts:
+    rts
+
 ; rd_lastbank: A = the REU's last bank (*SPOOL's buffer; 16 MB: $FF)
 rd_lastbank:
     lda reu_banks+1

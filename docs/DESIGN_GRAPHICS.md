@@ -704,3 +704,14 @@ OSBYTE &87 reports the mode actually set). The squeeze of 8-pixel glyphs
 to 4 (`e_squeeze`, `sh_squeeze`) and the 80-column cases of
 `ul_choose` are removed. The demos needing 80 columns (Hanoi) left the
 demo set.
+
+**Back (owner, 2026-10-15)** with the 4x6 font (font46.s): the
+squeezed 8-pixel glyphs were what read badly. MODE 0 (80x32 in 6-line
+rows, 2 colours, graphics as MODE 4) and MODE 3 (80x25 in 8-line rows)
+are in the mode table again; `fnt46` swaps the font in for any mode
+with 4-pixel cells (`vmode_cw` = 4: MODE 0, 3 and VIC-II MODE 1). Both
+stay on the VIC-II: Upic Lite's 320-wide picture puts colour fringes on
+1-pixel strokes (visible in MODE 4 too, but 8-pixel glyphs survive them;
+the 4x6 ones do not). HIMEM &8000 (OSBYTE &85 too). *CAT uses as many
+20-character columns as the width allows; *HELP texts are wrapped at
+39 when built (genhelp.py) and stay 40 wide.

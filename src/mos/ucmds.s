@@ -190,8 +190,13 @@ cat_nameend:
     jsr OSWRCH
     inc fsCNT
 cat_pad:
-    lda mosCNT                  ; second column, or too long: new line
-    bne cat_newline
+    lda mosCNT                  ; columns of 20 as the screen allows (2 in
+    clc                         ; 40 columns, 4 in 80): the last one, or
+    adc #40                     ; too long: a new line
+    cmp vmode_cols
+    beq cat_room
+    bcs cat_newline
+cat_room:
     lda fsCNT
     cmp #20
     bcs cat_newline
@@ -202,7 +207,9 @@ cat_spaces:
     lda fsCNT
     cmp #20
     bcc cat_spaces
-    lda #20
+    lda mosCNT
+    clc
+    adc #20
     sta mosCNT
     bne cat_next
 cat_newline:

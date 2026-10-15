@@ -7,7 +7,7 @@ written with `SOUND` while recording and play in the background.
 
 ## 9.1 Notes and envelopes
 
-@@help SOUND ENVELOPE ADVAL
+@@help SOUND ENVELOPE ADVAL *SPEECH
 
 ## 9.2 The sound engine
 
