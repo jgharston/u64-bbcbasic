@@ -1080,3 +1080,6 @@ Acorn compatibility decisions (owner, 2026-10-14):
 - Dot-dash pattern: stays accepted without effect (see DESIGN_GRAPHICS 10.14).
 - While the owner is away: push line-editor and fast-forward main after
   each commit that passes the full regression.
+- Built 2026-10-15 (DESIGN_ACORN.md): keys, ADVAL and *FX (commit
+  412a316); the DFS commands; the toolkit. Speech (*SAY with the user's
+  SAM) follows.

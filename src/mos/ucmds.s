@@ -248,6 +248,43 @@ del_ult:
     jmp uci_cmd_payload
 
 ; ----------------------------------------------------------------------------
+; cmd_access
+;   Summary: *ACCESS <name> [L]: lock a file on /REU (L) or unlock it.
+;   Function: as DFS: a locked file cannot be deleted, replaced, renamed
+;            or opened for output ("Locked"). The Ultimate's DOS cannot set
+;            attributes, so files on its drives raise an error.
+;   Input:   command line.  Output: raises on error.  Uses: A, X, Y, fs*.
+cmd_access:
+    jsr arg_name
+    sty fsCNT
+    jsr rd_route
+    bcs acc_reu
+    brk
+    dta 189, 'Only /REU files lock', 0
+acc_reu:
+    ldy fsCNT                   ; L in the attributes?
+    ldx #0
+acc_ch:
+    lda (mosPTR),y
+    cmp #13
+    beq acc_set
+    and #$DF
+    cmp #'L'
+    bne acc_n
+    ldx #2
+acc_n:
+    iny
+    bne acc_ch
+acc_set:
+    txa
+    farcall rd_access, BANK_RD
+    bcc acc_rts
+    brk
+    dta 214, 'File not found', 0
+acc_rts:
+    rts
+
+; ----------------------------------------------------------------------------
 ; cmd_mkdir
 ;   Summary: *MKDIR <name> (also *CDIR): create a directory.
 ;   Input:   command line.  Output: raises on error.  Uses: A, X, Y, fs*.
@@ -390,6 +427,19 @@ cs_end:
     lda mosNUM+1
     sta osfblk+15
 cs_call:
+    lda osfblk+10               ; load address = start; execution address
+    sta osfblk+2                ; as given after the end, else the start
+    sta osfblk+6                ; (as on the BBC; kept on /REU for *RUN)
+    lda osfblk+11
+    sta osfblk+3
+    sta osfblk+7
+    jsr arg_number
+    bcs cs_save
+    lda mosNUM
+    sta osfblk+6
+    lda mosNUM+1
+    sta osfblk+7
+cs_save:
     lda #0
     beq osf_call
 

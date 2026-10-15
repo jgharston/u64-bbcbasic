@@ -63,6 +63,7 @@ ki_rts:
 key_avail:
     lda kx_n
     ora NDX
+    ora DF_EXEC                 ; (an *EXEC file: always)
     rts
 
 ; ----------------------------------------------------------------------------
@@ -77,6 +78,11 @@ key_avail:
 key_get:
     lda kx_n
     bne kg_next
+    lda DF_EXEC                 ; *EXEC (dfs.s): the file's next byte
+    beq kg_keys
+    jsr ex_get
+    jmp kg_conv0
+kg_keys:
     jsr K_GETIN
     jsr kg_esc
     cmp #$85
@@ -103,6 +109,7 @@ kg_next:
     jsr kx_char
     inc kx_pos
     dec kx_n
+kg_conv0:
     cmp #13
     beq kg_rts
     cmp #127
@@ -115,6 +122,38 @@ kg_conv:
     lda asc2pet,x
     rts
 kg_none:
+    lda #0
+    rts
+
+; ex_get: the *EXEC file's next byte (ASCII; LF as CR, but not right
+; after a CR); at its end the file is closed and A = 0 (no key).
+; Uses: A, Y.
+ex_get:
+    ldy DF_EXEC
+    jsr OSBGET
+    bcs exg_end
+    cmp #10
+    bne exg_n10
+    ldy DF_EXCR                 ; CR LF: the LF skipped
+    bne exg_skip
+    lda #13
+exg_n10:
+    ldy #0
+    cmp #13
+    bne exg_cr
+    iny
+exg_cr:
+    sty DF_EXCR
+    rts
+exg_skip:
+    lda #0
+    sta DF_EXCR
+    beq ex_get
+exg_end:
+    ldy DF_EXEC
+    lda #0
+    sta DF_EXEC
+    jsr OSFIND
     lda #0
     rts
 

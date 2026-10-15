@@ -142,6 +142,74 @@ Saves memory to a file. The end address is not saved. Memory up to &7FFF can be 
 *SAVE code &3000 +&200
 ```
 
+#### `*INFO`
+
+```
+*INFO <name>
+```
+
+Shows a file as DFS does: name, L if locked, load and execution address, length (hexadecimal). Files on the Ultimate's drives have no addresses (0).
+
+#### `*ACCESS`
+
+```
+*ACCESS <name> L   lock
+*ACCESS <name>     unlock
+```
+
+Locks a file on the RAM disk (/REU): a locked file cannot be deleted, replaced, renamed or opened for output ("Locked"). The Ultimate's drives have no lock: their files give an error.
+
+#### `*DUMP`
+
+```
+*DUMP <name>
+```
+
+Shows a file in hexadecimal: the offset, 8 bytes and the same bytes as characters (. for control codes). ESCAPE stops.
+
+#### `*RUN`
+
+```
+*RUN <name>
+```
+
+Loads machine code and calls it. A file with a load address (*SAVE on /REU) goes there and is called at its execution address. Otherwise the file is a C64 program file: its first two bytes are the load address, and it is called there. Only &0400-&7FFF.
+
+#### `*SPOOL`
+
+```
+*SPOOL <name>   start
+*SPOOL          end
+```
+
+Copies everything printed into a file, as on a BBC Micro: *SPOOL name, then for example LIST, then *SPOOL alone. The output is collected in the REU's last 64K (up to 65535 bytes) and written to the file when the spool ends (also by CLOSE#0 or another *SPOOL), so it is fast and safe while the MOS prints during file operations. Needs an REU; the RAM disk ends below that last 64K.
+
+```
+*SPOOL listing
+LIST
+*SPOOL
+```
+
+#### `*EXEC`
+
+```
+*EXEC <name>
+```
+
+Reads the file as if it were typed: every byte becomes a key, at the prompt and in programs (GET, INKEY, INPUT), until the file ends; *EXEC alone or ESCAPE stops it. LF ends a line too (files from a PC). A program typed in as text can be loaded this way, or a list of commands run.
+
+```
+*EXEC commands
+```
+
+#### `*BUILD`
+
+```
+*BUILD <name>
+```
+
+Writes the lines you type into a file, each ended by CR, until ESCAPE. The line numbers shown are not written. Made for *EXEC files.
+
 
 ## 7.3 Files from programs: channels
 

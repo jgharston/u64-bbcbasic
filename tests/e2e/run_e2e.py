@@ -1792,6 +1792,134 @@ def test_acorn(t):
     r.run_lines(["*FX 220,27", "*ADVAL"])
 
 
+DFS_PROG = """10 ON ERROR PRINT "ERR=";ERR;" ";:REPORT:PRINT:END
+20 *SPOOL /Temp/sp.txt
+30 PRINT "HELLO SPOOL"
+40 *SPOOL
+50 F%=OPENIN "/Temp/sp.txt":A$="":REPEAT A$=A$+CHR$BGET#F%:UNTIL EOF#F%:CLOSE#F%
+60 PRINT "S=";INSTR(A$,"HELLO SPOOL")>0
+70 F%=OPENOUT "/Temp/ex.txt":B$="AB"+CHR$13+CHR$10+"CD"+CHR$13
+80 FOR I%=1 TO LEN B$:BPUT#F%,ASC MID$(B$,I%,1):NEXT:CLOSE#F%
+90 *EXEC /Temp/ex.txt
+100 INPUT A$,B$
+110 PRINT "X=";A$;B$
+120 F%=OPENOUT "/Temp/r.prg"
+130 FOR I%=1 TO 7:READ C%:BPUT#F%,C%:NEXT:CLOSE#F%
+140 DATA 0,&70,&A9,42,&85,&70,&60
+150 ?&70=0:*RUN /Temp/r.prg
+160 PRINT "R=";?&70
+170 *DUMP /Temp/r.prg
+180 PRINT "OK"
+"""
+
+LOCK_PROG = """10 ON ERROR PRINT "ERR=";ERR;" ";:REPORT:PRINT:END
+20 *SAVE /REU/LK &1D00 +16
+30 *ACCESS /REU/LK L
+40 *INFO /REU/LK
+50 *DELETE /REU/LK
+60 PRINT "NOT LOCKED"
+"""
+
+
+def test_dfs(t):
+    # DFS commands (dfs.s): *SPOOL a PRINT into a file; *EXEC a file with
+    # CR LF lines feeding INPUT; *RUN a C64 program file (load address
+    # first) at &7000; *DUMP; *ACCESS L on /REU: *INFO shows L, *DELETE
+    # gives Locked; unlocked it deletes; *BUILD writes typed lines
+    if not ult(t):
+        run_line(t, "*SPOOL x", "needs an REU")
+        return
+    r = remote(t)
+    out = r.send_program(DFS_PROG, run=True, timeout=90)["output"]
+    assert "S=-1" in out and "X=ABCD" in out and "R=42" in out, out
+    assert "0000 00 70 A9 2A 85 70 60" in out, out
+    rm = u64remote.Remote(t.host)
+    rm.run_lines(["*ACCESS /REU/LK", "*DELETE /REU/LK"])   # (from before)
+    out = r.send_program(LOCK_PROG, run=True, timeout=60)["output"]
+    if "Only /REU" in out or "Not found" in out or "ERR=214" in out:
+        t.notes.append("dfs: no /REU RAM disk, lock not tested")
+    else:
+        assert "ERR=195" in out and "Locked" in out, out
+        assert " L 001D00 001D00 000010" in out, out
+        out = rm.run_lines(["*ACCESS /REU/LK", "*DELETE /REU/LK",
+                            "*INFO /REU/LK"])["output"]
+        assert "Not found" in out, out
+    # *BUILD: two lines (typed by the remote as the line editor asks),
+    # then ESCAPE ends it
+    rm.run_lines(["CLOSE#0", "*BUILD /Temp/bu.txt", "HI", "YO"], timeout=30)
+    rm.write(0xFF, [0x80])                          # ESCAPE as RUN/STOP
+    rm.write(0x0277, [13])                          # gives it: the flag and
+    rm.write(0xC6, [1])                             # a RETURN ending the line
+    deadline = time.time() + 10                     # (the remote sees the
+    while rm.read(0xFF, 1)[0] and time.time() < deadline:  # line editor
+        time.sleep(0.1)                             # as "prompt"); *BUILD
+    time.sleep(0.5)                                 # acknowledges it
+    out = r.send_program('10 F%=OPENIN "/Temp/bu.txt":A$="":REPEAT C%=BGET#F%:'
+                         'IF C%=13 A$=A$+"|" ELSE A$=A$+CHR$C%\n'
+                         '20 UNTIL EOF#F%:CLOSE#F%:PRINT "B=";A$\n',
+                         run=True, timeout=30)["output"]
+    assert "B=HI|YO|" in out, out
+
+
+TK_PROG = """10 REM test program
+20 count%=3:name$="ABC":x=1.5
+30 FOR I%=1 TO count%
+40   PRINT name$;I%
+50 NEXT
+60 PROCdo(2)
+70 GOTO 90
+80 REM not named
+90 REM jumped here
+100 END
+110 DEF PROCdo(n)
+120   x=x*n
+130 ENDPROC
+"""
+
+
+def test_toolkit(t):
+    # the BASIC toolkit (toolkit.s): *FIND lists lines; *SEARCH s1,s2
+    # with G replaces all (the Parameters prompt answered by the remote);
+    # *XREF values and lines after a run; *VARLIST; *CRUNCH (Y typed):
+    # the sizes, the program still runs, the GOTO target kept
+    r = remote(t)
+    r.send_program(TK_PROG, run=False, timeout=30)
+    out = r.run_lines(["*FIND count"])["output"]
+    assert "20 count%=3" in out and "30 FOR I%=1 TO count%" in out, out
+    assert "40" not in out, out
+    r.run_lines(["*SEARCH name$,nm$", "G"], timeout=60)   # (returns when
+    time.sleep(3)                                   # G is taken)
+    out = r.run_lines(["LIST 20,40"], timeout=30)["output"]
+    assert 'nm$="ABC"' in out and "PRINT nm$;I%" in out, out
+    assert "name$" not in out, out
+    r.run_lines(["RUN"], timeout=30)
+    out = r.run_lines(["*XREF"], timeout=60)["output"]
+    flat = " ".join(out.split())
+    assert "count% 3 20 30" in flat and 'nm$ "ABC" 20 40' in flat, out
+    assert "x 3 20 120" in flat and "PROCdo 60 110" in flat, out
+    out = r.run_lines(["*VARLIST"], timeout=60)["output"]
+    assert "count%" in out and " 20 " not in out, out
+    if t.is_vice:                                   # (no REU: refused)
+        run_line(t, "*CRUNCH", "needs an REU")
+        return
+    import threading
+    rm = u64remote.Remote(t.host)
+    res = {}
+    th = threading.Thread(target=lambda: res.update(
+        u64remote.Remote(t.host).run_lines(["*CRUNCH"], timeout=60)))
+    th.start()
+    time.sleep(2)
+    sedit_keys(rm, [ord("Y")])
+    th.join(60)
+    time.sleep(2)                                   # (the sizes come after
+    out = r.run_lines(["PRINT \"S=\";TOP-PAGE", "LIST", "RUN"],  # the key)
+                      timeout=30)["output"]
+    m = re.search(r"S=(\d+)", out)
+    assert m and int(m.group(1)) < 130, out
+    assert "80" not in out and "90 REM jumped here" in out, out
+    assert "ABC3" in out, out
+
+
 def test_sound_none(t):
     # *SOUND NONE: no engine, PAGE may go down to &900 (OSBYTE &83 says so);
     # SID / BBC refuse while PAGE is lower than &1D00, then work again
@@ -2212,7 +2340,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_acorn, test_net, test_json, test_netchan, test_classics,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_acorn, test_dfs, test_toolkit, test_net, test_json, test_netchan, test_classics,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

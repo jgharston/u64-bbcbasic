@@ -11,7 +11,7 @@ written in capitals; `A%`-`Z%` are the fast resident integer variables.
 
 ## 6.2 Working with programs
 
-@@help AUTO LIST LISTO *LIST DELETE RENUMBER NEW OLD RUN CHAIN LOAD SAVE CLEAR END STOP REM
+@@help AUTO LIST LISTO *LIST DELETE RENUMBER NEW OLD RUN CHAIN LOAD SAVE CLEAR END STOP REM *SEARCH *XREF *CRUNCH
 
 ## 6.3 Program flow
 

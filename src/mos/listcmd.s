@@ -282,6 +282,16 @@ lhq_no:
     clc
     rts
 
+; ls_one (the toolkit, bank 7): the line at fsBLK listed, not indented
+ls_one:
+    ldy #2
+    lda (fsBLK),y
+    sta ls_len
+    lda #0
+    sta ls_print
+    sta ls_quote
+    jmp ls_show
+
 ; ----------------------------------------------------------------------------
 ; ls_show: the line: number (5 wide), a space, the indentation, the text
 ; (its own leading spaces left out), keywords spelt out

@@ -76,6 +76,8 @@ cold:
     lda #0                      ; Upic full: auto-show on, nothing drawn
     sta UP_DIRTY
     sta FONT46                  ; (the REU font: the normal glyphs)
+    sta DF_EXEC                 ; no *EXEC, no *SPOOL (WRCHV is set anew)
+    sta DF_SPCH
     lda reu_banks               ; GXR sprites: none (with an REU)
     ora reu_banks+1
     beq cold_nogxr
@@ -1022,6 +1024,7 @@ by_ackesc:                      ; &7E: X = $FF if ESCAPE was pending
     sta ESCFLG
     sta NDX                     ; drop the RUN/STOP code and type-ahead
     sta kx_n                    ; (and a *KEY text, as the BBC)
+    jsr bae_exec                ; and an *EXEC file is closed
     ldx #$FF
     bne by_ret
 by_adval:                       ; &80: X = &E4-&FB: sound queues of
@@ -1225,6 +1228,15 @@ bed_set:
 by_acorn:                       ; &04, &0B, &0C, &13, &A3, &C8, &DC: bank 7
     farcall acorn.ac_byte, BANK_NET
     jmp by_ret
+bae_exec:                       ; (by_ackesc) the *EXEC file closed
+    ldy DF_EXEC
+    beq bae_rts
+    lda #0
+    sta DF_EXEC
+    jsr OSFIND
+bae_rts:
+    ldy by_y
+    rts
 bad_acorn:                      ; ADVAL 0-4, -1: bank 7
     farcall acorn.ac_adval, BANK_NET
     jmp by_ret
@@ -1913,6 +1925,20 @@ cmd_table:
     dta 'SSAVE', 0, a(gxr.cmd_ssave), BANK_RD
     dta 'SSPACE', 0, a(gxr.cmd_sspace), BANK_RD
     dta 'ADVAL', 0, a(acorn.cmd_adval), BANK_NET
+    dta 'ACCESS', 0, a(cmd_access), BANK_FS
+    dta 'BUILD', 0, a(dfs.cmd_build), BANK_NET
+    dta 'DUMP', 0, a(dfs.cmd_dump), BANK_NET
+    dta 'EXEC', 0, a(dfs.cmd_exec), BANK_NET
+    dta 'INFO', 0, a(dfs.cmd_info), BANK_NET
+    dta 'RUN', 0, a(dfs.cmd_run), BANK_NET
+    dta 'SPOOL', 0, a(dfs.cmd_spool), BANK_NET
+    dta 'CRUNCH', 0, a(tk.cmd_crunch), BANK_NET
+    dta 'FIND', 0, a(tk.cmd_find), BANK_NET
+    dta 'PACK', 0, a(tk.cmd_pack), BANK_NET
+    dta 'REPLACE', 0, a(tk.cmd_replace), BANK_NET
+    dta 'SEARCH', 0, a(tk.cmd_search), BANK_NET
+    dta 'VARLIST', 0, a(tk.cmd_varlist), BANK_NET
+    dta 'XREF', 0, a(tk.cmd_xref), BANK_NET
     dta 'FLOOD', 0, a(gxr.cmd_accept), BANK_RD
     dta 'NOFLOOD', 0, a(gxr.cmd_accept), BANK_RD
     dta 'GXR', 0, a(gxr.cmd_accept), BANK_RD

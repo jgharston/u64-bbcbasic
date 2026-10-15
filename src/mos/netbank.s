@@ -17,6 +17,8 @@
 
     icl 'sedit.s'
     icl 'acorn.s'
+    icl 'dfs.s'
+    icl 'toolkit.s'
 
 bank7_end:
     .if bank7_end > $C000

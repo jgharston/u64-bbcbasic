@@ -73,3 +73,97 @@ is 0. Page 2 (`$02A7-$02FF`) and the cassette-buffer variables (up to
 BBC programs that `CALL &FFF4` (or other `&FFxx` entries) don't work.
 The C64's KERNAL ROM sits there; the MOS entries are at `&C7xx` (see
 *HELP MOS).
+
+## 2. DFS commands (`src/mos/dfs.s`, bank 7; `*ACCESS` in bank 2)
+
+### State
+
+The C64 BASIC input buffer after the BBC vectors, `$0220-$0258`, is free
+RAM: neither the KERNAL nor BBC BASIC uses it.
+
+| Address | Contents |
+|---|---|
+| `$0220` | `DF_EXEC`: the `*EXEC` channel |
+| `$0221` | `DF_EXCR`: the last byte was CR |
+| `$0222` | `DF_SPCH`: the `*SPOOL` channel |
+| `$0223` | `DF_SPLEN`: bytes spooled (2) |
+| `$0225` | `DF_SPBANK`: the REU bank spooled into |
+| `$0226` | `DF_BYTE`: a byte for REU transfers |
+| `$0228-$023C` | `DF_STUB`: `*SPOOL`'s WRCHV stub |
+| `$0240-$0258` | scratch, shared with the toolkit |
+
+The MOS clears `DF_EXEC` and `DF_SPCH` at every start (WRCHV is set
+again then).
+
+### Commands
+
+- **\*SPOOL** never writes the file from inside OSWRCH. MOS commands
+  print while a UCI transfer or the filing system's variables are in
+  use, and a nested `BPUT#` would break them.
+  - A 21-byte stub on WRCHV (`farcall sp_put`, then `mos_wrch`) puts
+    each byte into the REU's last bank, up to 65535 bytes.
+  - `*SPOOL` alone, another `*SPOOL` or `CLOSE#0` (`fs.s` calls
+    `dfs_closeall` first) writes the bytes with `OSBPUT` and closes the
+    file.
+  - The file is opened when the spool starts, so a bad name fails at
+    once.
+  - The RAM disk now ends below the REU's last 64K (`rd_lastbank`).
+    `*SPOOL` refuses if the RAM disk already has data in that bank
+    (`rd_spoolok`).
+- **\*EXEC**: `key_avail` reports a key while `DF_EXEC` is set, and
+  `key_get` reads the file through `ex_get`. LF counts as CR, except
+  right after a CR. At the end the file is closed. ESCAPE
+  (`by_ackesc` → `bae_exec`) closes it too, as on the BBC.
+- **\*BUILD** reads lines with OSWORD 0 into &0700 (the command was read
+  from there already, and each line ends in CR) and writes them with
+  `OSBPUT`. Its OSWORD block is not in `DF_T`: `DF_T+4` holds the
+  channel.
+- **\*DUMP** shows 8 bytes a line with the offset; ESCAPE stops.
+- **\*INFO** uses OSFILE 5. Attribute bit 3 (locked) is at +14, set by
+  `rf_info` for /REU.
+- **\*ACCESS** works only on /REU, as bit 1 of an entry's "used" byte.
+  `rd_delent` (delete, replace on save, OPENOUT) and `rd_rename` raise
+  error 195 "Locked". The Ultimate's DOS can read attributes (FILE_STAT)
+  but cannot set them, so files on its drives raise an error.
+- **\*RUN**: a file with a load address (OSFILE 5: `*SAVE` on /REU now
+  records load = start and exec = start, or the address given after the
+  end) is loaded there and called at its exec address. Any other file is
+  a C64 program file: its first two bytes are the load address. Both
+  load only into &0400-&7FFF.
+
+## 3. The BASIC toolkit (`src/mos/toolkit.s`, bank 7)
+
+The commands follow Beebug's Toolkit Plus manual (scanned at 8bs.com,
+"Beebug Toolkit Plus").
+
+- **\*SEARCH**, **\*FIND**, **\*REPLACE**
+  - The line is scanned with its state: quotes, REM, DATA, `*`.
+  - Line-number constants (`&8D` and 3 bytes) are skipped.
+  - K turns a string that spells a keyword into its token; the
+    keywords come from `list_tokens.s`.
+  - Matching lines are printed by `*LIST`'s printer (`ls_one`, bank 2).
+    It spells keywords out through `fsPTR`, so `tk_show` saves the line
+    pointer around it.
+  - A replacement moves the rest of the program (`tk_shift`) and TOP
+    with it; at the end `SETFSA` clears the variables.
+- **\*XREF**, **\*VARLIST**
+  - The variables come from BASIC's catalogue: &0400 + 2 × the first
+    character (the rest of the name, 0, then the value), &04F6 for
+    procedures, &04F8 for functions.
+  - Values are printed by BASIC itself in its RAM copy through
+    `farcall ..., BANK_RAM`: `FLDA` (&A3CB) and `FCON` (&9EF5), with
+    `@%`. H sets the hex flag `&15`.
+  - The routine addresses come from `build/basic.lst`; the interpreter
+    is pinned (`make compare-core`).
+- **\*CRUNCH**, **\*PACK**
+  - Pass 1 marks the target of every line-number constant in a 4K
+    bitmap at REU bank 0 `$4000` (the HTTP buffer, free meanwhile).
+  - Pass 2 reads each line into MOSBUF, shortened, and builds the
+    output line in &0600. It doesn't use &0700, because BASIC scans the
+    command's line there for its CR after the command.
+  - Finished lines are written back at a write position that never
+    passes the read position.
+  - Not joined: after IF, ON, ELSE, DATA, REM, `*` or in assembler; DEF
+    and DATA lines are not joined onto the line before.
+  - Named lines that are only a REM are kept whole.
+  - At the end the variables are cleared (`SETFSA`).

@@ -327,6 +327,16 @@ rd_ok       = caps_ofs+1        ; there is an REU RAM disk (reudisk.s)
     .if rd_ok >= $0300
     .error "Page 2 MOS variables overflow"
     .endif
+; $0220-$0258: the C64 BASIC input buffer after the BBC vectors (free:
+; neither the KERNAL nor BBC BASIC uses it). DFS commands (dfs.s).
+DF_EXEC     = $0220             ; *EXEC's channel (0: none)
+DF_EXCR     = $0221             ; *EXEC: the last byte was CR (a LF after
+                                ; it is skipped)
+DF_SPCH     = $0222             ; *SPOOL's channel (0: none)
+DF_SPLEN    = $0223             ; 2: bytes spooled (in the REU)
+DF_SPBANK   = $0225             ; the REU bank spooled into (its last)
+DF_BYTE     = $0226             ; a byte for the REU transfers
+DF_STUB     = $0228             ; *SPOOL's WRCHV stub (code, to $0258)
 LSTSHF      = $028E             ; KERNAL: shift keys at the last scan
 VDUBUFLEN   = 9                 ; longest VDU parameter list (VDU 23)
 

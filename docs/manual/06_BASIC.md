@@ -197,6 +197,38 @@ REM text
 
 A remark; the rest of the line is ignored.
 
+#### `*SEARCH` (also `*FIND`, `FIND`, `*REPLACE`, `REPLACE`, `TOOLKIT`)
+
+```
+*SEARCH s1[,s2]   (asks Parameters)
+*FIND s1          list the lines
+*REPLACE s1,s2    replace, asking
+```
+
+Searches the program, as Beebug's Toolkit Plus: every line holding s1 is listed. With s2, each match may be replaced (Replace Y/N:). *SEARCH then asks for Parameters, letters typed together: C case ignored, D not in DATA, R not in REM, " not in strings, K s1 and s2 are keywords, G replace all without asking. # in s1 matches any character. Without K, keywords are not found (they are stored as tokens); line numbers after GOTO are never matched. A replacement clears the variables, as editing does.
+
+```
+*FIND count
+*SEARCH PRINT,REPORT  (then K)
+```
+
+#### `*XREF` (also `*VARLIST`, `VARLIST`)
+
+```
+*XREF [R I S A F P H L]
+*VARLIST          (as *XREF L)
+```
+
+Lists the variables, arrays, procedures and functions with their values and the lines that use them, as Beebug's Toolkit Plus. Letters choose: R reals, I integers, S strings, A arrays, F functions, P procedures (none: all); H values in hexadecimal, L no line numbers. Only what the program has made so far is known: run it first. A% to Z% are listed when the program uses them. Values are printed as PRINT would (@%).
+
+#### `*CRUNCH` (also `*PACK`, `PACK`)
+
+```
+*CRUNCH [C R S :]   (also *PACK)
+```
+
+Makes the program shorter, as Beebug's Toolkit Plus: spaces, REM statements and extra colons go, and lines are joined. A letter switches that part off: C joining, R REMs, S spaces, : colons (B, L, T and V are accepted; brackets, LET, THEN and names are never changed). It asks first and prints the sizes; keep a copy. Lines named by GOTO, GOSUB or RESTORE keep their number (and their REM); lines are not joined after IF, ON, ELSE, DATA or a * command, nor are DEF and DATA lines joined on. Strings, DATA, * commands and assembler stay as they are. A computed GOTO's target is not known: use C there. Needs an REU.
+
 
 ## 6.3 Program flow
 

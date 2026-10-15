@@ -239,9 +239,24 @@ fs_find:
     stx fsSX                    ; caller's X and Y, restored at the end
     sty fsSY
     cmp #0
-    bne ff_open
+    beq ff_close
+    jmp ff_open
+ff_close:
     cpy #0                      ; CLOSE#0: all channels
-    bne ff_close1
+    beq ff_all
+    jmp ff_close1
+ff_all:
+    lda fsSX                    ; *SPOOL written and closed, *EXEC closed
+    pha                         ; first (dfs.s: through OSBPUT/OSFIND,
+    lda fsSY                    ; which use the fs variables)
+    pha
+    farcall dfs.dfs_closeall, BANK_NET
+    pla
+    sta fsSY
+    pla
+    sta fsSX
+    lda #0
+    sta fsMODE
     ldx #0
 ff_closeall:
     lda ch_open,x

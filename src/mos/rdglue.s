@@ -222,6 +222,12 @@ rfi_len:
     bne rfi_len
     lda #0
     sta (fsBLK),y
+    iny                         ; +14: attributes, bit 3 locked (as DFS)
+    lda RDE_USED
+    and #2
+    asl
+    asl
+    sta (fsBLK),y
     lda #1
 rfi_ret:
     jmp fl_retA

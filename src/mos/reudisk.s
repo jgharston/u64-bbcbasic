@@ -8,11 +8,14 @@
 ; off; recognised at start-up by its header, else made empty.
 ;
 ;   $100000   header: "U64RDISK", version 1, (3 free), data end (24 bits)
-;   $100020   127 entries of 32 bytes: used flag, name (16, 0 padded),
+;   $100020   127 entries of 32 bytes: used flag (bit 0; bit 1: locked,
+;             *ACCESS), name (16, 0 padded),
 ;             start (24 bits), length (24 bits), load and execution
 ;             address (16 bits each)
 ;   $101000   file data, one file after another; deleting a file moves
 ;             the files after it down (no gaps)
+;
+; The REU's last 64K is *SPOOL's buffer (dfs.s): the disk ends below it.
 ;
 ; Interface (from bank 2, through MOSBUF): RD_NAME / RD_NAME2 names (up
 ; to 16 characters, 0 terminated), RD_BUF a 128-byte data piece, RD_ENT
@@ -423,11 +426,13 @@ rd_room:
     lda fsTMP+2
     adc #0
     bcs rrm_full                ; past 16 MB
-    ldx reu_banks+1
-    bne rrm_ok                  ; 16 MB: every 24-bit address is there
-    cmp reu_banks               ; bank of the end < REU banks (an end on
-    bcc rrm_ok                  ; a bank boundary: equal is fine only
-    bne rrm_full                ; with no bytes in that bank)
+    pha
+    jsr rd_lastbank             ; the end's bank < the spool's bank (an
+    sta fsCNT                   ; end on its boundary: equal is fine
+    pla                         ; only with no bytes in that bank)
+    cmp fsCNT
+    bcc rrm_ok
+    bne rrm_full
     lda fsTMP
     clc
     adc fsLEN
@@ -440,6 +445,57 @@ rrm_ok:
 rrm_full:
     brk
     dta 198, 'RAM disk full', 0
+
+; rd_access (*ACCESS, ucmds.s): file RD_NAME locked (A = 2) or not (A = 0)
+; Output: C = 1 not found.  Uses: A, X, Y, fs*.
+rd_access:
+    pha
+    jsr rd_lookup
+    pla
+    bcs rac_rts
+    sta fsCNT
+    lda RDE_USED
+    and #1
+    ora fsCNT
+    sta RDE_USED
+    jsr rd_entput
+    clc
+rac_rts:
+    rts
+
+; rd_lastbank: A = the REU's last bank (*SPOOL's buffer; 16 MB: $FF)
+rd_lastbank:
+    lda reu_banks+1
+    bne rlb_16
+    lda reu_banks
+    sec
+    sbc #1
+    rts
+rlb_16:
+    lda #$FF
+    rts
+
+; rd_spoolok (from *SPOOL, dfs.s): C = 0 if the RAM disk's data ends
+; below the REU's last bank (or there is no RAM disk), C = 1 if not
+rd_spoolok:
+    clc
+    lda rd_ok
+    beq rso_rts
+    jsr rd_hdrget
+    jsr rd_lastbank
+    sta fsCNT
+    lda RD_HDR+14               ; data end's bank (an end exactly at the
+    cmp fsCNT                   ; bank's start is fine)
+    bcc rso_rts
+    bne rso_no
+    lda RD_HDR+12
+    ora RD_HDR+13
+    cmp #1                      ; (C = 1 if any byte is in that bank)
+    rts
+rso_no:
+    sec
+rso_rts:
+    rts
 
 ; rd_newent: entry fsSX = name RD_NAME, start fsTMP, length fsLEN (16
 ; bits), RD_LDADR, RD_EXADR
@@ -512,6 +568,12 @@ rdd_rts:
 ;   Summary: remove entry fsSX (in RD_ENT) and its data (rd_gapdel).
 ;   Uses:    A, X, Y, fs*.
 rd_delent:
+    lda RDE_USED                ; locked (*ACCESS L)?
+    and #2
+    beq rdl_free
+    brk
+    dta 195, 'Locked', 0
+rdl_free:
     ldx #1                      ; open on a channel? (as a BBC: "Open")
 rdl_open:
     lda ch_open,x
@@ -780,6 +842,14 @@ rd_cnt      = RD_POS            ; 3 (RD_POS: reading only, not then)
 ; rd_rename: RD_NAME -> RD_NAME2 (raises if missing or the new name is
 ; taken)
 rd_rename:
+    jsr rd_lookup               ; locked? (not found: as before, below)
+    bcs rrn_unl
+    lda RDE_USED
+    and #2
+    beq rrn_unl
+    brk
+    dta 195, 'Locked', 0
+rrn_unl:
     ldx #16                     ; new name taken?
 rrn_sw1:
     lda RD_NAME,x
@@ -894,6 +964,19 @@ rc_next:
     lda reu_banks+1
     sbc #0
     sta rd_n+2
+    lda rd_n+1                  ; less *SPOOL's 64K (0 if the data is
+    sec                         ; already in it)
+    sbc #1
+    sta rd_n+1
+    lda rd_n+2
+    sbc #0
+    sta rd_n+2
+    bcs rc_kpos
+    lda #0
+    sta rd_n
+    sta rd_n+1
+    sta rd_n+2
+rc_kpos:
     ldx #2                      ; / 1024: >> 2 of the bank-and-page value
 rc_k:
     lsr rd_n+2
