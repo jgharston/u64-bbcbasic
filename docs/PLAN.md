@@ -1089,3 +1089,8 @@ cells (the squeezed 8-pixel glyphs of before were what read badly):
 MODE 0 (80 columns, 2-colour graphics: 80x32 on the VIC-II with 6-line
 rows as MODE 4, 80x32 in Upic Lite) and MODE 3 (80x25 text); the
 mapping to MODE 4 / 6 goes.
+
+COPY key in the bitmap modes (2026-10-15, from the open items): the
+character under the copy cursor, and OSBYTE &87, are recognised from
+the pixels (DESIGN_GRAPHICS 11.1). The Hanoi classic (MODE 3) is back
+in demos/classics now that the 80 columns are.

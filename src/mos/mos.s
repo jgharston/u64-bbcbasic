@@ -1127,32 +1127,52 @@ by_char:                        ; &87: X = character at cursor, Y = mode
     beq bc_text
     cmp #2
     beq bc_ttx
-    ldx #0                      ; bitmap modes: not read back (yet)
+    lda eng_kind                ; Upic full: its console is the text
+    cmp #3                      ; screen
+    beq bc_up
+    ldx tcx                     ; bitmap modes: read from the pixels
+    ldy tcy                     ; (gxblock.s, as the BBC: the glyphs
+    farcall gxb.gxb_chr, BANK_RD ; compared)
+    tax
     ldy vmode
     jmp by_ret
 bc_ttx:                         ; MODE 7: the code in the screen memory
     lda #<TTXBUF                ; at the cursor: &7C00 + y * 40 + x
+    ldx #>TTXBUF
+    jsr bc_cell
+    tax
+    ldy #7
+    jmp by_ret
+bc_up:                          ; Upic full: its console at SCREEN, by
+    lda #<SCREEN                ; the engine's text cursor
+    ldx #>SCREEN
+    jsr bc_cell
+    and #$7F
+    tax
+    lda scr2asc,x
+    tax
+    ldy vmode
+    jmp by_ret
+; bc_cell: A = the byte at A/X (low/high) + tcy * 40 + tcx
+bc_cell:
     sta mosTMP
-    lda #>TTXBUF
-    sta mosTMP+1
+    stx mosTMP+1
     ldx tcy
-    beq bct_x
-bct_row:
+    beq bcc_x
+bcc_row:
     lda mosTMP
     clc
     adc #40
     sta mosTMP
-    bcc bct_n
+    bcc bcc_n
     inc mosTMP+1
-bct_n:
+bcc_n:
     dex
-    bne bct_row
-bct_x:
+    bne bcc_row
+bcc_x:
     ldy tcx
     lda (mosTMP),y
-    tax
-    ldy #7
-    jmp by_ret
+    rts
 bc_text:
     ldy $D3                     ; KERNAL cursor column on the line
     lda ($D1),y

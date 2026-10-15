@@ -525,4 +525,212 @@ g23_put:
 g23_rts:
     rts
 
+; ----------------------------------------------------------------------------
+; gxb_chr
+;   Summary: the character at text column X, row Y of a bitmap mode, read
+;            back from its pixels as a BBC Micro does (OSBYTE &87, the
+;            line editor's COPY): the cell's pixels that are not the text
+;            background colour against the glyphs 32-126 (glyph_get: the
+;            REU font, or the character ROM without an REU).
+;   Function: the cell (column * cell width, row * cell height) read with
+;            GX_POINTDEV into rows of bits (the leftmost cell-width bits);
+;            each glyph's rows as the engine draws them: 8 (or 10, the last
+;            two blank, in Upic Lite's 10-line rows) as they are; 6-line
+;            cells: the 4x6 font's rows 0-5, an 8x8 glyph's six rows that
+;            e_rows6 (gfx.s) keeps -- its blank bottom row or else row 0
+;            out, and the first row equal to the next kept one (else row 2).
+;   Input:   X = column, Y = row.  Output: A = ASCII 32-126, 0 if none.
+;   Uses:    A, X, Y, ex, ey, MOSBUF+$00-$2F.
+GC_ROWS     = MOSBUF+$00        ; 10: the cell's rows
+GC_GLY      = MOSBUF+$10        ; 8: a glyph
+GC_KEEP     = MOSBUF+$18        ; 10: the glyph rows drawn, per cell row
+GC_C        = MOSBUF+$22        ; the character tried
+GC_R        = MOSBUF+$23        ; row counter
+GC_P        = MOSBUF+$24        ; pixel counter
+GC_MASK     = MOSBUF+$25        ; the cell width's bits
+GC_A        = MOSBUF+$26        ; e_rows6: the rows left out
+GC_B        = MOSBUF+$27
+GC_X0       = MOSBUF+$28        ; 2: the cell's left x
+gxb_chr:
+    tya
+    pha
+    txa                         ; x0 = column * cell width
+    ldx vmode_cw
+    jsr gc_mul
+    sta GC_X0
+    stx GC_X0+1
+    pla                         ; y = row * cell height
+    ldx vmode_ch
+    jsr gc_mul
+    sta ey
+    stx ey+1
+    lda #$FF                    ; the leftmost cell-width bits
+    ldx vmode_cw
+    cpx #4
+    bne gc_m8
+    lda #$F0
+gc_m8:
+    sta GC_MASK
+    lda #0                      ; the cell's rows of bits
+    sta GC_R
+gc_row:
+    lda GC_X0
+    sta ex
+    lda GC_X0+1
+    sta ex+1
+    lda #0
+    ldx GC_R
+    sta GC_ROWS,x
+    lda #$80
+    sta GC_P
+gc_pix:
+    ldx #GX_POINTDEV
+    jsr gx_call
+    lda gx_res
+    cmp tbg
+    beq gc_bg
+    ldx GC_R
+    lda GC_ROWS,x
+    ora GC_P
+    sta GC_ROWS,x
+gc_bg:
+    inc ex
+    bne gc_e
+    inc ex+1
+gc_e:
+    lsr GC_P
+    lda GC_P
+    and GC_MASK
+    bne gc_pix
+    inc ey
+    bne gc_y
+    inc ey+1
+gc_y:
+    inc GC_R
+    lda GC_R
+    cmp vmode_ch
+    bcc gc_row
+    lda #32                     ; the glyphs 32-126
+    sta GC_C
+gc_try:
+    jsr gc_glyph                ; GC_GLY, GC_KEEP
+    ldx #0
+gc_cmp:
+    ldy GC_KEEP,x
+    lda #0
+    cpy #8
+    bcs gc_blank                ; (rows 8 and 9: blank)
+    lda GC_GLY,y
+gc_blank:
+    and GC_MASK
+    cmp GC_ROWS,x
+    bne gc_next
+    inx
+    cpx vmode_ch
+    bcc gc_cmp
+    lda GC_C                    ; all rows equal
+    rts
+gc_next:
+    inc GC_C
+    lda GC_C
+    cmp #127
+    bcc gc_try
+    lda #0
+    rts
+
+; gc_mul: A * X (8 x 8 bits) -> A/X (low/high)
+gc_mul:
+    sta GC_A
+    stx GC_B
+    lda #0
+    tax
+    ldy #8
+gcm_l:
+    asl
+    pha
+    txa
+    rol
+    tax
+    pla
+    asl GC_A
+    bcc gcm_n
+    clc
+    adc GC_B
+    bcc gcm_n
+    inx
+gcm_n:
+    dey
+    bne gcm_l
+    rts
+
+; gc_glyph: glyph GC_C (as the engine gets it) into GC_GLY; GC_KEEP = the glyph
+; row drawn in each cell row (8: blank)
+gc_glyph:
+    lda GC_C                    ; the core's glyph_get: the REU font, or
+    jsr glyph_get               ; the character ROM without an REU
+    ldx #7
+gcg_cp:
+    lda glyph,x
+    sta GC_GLY,x
+    dex
+    bpl gcg_cp
+    ldx #9                      ; rows 0-9 as they are (10: 8, 9 blank)
+gcg_id:
+    txa
+    sta GC_KEEP,x
+    dex
+    bpl gcg_id
+    lda vmode_ch
+    cmp #6
+    bne gcg_rts
+    lda vmode_cw                ; the 4x6 font: rows 0-5
+    cmp #4
+    beq gcg_rts
+    lda #7                      ; e_rows6: the blank bottom row out, else
+    ldx GC_GLY+7                ; row 0
+    beq gcg_a
+    lda #0
+gcg_a:
+    sta GC_A
+    ldy #0                      ; the first row equal to the next kept
+gcg_dup:                        ; one (else row 2)
+    cpy GC_A
+    beq gcg_nx
+    tya
+    tax
+    inx
+    cpx GC_A
+    bne gcg_c
+    inx
+gcg_c:
+    cpx #8
+    bcs gcg_none
+    lda GC_GLY,y
+    cmp GC_GLY,x
+    beq gcg_got
+gcg_nx:
+    iny
+    cpy #7
+    bne gcg_dup
+gcg_none:
+    ldy #2
+gcg_got:
+    sty GC_B
+    ldx #0                      ; the six rows kept
+    ldy #0
+gcg_l:
+    cpy GC_A
+    beq gcg_s
+    cpy GC_B
+    beq gcg_s
+    tya
+    sta GC_KEEP,x
+    inx
+gcg_s:
+    iny
+    cpy #8
+    bne gcg_l
+gcg_rts:
+    rts
+
     .endl

@@ -157,6 +157,46 @@ def test_basic_ram(t):
     assert int(got, 16) == want, "checksum %s, expected %X" % (got, want)
 
 
+def test_copy_bitmap(t):
+    # COPY editing in the bitmap modes: the character under the copy
+    # cursor read from its pixels (gxb_chr, as OSBYTE &87): Z%=4321 typed,
+    # the line copied with F1 and a 0 added sets Z% to 43210; MODE 4
+    # (Upic Lite on the Ultimate) and MODE 0 (80 columns, the 4x6 font)
+    for mode in (4, 0):
+        screen.type_text(t.bridge, "MODE %d\r" % mode)
+        time.sleep(2)
+        screen.type_text(t.bridge, "Z%=4321\r")
+        time.sleep(1)
+        screen.type_text(t.bridge, "{CUP}{CLEFT}{CRIGHT}" + "{F1}" * 7 + "0\r")
+        time.sleep(2)
+        out = remote(t).run_lines(["MODE 100", "PRINT \"Z=\";Z%"])["output"]
+        assert "Z=43210" in out, (mode, out)
+
+
+def test_osbyte87(t):
+    # OSBYTE &87 reads the character at the cursor in every mode: text
+    # screens and MODE 7 from their codes, the bitmap modes from the pixels
+    # (gxb_chr), Upic full from its console. VICE: the VIC-II modes only
+    if t.is_vice:                       # (no REU: no 4x6 font, and the
+        modes = "2,4,5,130,132,133,103,104,7"  # ROM glyphs' left halves
+    else:                               # are not unique: 0, 1, 3 left out)
+        modes = "0,1,2,4,5,129,130,132,133,103,104,3,7,110"
+    n = modes.count(",") + 1
+    prog = """10 DIM M%%(%d):FOR I%%=0 TO %d:READ M%%(I%%):NEXT
+20 DATA %s
+30 T$="Hi,BBC!{[x_y]}0@#?":R$=""
+40 FOR J%%=0 TO %d
+50   MODE M%%(J%%)
+60   PRINT TAB(0,3);T$;
+70   B$="":FOR I%%=0 TO LEN(T$)-1:PRINT TAB(I%%,3);:A%%=&87:B$=B$+CHR$((USR(&C7F4) AND &FF00) DIV 256):NEXT
+80   IF B$<>T$ R$=R$+STR$M%%(J%%)+"="+B$+" "
+90 NEXT
+100 MODE 100:PRINT "R=[";R$;"]"
+""" % (n - 1, n - 1, modes, n - 1)
+    out = remote(t).send_program(prog, run=True, timeout=240)["output"]
+    assert "R=[]" in out, out
+
+
 def test_arith(t):
     run_line(t, "PRINT 1+1", "         2")
 
@@ -1171,6 +1211,24 @@ def test_classics(t):
         assert not r["error"], (name, r)
         if want:
             assert want in r["output"], (name, r["output"])
+    rm.run_lines(["MODE 100"])
+
+
+def test_hanoi(t):
+    # Richard T. Russell's Towers of Hanoi (demos/classics) in MODE 3, the
+    # 80 columns being back: 3 discs (INPUT), SPACE (GET), 7 moves, the end
+    d = os.path.join(os.path.dirname(__file__), "..", "..", "demos", "classics")
+    rm = remote(t)
+    errs = rm.state()["error_count"]         # (counted since the start)
+    rm.send_program(open(os.path.join(d, "hanoi.bas")).read(), run=True,
+                    timeout=12)
+    rm.wait_line_wanted(30)                 # INPUT "Number of discs"
+    out = rm.run_lines(["3"], timeout=10)["output"]
+    time.sleep(1)
+    rm.write(0x0277, [32])                  # SPACE for its GET
+    rm.write(0xC6, [1])
+    st = rm.wait_line_wanted(60)            # the prompt again: it ended
+    assert st["state"] == "prompt" and st["error_count"] == errs, (st, out)
     rm.run_lines(["MODE 100"])
 
 
@@ -2363,7 +2421,7 @@ def test_remote_debug(t):
         rm.debug_end()
 
 
-TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test_caps_lock, test_key, test_ascii, test_program,
+TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test_copy_bitmap, test_osbyte87, test_caps_lock, test_key, test_ascii, test_program,
          test_error, test_mos_error, test_help, test_help_paging,
          test_bad_number,
          test_vdu_overflow, test_fx_escape, test_stop_key,
@@ -2377,7 +2435,7 @@ TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test
          test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
          test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
          test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_acorn, test_dfs, test_toolkit, test_speech, test_net, test_json, test_netchan, test_classics,
+         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_acorn, test_dfs, test_toolkit, test_speech, test_net, test_json, test_netchan, test_classics, test_hanoi,
          test_sid, test_text_colours, test_reu_storage,
          test_ramdisk,
          test_gfx_vdu5,

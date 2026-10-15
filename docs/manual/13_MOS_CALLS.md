@@ -43,7 +43,7 @@ OSBYTE calls (*FX a,x,y) available:
 &84   HIMEM of the mode
 &85   HIMEM for a mode
 &86   POS (X) and VPOS (Y)
-&87   character at cursor
+&87   character at cursor (all modes)
 &04   cursor keys (kept)
 &0B   key repeat (0 off)
 &0C   key repeat (0 default)

@@ -179,13 +179,17 @@ with a cursor key starts a second
 cursor and moves it over the screen; F1
 copies the character under it into the
 line and moves it on, so a listed line
-can be copied (in the text screens and
-MODE 7). UP and DOWN go through the
-last 127 lines typed at the prompt
-(kept in the REU). *EDIT C64 brings
-back the C64 screen editor (move the
-cursor anywhere and press RETURN; 78
-characters after the prompt).
+can be copied, in every mode (in the
+bitmap modes the character is
+recognised from its pixels, as on a BBC
+Micro; the 4-pixel modes 0, 1 and 3
+need the REU's 4x6 font for that). UP
+and DOWN go through the last 127 lines
+typed at the prompt (kept in the REU).
+*EDIT C64 brings back the C64 screen
+editor (move the cursor anywhere and
+press RETURN; 78 characters after the
+prompt).
 
 GET and INKEY return the cursor keys as
 136-139 (left, right, down, up), DEL as
@@ -430,7 +434,7 @@ OSBYTE calls (*FX a,x,y) available:
   &84   HIMEM of the mode
   &85   HIMEM for a mode
   &86   POS (X) and VPOS (Y)
-  &87   character at cursor
+  &87   character at cursor (all modes)
   &04   cursor keys (kept)
   &0B   key repeat (0 off)
   &0C   key repeat (0 default)

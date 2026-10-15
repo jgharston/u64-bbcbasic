@@ -715,3 +715,36 @@ stay on the VIC-II: Upic Lite's 320-wide picture puts colour fringes on
 the 4x6 ones do not). HIMEM &8000 (OSBYTE &85 too). *CAT uses as many
 20-character columns as the width allows; *HELP texts are wrapped at
 39 when built (genhelp.py) and stay 40 wide.
+
+### 11.1 Characters read back in the bitmap modes (2026-10-15)
+
+OSBYTE &87 and the line editor's COPY now read characters in every mode.
+Upic full's console is the text screen; it is read at &C000 + row * 40 +
+column, by the engine's text cursor. In the bitmap modes, `gxb_chr`
+(gxblock.s, bank 5) recognises the character from its pixels, as a BBC
+Micro does in its graphics modes:
+
+1. The cell is read with `GX_POINTDEV` (column × cell width, row × cell
+   height). A pixel counts as set when it is not the text background
+   colour.
+2. For each glyph 32-126, `glyph_get` fetches the glyph as the engine
+   gets it: the REU font, or the character ROM without an REU.
+3. The glyph's rows are laid out as the engine draws them:
+   - 8-line cells: as they are.
+   - Upic Lite's 10-line cells: the last two rows blank.
+   - 6-line cells: the 4x6 font's rows 0-5; for an 8x8 glyph, the six
+     rows `e_rows6` keeps. That drops the blank bottom row (else row 0)
+     and the first row equal to the next kept one (else row 2).
+4. The first glyph whose rows equal the cell's, within the leftmost
+   cell-width bits, is the answer.
+
+The line editor hides the copy cursor's mark while it reads, because the
+mark is drawn into the cell.
+
+Limits:
+
+- About 30 ms per character on the VIC-II, about 115 ms in Upic Lite.
+- Without an REU, the 4-pixel modes (0, 1, 3) draw the left halves of
+  the ROM glyphs, which are not unique ("C" matches "@" first).
+- Cells outside the graphics window read as set (`GX_POINTDEV` answers
+  &FF there).

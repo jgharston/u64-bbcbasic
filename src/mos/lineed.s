@@ -288,7 +288,7 @@ ek_copy:                        ; COPY: the character under the copy cursor
     lda ed_con
     beq ekc_none
     jsr ed_cread
-    beq ekc_none                ; (bitmap modes: not readable)
+    beq ekc_none                ; (none there)
     jsr ed_insert
     jsr ed_mark                 ; the copy cursor one further
     jsr ed_cnext
@@ -815,14 +815,28 @@ emk_bitmap:
 ;   Summary: the character under the copy cursor.
 ;   Function: the text screen: its screen code as ASCII (scr2asc, reverse
 ;            ignored); MODE 7: the code in the screen memory at &7C00;
-;            bitmap modes: none (they keep no character codes).
+;            bitmap modes: read from the pixels (gxb_chr, bank 5: the
+;            cell against the font, as a BBC Micro does), the copy
+;            cursor's mark hidden meanwhile; Upic full: its text console.
 ;   Input:   ed_cx, ed_cy.  Output: A = ASCII, Z = 1 when none.
 ;   Uses:    A, X, Y, mosTMP.
 ed_cread:
     lda vtype
     beq ecr_text
     cmp #2
-    bne ecr_none
+    beq ecr_ttx
+    lda eng_kind                ; Upic full: the text console
+    cmp #3
+    beq ecr_text
+    jsr ed_mark                 ; (the mark is drawn into the cell)
+    ldx ed_cx
+    ldy ed_cy
+    farcall gxb.gxb_chr, BANK_RD
+    pha
+    jsr ed_mark
+    pla
+    rts
+ecr_ttx:
     lda #<TTXBUF
     sta mosTMP
     lda #>TTXBUF
@@ -835,9 +849,6 @@ ecr_text:
     and #$7F
     tax
     lda scr2asc,x
-    rts
-ecr_none:
-    lda #0
     rts
 
 ; ed_scraddr: mosTMP = the text screen row of the copy cursor, Y its
