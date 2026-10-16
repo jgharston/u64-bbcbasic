@@ -29,7 +29,7 @@ GEN       = $(BUILD)/gen/tables.s $(BUILD)/gen/ul_r1.s $(BUILD)/gen/ul_r2.s \
             $(BUILD)/gen/ul_r3.s $(BUILD)/gen/ul_r4.s $(BUILD)/gen/sound_tables.s \
             $(BUILD)/gen/sound_inst.s $(BUILD)/gen/list_tokens.s \
             $(BUILD)/gen/upic_r64.s $(BUILD)/gen/upic_r48.s \
-            $(BUILD)/gen/font4x6.s
+            $(BUILD)/gen/font4x6.s $(BUILD)/gen/math_tables.s
 
 ULTIP1   ?= <set_ULTIP1_in_.env>
 ULTPATH   = /Temp/
@@ -58,6 +58,10 @@ $(BUILD)/gen/sound_tables.s $(BUILD)/gen/sound_inst.s: tools/gensound.py
 	$(PYTHON) $< -o $(BUILD)/gen/sound_tables.s --instruments $(BUILD)/gen/sound_inst.s
 
 $(BUILD)/gen/list_tokens.s: tools/genlist.py tools/bbctok.py
+	@$(MKDIR) $(dir $@)
+	$(PYTHON) $< -o $@
+
+$(BUILD)/gen/math_tables.s: tools/genmath.py
 	@$(MKDIR) $(dir $@)
 	$(PYTHON) $< -o $@
 

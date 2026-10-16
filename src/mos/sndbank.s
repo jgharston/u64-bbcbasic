@@ -163,6 +163,7 @@ stb_nn:
     icl 'sndcmd.s'
     icl 'songcmd.s'
     icl 'speech.s'
+    icl 'font46.s'                ; (moved from bank 8, 2026-10-16)
 
 bank6_end:
     .if bank6_end > $C000

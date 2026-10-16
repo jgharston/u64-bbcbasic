@@ -676,6 +676,24 @@ FALSE
 
 The value 0.
 
+#### `*TABLE`
+
+```
+*TABLE SIN addr [steps]  sine table
+*TABLE COS addr [steps]  cosine
+```
+
+Fast sine and cosine for programs that need many of them (demos, generative graphics): a table of 1024 whole numbers, a full turn in 1024 steps, each the value times 65536, in 4096 bytes of the program's memory. A table read takes about 30 microseconds, SIN itself about 775.
+
+```
+DIM S% 4095:*TABLE SIN S%
+Y%=S%!(4*(A% AND 1023))
+```
+
+gives SIN(A%*PI/512)*65536, rounded (65536 is 1). addr is a number or one of A%-Z%; the table must lie between PAGE and HIMEM. COS is the same a quarter turn on.
+
+*TABLE SIN addr 256 (or 512) makes a smaller table with a full turn in that many steps: 1K for 256, for modes that leave little memory (MODE 2 has under 5K). One table is enough for both: COS is S%!(4*((A%+64) AND 255)) with 256 steps.
+
 
 ## 6.7 Strings
 

@@ -12,8 +12,8 @@
 
     icl 'upic.s'
     icl 'bvcmd.s'
-    icl 'font46.s'
     icl 'cmap.s'
+    icl 'mathtab.s'
 
 ; ----------------------------------------------------------------------------
 ; up_enter

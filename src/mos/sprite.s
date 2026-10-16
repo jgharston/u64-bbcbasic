@@ -20,6 +20,11 @@ REU_SHBANK  = 1
 SHAPE_RAM   = $E000             ; text screen: shapes here (VIC-II $80+)
 REU_SCRATCH = $2000             ; REU bank 1, 17 pages: *SPRITE LOAD's file
 SCRATCH_PG  = 17
+REU_SPDMARK = $3100             ; REU bank 1, 64: per shape 1 if its byte
+                                ; 63 is a SpritePad attribute (MYXVCCCC)
+SP_ONE      = MOSBUF+$40        ; a byte to or from the REU
+SP_ISSPD    = MOSBUF+$41        ; *SPRITE LOAD: the file is an SPD
+SP_SPR      = MOSBUF+$42        ; *SPRITE n SHAPE: the sprite
 
 ; ----------------------------------------------------------------------------
 ; The multiplexer images (spritemux.s), assembled for $7B00 and $7700
@@ -137,10 +142,13 @@ cs_n_shape:
     jsr s6_word
     bcc cs_n_col
     jsr sp_byte64
+    pha
     clc
     adc #$80                    ; text screen: pointer $80 + shape
     ldx #O_PTR
-    jmp sp_set
+    jsr sp_set
+    pla
+    jmp sp_shapecol
 cs_n_col:
     lda #<wd_colour
     ldx #>wd_colour
@@ -748,6 +756,9 @@ spd_byte:
     sta fsLEN+1
     lda #REU_TO_REU
     jsr rd_dma
+    lda fsSX                    ; (no SpritePad colour)
+    ldx #0
+    jsr sp_mark
     jsr sp_inval                ; (a block may hold the old shape)
     lda spr_page                ; and to $E000 + s * 64
     beq spd_rts
@@ -1106,6 +1117,10 @@ spl_raw:
     ldx #3
 spl_off:
     stx fsCNT
+    lda #0                      ; an SPD: its header is 9 bytes or more
+    cpx #9
+    rol
+    sta SP_ISSPD
     lda mosTMP+2                ; count = (size - offset + 1) / 64
     sec
     sbc fsCNT
@@ -1156,6 +1171,9 @@ spl_copy:
     jsr spl_mosbuf
     lda #REU_TO_REU
     jsr rd_dma
+    lda mosTMP                  ; its colour marker
+    ldx SP_ISSPD
+    jsr sp_mark
     lda fsCNT
     clc
     adc #64
@@ -1203,6 +1221,109 @@ spl_mosbuf:
     lda #0
     sta fsLEN+1
     rts
+
+; ----------------------------------------------------------------------------
+; sp_shapecol
+;   Summary: *SPRITE n SHAPE s: a shape loaded from a SpritePad file also
+;            gives the sprite its colour and multicolour (owner,
+;            2026-10-16); *SPRITE n COLOUR afterwards overrides.
+;   Function: the shape's marker (REU_SPDMARK + s); if set, its byte 63
+;            (MYXVCCCC): CCCC -> the C64 colour, M -> flag bit 4.
+;   Input:   A = shape s, fsSX = sprite n.  Output: the tables.
+;   Uses:    A, X, Y, fs*, mosTMP, mosPTR2, SP_ONE, SP_SPR.
+sp_shapecol:
+    pha
+    jsr spm_addr
+    lda #REU_TO_C64
+    jsr spm_dma
+    pla
+    ldx SP_ONE
+    beq spc_rts                 ; (no SpritePad colour)
+    ldx fsSX                    ; the shape's REU address + 63
+    stx SP_SPR
+    sta fsSX
+    jsr spd_reuaddr
+    lda SP_SPR
+    sta fsSX
+    lda fsTMP
+    ora #63
+    sta fsTMP
+    lda #REU_TO_C64
+    jsr spm_one
+    lda SP_ONE
+    and #15
+    ldx #O_COL
+    jsr sp_set
+    lda SP_ONE
+    bmi spc_multi
+    lda #0
+    ldx #$EF
+    jmp sp_flag
+spc_multi:
+    lda #16                     ; flag bit 4: multicolour
+    ldx #$FF
+    jmp sp_flag
+spc_rts:
+    rts
+
+; sp_mark: shape A's colour marker := X (0 or 1).  Uses: A, fs*.
+sp_mark:
+    stx SP_ONE
+    jsr spm_addr
+    lda #REU_TO_REU
+spm_dma:
+    jmp spm_one
+
+; spm_addr: fsTMP/+1/+2 = REU_SPDMARK + A in REU bank 1
+spm_addr:
+    clc
+    adc #<REU_SPDMARK
+    sta fsTMP
+    lda #>REU_SPDMARK
+    adc #0
+    sta fsTMP+1
+    lda #REU_SHBANK
+    sta fsTMP+2
+    rts
+
+; spm_one: one byte between SP_ONE and the REU at fsTMP, command A
+spm_one:
+    pha
+    lda #<SP_ONE
+    sta fsADDR
+    lda #>SP_ONE
+    sta fsADDR+1
+    lda #1
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    pla
+    jmp rd_dma
+
+; sp_cold (start-up, mos.s): no shape has a SpritePad colour
+sp_cold:
+    ldx #63
+    lda #0
+spk_clr:
+    sta MOSBUF,x
+    dex
+    bpl spk_clr
+    lda #<MOSBUF
+    sta fsADDR
+    lda #>MOSBUF
+    sta fsADDR+1
+    lda #<REU_SPDMARK
+    sta fsTMP
+    lda #>REU_SPDMARK
+    sta fsTMP+1
+    lda #REU_SHBANK
+    sta fsTMP+2
+    lda #64
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    lda #REU_TO_REU
+    jmp rd_dma
 
 ; BBC colours 0-15 -> C64 colours (as COLOUR in the text screen)
 sp_bbc2c64:

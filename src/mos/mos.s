@@ -82,6 +82,7 @@ cold:
     ora reu_banks+1
     beq cold_nogxr
     farcall gxr.gxr_cold, BANK_RD
+    farcall spr.sp_cold, BANK_RD ; (no SpritePad colours)
 cold_nogxr:
     farcall font_keepdef, BANK_FS ; and the start-up font for *FONT DEFAULT
     farcall snd_instinit, BANK_SND ; default instruments to the REU
@@ -1764,7 +1765,8 @@ w2_loop:
 ; mos_cli (OSCLI)
 ;   Summary: run a * command.
 ;   Function: skips leading spaces and '*', looks the command word up in
-;            cmd_table (case-insensitive; a '.' abbreviates, e.g. *H.),
+;            cmd_table (case-insensitive; a '.' abbreviates, e.g. *H.;
+;            only the group of its first letter is searched, cmd_index),
 ;            and calls its handler in its bank through the trampoline,
 ;            with Y at the first character after the word. "*." is *CAT.
 ;            Unknown commands raise error 254 "Bad command".
@@ -1803,9 +1805,18 @@ cli_dot:
     jmp tramp
 cli_match:
     sty mosTMP                  ; start of the command word
-    lda #<cmd_table             ; (mosPTR2): the table entry; it is over
-    sta mosPTR2                 ; 256 bytes, so no X index
-    lda #>cmd_table
+    jsr toupper                 ; (mosPTR2): its letter's group (cmd_index;
+    sec                         ; the table is over 256 bytes, so no X
+    sbc #'A'                    ; index)
+    cmp #26
+    bcc cli_letter
+    jmp cli_bad
+cli_letter:
+    asl
+    tax
+    lda cmd_index,x
+    sta mosPTR2
+    lda cmd_index+1,x
     sta mosPTR2+1
 cli_try:
     ldy #0
@@ -1889,51 +1900,105 @@ cli_badnum:
     brk
     dta 252, 'Bad number', 0
 
-; Command table: upper-case name, 0, handler address, handler bank.
-; Ends with 0. Abbreviations match the first entry in this order.
+; Command table: upper-case name, 0, handler address, handler bank, in
+; groups by first letter (cmd_index), each group ending with 0
+; (2026-10-16: the lookup scanned every entry before, up to 25 ms at
+; 1 MHz for a command near the end). Abbreviations match the first entry
+; of their letter's group in this order. genhelp.py checks the grouping.
 cmd_table:
+ct_A:
+    dta 'ADVAL', 0, a(acorn.cmd_adval), BANK_NET
+    dta 'ACCESS', 0, a(cmd_access), BANK_FS
+    dta 0
+ct_B:
+    dta 'BUILD', 0, a(dfs.cmd_build), BANK_NET
+    dta 0
+ct_C:
     dta 'CAT', 0, a(cmd_cat), BANK_FS
-    dta 'DIR', 0, a(cmd_dir), BANK_FS
     dta 'CD', 0, a(cmd_dir), BANK_FS
     dta 'COPY', 0, a(cmd_copy), BANK_FS
     dta 'CP', 0, a(cmd_cp), BANK_FS
+    dta 'CDIR', 0, a(cmd_mkdir), BANK_FS
+    dta 'CIRCLE', 0, a(bvc.cmd_circle), BANK_UP
+    dta 'COLOUR', 0, a(bvc.cmd_colour), BANK_UP
+    dta 'CRUNCH', 0, a(tk.cmd_crunch), BANK_NET
+    dta 0
+ct_D:
+    dta 'DIR', 0, a(cmd_dir), BANK_FS
     dta 'DELETE', 0, a(cmd_delete), BANK_FS
     dta 'DRIVE', 0, a(cmd_drive), BANK_FS
+    dta 'DUMP', 0, a(dfs.cmd_dump), BANK_NET
+    dta 0
+ct_E:
     dta 'EDIT', 0, a(cmd_edit), BANK_MOS
+    dta 'ELLIPSE', 0, a(bvc.cmd_ellipse), BANK_UP
+    dta 'EXEC', 0, a(dfs.cmd_exec), BANK_NET
+    dta 0
+ct_F:
     dta 'FONT', 0, a(cmd_font), BANK_FS
-    dta 'INSTRUMENT', 0, a(cmd_instrument), BANK_SND
     dta 'FX', 0, a(cmd_fx), BANK_MOS
+    dta 'FIND', 0, a(tk.cmd_find), BANK_NET
+    dta 'FLOOD', 0, a(gxr.cmd_accept), BANK_RD
+    dta 0
+ct_G:
+    dta 'GCOL', 0, a(bvc.cmd_gcol), BANK_UP
+    dta 'GXR', 0, a(gxr.cmd_accept), BANK_RD
+    dta 0
+ct_H:
     dta 'HELP', 0, a(cmd_help), BANK_MOS
+    dta 0
+ct_I:
+    dta 'INSTRUMENT', 0, a(cmd_instrument), BANK_SND
+    dta 'INFO', 0, a(dfs.cmd_info), BANK_NET
+    dta 0
+ct_J:
+    dta 'JSON', 0, a(net.cmd_json), BANK_NET
+    dta 0
+ct_K:
+    dta 'KEY', 0, a(cmd_key), BANK_MOS
+    dta 0
+ct_L:
     dta 'LOAD', 0, a(cmd_load), BANK_FS
     dta 'LIST', 0, a(cmd_list), BANK_FS
+    dta 'LINE', 0, a(bvc.cmd_line), BANK_UP
+    dta 0
+ct_M:
     dta 'MKDIR', 0, a(cmd_mkdir), BANK_FS
     dta 'MOUNT', 0, a(cmd_mount), BANK_FS
-    dta 'NET', 0, a(net.cmd_net), BANK_NET
-    dta 'JSON', 0, a(net.cmd_json), BANK_NET
-    dta 'KEY', 0, a(cmd_key), BANK_MOS
     dta 'MEMORY', 0, a(cmd_memory), BANK_FS
+    dta 'MAP', 0, a(cmap.cmd_map), BANK_UP
+    dta 0
+ct_N:
+    dta 'NET', 0, a(net.cmd_net), BANK_NET
+    dta 'NOFLOOD', 0, a(gxr.cmd_accept), BANK_RD
+    dta 'NOGXR', 0, a(gxr.cmd_accept), BANK_RD
+    dta 0
+ct_O:
+    dta 'OFF', 0, a(bvc.cmd_off), BANK_UP
+    dta 'ON', 0, a(bvc.cmd_on), BANK_UP
+    dta 0
+ct_P:
     dta 'PALETTE', 0, a(cmd_palette), BANK_FS
     dta 'PARTITION', 0, a(cmd_partition), BANK_FS
     dta 'PARTITIONS', 0, a(cmd_partitions), BANK_FS
-    dta 'CDIR', 0, a(cmd_mkdir), BANK_FS
     dta 'PWD', 0, a(cmd_pwd), BANK_FS
+    dta 'POINT', 0, a(bvc.cmd_point), BANK_UP
+    dta 'PACK', 0, a(tk.cmd_pack), BANK_NET
+    dta 0
+ct_Q:
+    dta 0
+ct_R:
     dta 'RENAME', 0, a(cmd_rename), BANK_FS
+    dta 'RECTANGLE', 0, a(bvc.cmd_rectangle), BANK_UP
+    dta 'RUN', 0, a(dfs.cmd_run), BANK_NET
+    dta 'REPLACE', 0, a(tk.cmd_replace), BANK_NET
+    dta 0
+ct_S:
     dta 'SAVE', 0, a(cmd_save), BANK_FS
     dta 'SETTIME', 0, a(cmd_settime), BANK_FS
     dta 'SHADOW', 0, a(cmd_shadow), BANK_MOS
     dta 'SNAPSHOT', 0, a(snap.cmd_snapshot), BANK_RD
     dta 'SPRITE', 0, a(spr.cmd_sprite), BANK_RD
-    dta 'UPIC', 0, a(upic.cmd_upic), BANK_UP
-    dta 'MAP', 0, a(cmap.cmd_map), BANK_UP
-    dta 'RECTANGLE', 0, a(bvc.cmd_rectangle), BANK_UP
-    dta 'CIRCLE', 0, a(bvc.cmd_circle), BANK_UP
-    dta 'ELLIPSE', 0, a(bvc.cmd_ellipse), BANK_UP
-    dta 'LINE', 0, a(bvc.cmd_line), BANK_UP
-    dta 'POINT', 0, a(bvc.cmd_point), BANK_UP
-    dta 'COLOUR', 0, a(bvc.cmd_colour), BANK_UP
-    dta 'GCOL', 0, a(bvc.cmd_gcol), BANK_UP
-    dta 'OFF', 0, a(bvc.cmd_off), BANK_UP
-    dta 'ON', 0, a(bvc.cmd_on), BANK_UP
     dta 'SCHOOSE', 0, a(gxr.cmd_schoose), BANK_RD
     dta 'SDELETE', 0, a(gxr.cmd_sdelete), BANK_RD
     dta 'SEDIT', 0, a(sed.cmd_sedit), BANK_NET
@@ -1945,28 +2010,11 @@ cmd_table:
     dta 'SRENUMBER', 0, a(gxr.cmd_srenumber), BANK_RD
     dta 'SSAVE', 0, a(gxr.cmd_ssave), BANK_RD
     dta 'SSPACE', 0, a(gxr.cmd_sspace), BANK_RD
-    dta 'ADVAL', 0, a(acorn.cmd_adval), BANK_NET
-    dta 'ACCESS', 0, a(cmd_access), BANK_FS
-    dta 'BUILD', 0, a(dfs.cmd_build), BANK_NET
-    dta 'DUMP', 0, a(dfs.cmd_dump), BANK_NET
-    dta 'EXEC', 0, a(dfs.cmd_exec), BANK_NET
-    dta 'INFO', 0, a(dfs.cmd_info), BANK_NET
-    dta 'RUN', 0, a(dfs.cmd_run), BANK_NET
     dta 'SPOOL', 0, a(dfs.cmd_spool), BANK_NET
-    dta 'CRUNCH', 0, a(tk.cmd_crunch), BANK_NET
-    dta 'FIND', 0, a(tk.cmd_find), BANK_NET
-    dta 'PACK', 0, a(tk.cmd_pack), BANK_NET
-    dta 'REPLACE', 0, a(tk.cmd_replace), BANK_NET
     dta 'SEARCH', 0, a(tk.cmd_search), BANK_NET
-    dta 'VARLIST', 0, a(tk.cmd_varlist), BANK_NET
-    dta 'XREF', 0, a(tk.cmd_xref), BANK_NET
     dta 'SPEECH', 0, a(spch.cmd_speech), BANK_SND
     dta 'SAY', 0, a(spch.cmd_say), BANK_SND
     dta 'SPEAK', 0, a(spch.cmd_speak), BANK_SND
-    dta 'FLOOD', 0, a(gxr.cmd_accept), BANK_RD
-    dta 'NOFLOOD', 0, a(gxr.cmd_accept), BANK_RD
-    dta 'GXR', 0, a(gxr.cmd_accept), BANK_RD
-    dta 'NOGXR', 0, a(gxr.cmd_accept), BANK_RD
     dta 'SONG', 0, a(cmd_song), BANK_SND
     dta 'SOUND', 0, a(cmd_sound), BANK_SND
     dta 'SRREAD', 0, a(cmd_srread), BANK_FS
@@ -1975,12 +2023,38 @@ cmd_table:
     dta 'STATUS', 0, a(cmd_status), BANK_FS
     dta 'SWAP', 0, a(cmd_swap), BANK_FS
     dta 'SYS', 0, a(cmd_status), BANK_FS
+    dta 0
+ct_T:
+    dta 'TABLE', 0, a(mtab.cmd_tab), BANK_UP
     dta 'TIME', 0, a(cmd_time), BANK_FS
     dta 'TURBO', 0, a(cmd_turbo), BANK_MOS
     dta 'TYPE', 0, a(cmd_type), BANK_FS
+    dta 0
+ct_U:
+    dta 'UPIC', 0, a(upic.cmd_upic), BANK_UP
     dta 'UNMOUNT', 0, a(cmd_unmount), BANK_FS
     dta 'UVER', 0, a(cmd_uver), BANK_FS
     dta 0
+ct_V:
+    dta 'VARLIST', 0, a(tk.cmd_varlist), BANK_NET
+    dta 0
+ct_W:
+    dta 0
+ct_X:
+    dta 'XREF', 0, a(tk.cmd_xref), BANK_NET
+    dta 0
+ct_Y:
+    dta 0
+ct_Z:
+    dta 0
+
+; cmd_index: the start of each letter's group in cmd_table, A-Z
+cmd_index:
+    dta a(ct_A), a(ct_B), a(ct_C), a(ct_D), a(ct_E), a(ct_F)
+    dta a(ct_G), a(ct_H), a(ct_I), a(ct_J), a(ct_K), a(ct_L)
+    dta a(ct_M), a(ct_N), a(ct_O), a(ct_P), a(ct_Q), a(ct_R)
+    dta a(ct_S), a(ct_T), a(ct_U), a(ct_V), a(ct_W), a(ct_X)
+    dta a(ct_Y), a(ct_Z)
 
 ; toupper
 ;   Summary: ASCII a-z to A-Z.
@@ -2424,9 +2498,14 @@ hf_none:
 ; hl_show
 ;   Summary: show the text of the index record at mosPTR (Y at the name's
 ;            terminator), 22 lines per page.
-;   Function: SPACE (any key) shows the next page; ESCAPE stops and is
+;   Function: lines are shown as they are; a line starting with byte 1
+;            is a paragraph (genhelp.py), word-wrapped to the text width
+;            less one (39 on the 40-column screen, 79 in 80 columns, the
+;            text window's in the bitmap modes; owner, 2026-10-16). SPACE
+;            (any key) shows the next page; ESCAPE stops and is
 ;            acknowledged. Text bytes are read through bank_peek.
-;   Uses:    A, X, Y, mosPTR, mosARGS (bank, line count).
+;   Uses:    A, X, Y, mosPTR, mosARGS (bank, line count, width), mosCNT
+;            (column), mosTMP (word length, index).
 hl_show:
     ldx #BANK_HELP
     iny
@@ -2442,28 +2521,128 @@ hl_show:
     sta mosPTR
     lda #0
     sta mosARGS+1               ; lines on this page
+    lda #39                     ; characters a line: the width less one
+    ldx vtype
+    beq hs_w
+    lda twr
+    sec
+    sbc twl
+hs_w:
+    sta mosARGS+2
     jsr OSNEWL
 hs_loop:
     bit ESCFLG
     bmi hs_stop
-    ldx mosARGS
-    ldy #0
-    jsr bank_peek
+    jsr hs_byte
     beq hs_done
-    inc mosPTR
-    bne hs_char
-    inc mosPTR+1
-hs_char:
+    cmp #1
+    beq hs_para
+    jsr hs_adv
     cmp #13
     beq hs_line
     jsr OSWRCH
     jmp hs_loop
 hs_line:
+    jsr hs_nl
+    bcc hs_loop
+hs_stop:
+    lda #$7E                    ; acknowledge ESCAPE
+    jsr OSBYTE
+    jsr OSNEWL
+hs_done:
+    rts
+
+; a paragraph: word by word, a new line when the next word would not fit
+hs_para:
+    jsr hs_adv                  ; (the marker)
+    lda #0
+    sta mosCNT                  ; column
+hp_word:
+    bit ESCFLG
+    bmi hs_stop
+    ldy #0                      ; the word's length: up to a space, CR, 0
+    ldx mosARGS
+hp_len:
+    jsr bank_peek
+    cmp #' '+1
+    bcc hp_got
+    iny
+    bne hp_len
+hp_got:
+    sty mosTMP
+    lda mosCNT                  ; the line's first word: no space
+    beq hp_put
+    sec                         ; column + 1 + length fits?
+    adc mosTMP
+    bcs hp_nl
+    cmp mosARGS+2
+    beq hp_sp
+    bcs hp_nl
+hp_sp:
+    lda #' '
+    jsr OSWRCH
+    inc mosCNT
+    jmp hp_put
+hp_nl:
+    jsr hs_nl
+    bcs hs_stop
+    lda #0
+    sta mosCNT
+hp_put:
+    ldy #0                      ; the word
+hp_ch:
+    cpy mosTMP
+    beq hp_end
+    sty mosTMP+1
+    ldx mosARGS
+    jsr bank_peek
+    jsr OSWRCH
+    ldy mosTMP+1
+    iny
+    bne hp_ch
+hp_end:
+    lda mosTMP                  ; past it; the column on
+    clc
+    adc mosCNT
+    sta mosCNT
+    lda mosTMP
+    clc
+    adc mosPTR
+    sta mosPTR
+    bcc hp_sep
+    inc mosPTR+1
+hp_sep:
+    jsr hs_byte                 ; a space: the next word; CR: the end
+    beq hs_done
+    jsr hs_adv
+    cmp #' '
+    beq hp_word
+    jsr hs_nl
+    bcs hs_stop
+    jmp hs_loop
+
+; hs_byte: A = the text byte at mosPTR (Z = 1: the end)
+hs_byte:
+    ldx mosARGS
+    ldy #0
+    jmp bank_peek
+
+; hs_adv: mosPTR on by one (A kept)
+hs_adv:
+    inc mosPTR
+    bne hsa_rts
+    inc mosPTR+1
+hsa_rts:
+    rts
+
+; hs_nl: a new line; after 22 lines wait for a key ("more").
+; C = 1 when ESCAPE was pressed.  Uses: A, X.
+hs_nl:
     jsr OSNEWL
     inc mosARGS+1
     lda mosARGS+1
     cmp #22
-    bcc hs_loop
+    bcc hsn_ok
     ldx #0                      ; page full: wait
 hs_prompt:
     lda hs_more,x
@@ -2473,7 +2652,7 @@ hs_prompt:
     bne hs_prompt
 hs_wait:
     jsr OSRDCH
-    bcs hs_stop
+    bcs hsn_rts
     lda #13                     ; wipe the prompt line
     jsr OSWRCH
     ldx #38
@@ -2486,12 +2665,9 @@ hs_wipe:
     jsr OSWRCH
     lda #0
     sta mosARGS+1
-    jmp hs_loop
-hs_stop:
-    lda #$7E                    ; acknowledge ESCAPE
-    jsr OSBYTE
-    jsr OSNEWL
-hs_done:
+hsn_ok:
+    clc
+hsn_rts:
     rts
 
 hs_more:

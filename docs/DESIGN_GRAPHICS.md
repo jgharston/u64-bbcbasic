@@ -109,6 +109,16 @@ Decided 2026-10-07: (a).
   on 2026-10-04 (PLAN.md section 14). (a) gives more for graphics without
   that cost.
 
+**Built (2026-10-16, mathtab.s, bank 8).** `*TABLE SIN|COS addr
+[steps]`: steps 1024 (default), 512 or 256, 32-bit values x 65536, a
+full turn in that many steps. The cartridge holds a quarter wave (257 x
+16 bits, tools/genmath.py); the command unfolds it by symmetry, and
+checks that the table lies between PAGE and HIMEM. 256 steps (1K) exist
+because MODE 2 on Upic Lite leaves under 5K. Measured at turbo: four
+SIN/COS 3.3 ms, the same four table reads (with INT and AND for the
+index) 0.7 ms. The Schraf demos and GFXSPR use it; COS comes from the
+SIN table a quarter turn on. SQR and 1/x are not done.
+
 ## 5. Upic and the REU
 
 A Upic picture is 48K. BASIC needs RAM for itself (16K at `$8000`, at turbo
@@ -775,21 +785,36 @@ bank 8 (BANK_UP).
   used: the C64 text screen shows the characters hires.
 - The map lives in the REU's last bank but one (the last is `*SPOOL`'s
   and speech's), so the RAM disk ends 128K before the REU's end
-  (`rd_resbank`). Layout: `&0000` header ("MAP", width, height),
-  `&0100` the character colours, `&0200` page `&0700` saved during a
-  load (the colour table is built there), `&1000` the characters and
-  `&8800` the colours, a row of width bytes per map row: at most 255 x
-  255 and 30720 characters. Of CharPad's own examples (1814 files) 976
-  fit; most others are wide scrolling levels (over 255 characters).
+  (`rd_resbank`). Layout: `&0000` header ("MAP", width and height, 16
+  bits each), `&0100` the character colours, `&0200` page `&0700` saved
+  during a load (the colour table is built there), `&1000` the
+  characters and `&8800` the colours, a row of width bytes per map row
+  without gaps: up to 65535 wide or high and 30720 characters in all
+  (owner, 2026-10-16; 255 x 255 before). Of CharPad's own examples
+  (1814 files) 1659 fit (976 with 255 x 255).
+- The load writes the cells as one run through 128-cell buffers
+  (characters in MOSBUF, colours at &0600) and flushes them by DMA, so
+  a row may be any width; its variables lie at &0680-&06FE (BASIC's
+  string buffer page, free between statements).
 - `*MAP DRAW mx,my,w,h AT col,row` clips to the map and the 40 x 25
   screen and copies each row twice by DMA (characters to the screen
   at `HIBASE`, colours to `$D800`): a full screen is 50 transfers, well
   within a frame, so a program can scroll by redrawing. Text modes only.
+  It keeps ahead of the beam (2026-10-16, scrolling tore after `*FX
+  19`, as finding the command and reading its arguments at 1 MHz took
+  the copy into the next frame): with the raster at lines 32-250 it
+  waits for line 251, then copies top row first at about 6 lines a row
+  while the beam needs 8 from line 51. Programs need no `*FX 19`.
+- `*MAP LOAD` switches the text screen off (`$D011` bit 4) while it
+  installs the font and expands the map: the screen's spaces showed as
+  the new set's character 32 meanwhile.
 - `*MAP GET mx,my` sets M% to the character (0 outside the map).
-  Arguments are numbers or A%-Z% (as the BASIC V commands, bvcmd.s).
+  Arguments are numbers or A%-Z% (as the BASIC V commands, bvcmd.s), 16
+  bits; DRAW's w and h count as 255 at most.
 - Tiles may have at most 127 cells (the offsets in a tile stay 8-bit).
 - Loading runs in bank 8 at 1 MHz: one DMA per character, the map
   cell read once per tile row. CharPad's Foodroid (V9, 112 x 44, 4 x 4
-  tiles) loads in 2.4 s, Hexagone (40 x 25) in 1.2 s; the largest map
-  takes about 10 s. Checked against a Python model of the format on
+  tiles) loads in 2.5 s, Hexagone (40 x 25) in 1.2 s, a 400 x 24 level
+  in 5.2 s; the largest map takes about 10 s. To make room, the 4x6
+  font (font46.s) moved from bank 8 to bank 6. Checked against a Python model of the format on
   both, and on 1814 example files for the parsing.

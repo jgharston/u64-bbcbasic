@@ -15,12 +15,12 @@
 ; (fs_reuopen0/fs_reurest, bank 2: one LOAD_REU, or a copy from /REU) and
 ; read there. The map goes to the REU's last bank but one (cm_bank; the
 ; RAM disk ends below it, rd_resbank):
-;   &0000  header: "MAP", width, height
+;   &0000  header: "MAP", width (2), height (2)
 ;   &0100  the colour of each character (256)
 ;   &0200  the saved page &0700 while a map loads
-;   &1000  the characters, a row of width bytes per map row
+;   &1000  the characters, a row of width bytes per map row, no gaps
 ;   &8800  their colours, the same way
-; at most 30720 cells, 255 x 255.
+; at most 30720 cells, up to 65535 wide or high (owner, 2026-10-16).
 ;
 ; ----------------------------------------------------------------------------
 
@@ -34,50 +34,64 @@ MB_CHARS    = $1000
 MB_COLS     = $8800
 MB_MAX      = $7800             ; cells
 
-; Variables ($0240-$0258: scratch shared with dfs.s and the toolkit,
-; never at the same time; zero page fs* while no file is open)
-RP          = $0240             ; 2: the read position in the file
-CHARPOS     = $0242             ; 2: the character images
-CSRC        = $0244             ; 2: per-character colours
-CSTR        = $0246             ; their stride (0: none)
-TILEPOS     = $0247             ; 2: the tiles
-TCOLPOS     = $0249             ; 2: per-tile colours
-TSTR        = $024B             ; their stride (0: none)
-MAPPOS      = $024C             ; 2: the map cells
-MW          = $024E             ; 2: map width, height (cells)
-MH          = $0250             ; 2
-TW          = $0252             ; tile width, height (1 without tiles)
-TH          = $0253
-OW          = $0254             ; the map's width, height in characters
-OH          = $0255
-METH        = $0256             ; colour method (0 project, 1 tile, 2 char)
-COLR        = $0257             ; the project's character colour
-NCH         = $0258             ; characters (0: 256 or more)
-DRW         = $0240             ; *MAP DRAW: mx, my, w, h, col, row, off,
-                                ; the argument's number
-ROWCHR      = MOSBUF            ; a row of characters (255)
-ROWCOL      = $0600             ; a row of colours (255; BASIC's string
-BG          = $06FF             ; buffer, free between statements)
+; *MAP, *MAP DRAW, *MAP GET ($0240-$0258: scratch shared with dfs.s and
+; the toolkit, never at the same time)
+DA          = $0240             ; 12: DRAW's six arguments, 16 bits each
+DOFF        = $024C             ; DRAW: a part off the map or screen
+DIDX        = $024D             ; DRAW: the argument's offset
+HOW         = $0250             ; 2: the map's width, height (header)
+HOH         = $0252             ; 2
+
+; *MAP LOAD and *FONT LOAD of a CTM file: in BASIC's string buffer page
+; (&0600, free between statements; a command given by OSCLI is read
+; before the buffers are written)
+ROWCOL      = $0600             ; 128: a run of colours
+LV          = $0680             ; the variables, up to &06FE
+RP          = LV+0              ; 2: the read position in the file
+CHARPOS     = LV+2              ; 2: the character images
+CSRC        = LV+4              ; 2: per-character colours
+CSTR        = LV+6              ; their stride (0: none)
+TILEPOS     = LV+7              ; 2: the tiles
+TCOLPOS     = LV+9              ; 2: per-tile colours
+TSTR        = LV+11             ; their stride (0: none)
+MAPPOS      = LV+12             ; 2: the map cells
+MW          = LV+14             ; 2: map width, height (cells)
+MH          = LV+16             ; 2
+TW          = LV+18             ; tile width, height (1 without tiles)
+TH          = LV+19
+OW          = LV+20             ; 2: the map's width, height in characters
+OH          = LV+22             ; 2
+METH        = LV+24             ; colour method (0 project, 1 tile, 2 char)
+COLR        = LV+25             ; the project's character colour
+NCH         = LV+26             ; characters (0: 256 or more)
+RB          = LV+27             ; 2: the map row's cells
+CP          = LV+29             ; 2: the next map cell
+TA          = LV+31             ; 2: the next tile cell
+CY          = LV+33             ; the row within the tiles
+CYT         = LV+34             ; its offset: CY * TW
+CX          = LV+35             ; the column within the tile
+CH          = LV+36             ; the character
+XX          = LV+37             ; 2: the column (characters)
+YY          = LV+39             ; 2: the row
+OP          = LV+41             ; 2: the output's position (cells)
+NB          = LV+43             ; cells in the buffers
+BG          = $06FF             ; the screen colour
+ROWCHR      = MOSBUF            ; 128: a run of characters (also: header)
 COLTAB      = $0700             ; the colour of each character (256; the
                                 ; page saved and put back)
 VER         = mosARGS           ; the file's version
 BPX         = mosARGS+1         ; bytes per colour entry (CharPad 3)
 TILES       = mosARGS+2         ; the file has tiles
-TMP         = mosTMP            ; 4: scratch
-MX          = mosNUM            ; 2: x, y (loops)
+TCOL        = mosARGS+1         ; the tile's colour (ct_map)
+TMP         = mosTMP            ; 4: scratch, cm_mul16's product
+MX          = mosNUM            ; 2: DRAW's map offset
+M1          = mosARGS           ; 2: cm_mul16's factors (M1 destroyed)
+M2          = fsBLK             ; 2
 SC_BYTE     = uciHLEN           ; a byte read from the file (zero page)
 CT_T        = fsCNT             ; 2: a tile's number
 CT_TS       = fsCH              ; cells per tile
 CT_P        = mosPTR2           ; 2: an address
-; ct_map's, over ct_parse's variables no longer needed then
-RB          = $0240             ; 2: the map row's cells
-CP          = $0242             ; 2: the next map cell
-TA          = $0244             ; 2: the next tile cell
-CY          = $0246             ; the row within the tiles
-CYT         = $0256             ; its offset: CY * TW
-CX          = $0257             ; the column within the tile
-CH          = $0258             ; the character
-TCOL        = mosARGS+1         ; the tile's colour
+BUFN        = 128               ; the run buffers' size
 
 ; ----------------------------------------------------------------------------
 ; cmd_map
@@ -149,21 +163,29 @@ cm_info:
 cmi_have:
     jsr bvc.s6_text
     dta 'Map ', 0
-    lda OW
+    lda HOW
+    ldx HOW+1
     jsr cm_dec
     jsr bvc.s6_text
     dta ' x ', 0
-    lda OH
+    lda HOH
+    ldx HOH+1
     jsr cm_dec
     jsr bvc.s6_text
     dta ' characters', 13, 0
     rts
 
-; cm_hdrget: the map bank's header -> OW, OH. C = 1 when there is none.
+; cm_dec: A/X (low/high) in decimal (st_dec16, bank 2)
+cm_dec:
+    sta mosTMP
+    stx mosTMP+1
+    jmp bvc.s6_dec16
+
+; cm_hdrget: the map bank's header -> HOW, HOH. C = 1 when there is none.
 cm_hdrget:
     lda #<MB_HDR
     ldx #>MB_HDR
-    ldy #5
+    ldy #7
     jsr cm_mbread               ; into ROWCHR
     lda ROWCHR
     cmp #'M'
@@ -174,50 +196,16 @@ cm_hdrget:
     lda ROWCHR+2
     cmp #'P'
     bne cmh_no
-    lda ROWCHR+3
-    sta OW
-    lda ROWCHR+4
-    sta OH
+    ldx #3
+cmh_c:
+    lda ROWCHR+3,x
+    sta HOW,x
+    dex
+    bpl cmh_c
     clc
     rts
 cmh_no:
     sec
-    rts
-
-; cm_dec: A in decimal.  Uses: A, X, TMP+3.
-cm_dec:
-    ldx #0
-    stx TMP+3
-cmd_100:
-    cmp #100
-    bcc cmd_10
-    sbc #100
-    inx
-    bne cmd_100
-cmd_10:
-    jsr cmd_dig
-    ldx #0
-cmd_t:
-    cmp #10
-    bcc cmd_1
-    sbc #10
-    inx
-    bne cmd_t
-cmd_1:
-    jsr cmd_dig
-    ora #'0'
-    jmp OSWRCH
-cmd_dig:                        ; X as a digit unless a leading zero
-    pha
-    txa
-    ora TMP+3
-    beq cmdd_skip
-    sta TMP+3
-    txa
-    ora #'0'
-    jsr OSWRCH
-cmdd_skip:
-    pla
     rts
 
 ; cm_mul: TMP+2/+3 = A * X (8 x 8 bits).  Uses: A, X, TMP+2/+3.
@@ -236,6 +224,33 @@ cmu_n:
     ror TMP+2
     dex
     bne cmu_l
+    sta TMP+3
+    rts
+
+; cm_mul16: TMP..TMP+3 = M1 * M2 (16 x 16 bits, a 32-bit product; M1
+; is used up).  Uses: A, X, Y.
+cm_mul16:
+    lda #0
+    sta TMP+2
+    ldx #16
+c16_l:
+    lsr M1+1
+    ror M1
+    bcc c16_n
+    tay                         ; (A: the product's top byte)
+    clc
+    lda TMP+2
+    adc M2
+    sta TMP+2
+    tya
+    adc M2+1
+c16_n:
+    ror
+    ror TMP+2
+    ror TMP+1
+    ror TMP
+    dex
+    bne c16_l
     sta TMP+3
     rts
 
@@ -261,32 +276,30 @@ cm_get:
     jsr bvc.bv_arg
     jsr bvc.s6_end
     pla
-    sta TMP+1                   ; x high
+    sta DA+1                    ; x
     pla
-    sta TMP                     ; x
+    sta DA
+    lda mosNUM                  ; y
+    sta DA+2
+    lda mosNUM+1
+    sta DA+3
     jsr cm_hdrget
     bcs cmg_zero
-    lda TMP+1                   ; inside the map?
-    ora mosNUM+1
-    bne cmg_zero
-    lda TMP
-    cmp OW
+    lda DA                      ; inside the map? (x < width, y < height)
+    cmp HOW
+    lda DA+1
+    sbc HOW+1
     bcs cmg_zero
-    lda mosNUM
-    cmp OH
+    lda DA+2
+    cmp HOH
+    lda DA+3
+    sbc HOH+1
     bcs cmg_zero
-    ldx OW                      ; MB_CHARS + y * OW + x
-    jsr cm_mul
-    lda TMP+2
-    clc
-    adc TMP
-    pha
-    lda TMP+3
-    adc #>MB_CHARS
-    tax
-    pla
+    jsr cm_cell                 ; MX = y * width + x
+    lda MX
+    ldx MX+1
     ldy #1
-    jsr cm_mbread
+    jsr cm_chread
     lda ROWCHR
     jmp cmg_set
 cmg_zero:
@@ -300,19 +313,51 @@ cmg_set:
     rts
 VARL_M      = $0400 + 4 * ('M' - '@')
 
+; cm_cell: MX = DA+2/+3 (y) * HOW + DA/+1 (x): a cell's offset (inside
+; the map: under 30720).  Uses: A, X, Y, TMP, M1, M2.
+cm_cell:
+    lda DA+2
+    sta M1
+    lda DA+3
+    sta M1+1
+    lda HOW
+    sta M2
+    lda HOW+1
+    sta M2+1
+    jsr cm_mul16
+    lda TMP
+    clc
+    adc DA
+    sta MX
+    lda TMP+1
+    adc DA+1
+    sta MX+1
+    rts
+
+; cm_chread: Y bytes of the characters at offset A/X into ROWCHR
+cm_chread:
+    pha
+    txa
+    clc
+    adc #>MB_CHARS
+    tax
+    pla
+    jmp cm_mbread
+
 ; ----------------------------------------------------------------------------
 ; cm_draw: *MAP DRAW mx,my,w,h AT col,row: that part of the map on the
 ; text screen, clipped to the map and the screen, characters and colours
 ; by DMA straight into the screen and colour RAM. Text modes only.
-; Arguments are numbers or A%-Z% (bvcmd.s); a coordinate over 255 (or
-; negative) puts the part off the map or screen: nothing is drawn.
+; Arguments are numbers or A%-Z% (bvcmd.s), 16 bits; mx, my from 0 to
+; the map's size; w, h over 255 count as 255; a part off the map or the
+; screen (or a negative col, row) draws nothing.
 cm_draw:
     lda #0
-    sta DRW+6                   ; (an argument off the map / screen)
+    sta DOFF
     ldx #0
 cmdr_a:
-    stx DRW+7
-    cpx #4
+    stx DIDX
+    cpx #8
     bne cmdr_n
     lda #<wm_at                 ; AT before col, row
     ldx #>wm_at
@@ -320,23 +365,15 @@ cmdr_a:
     bcs cmdr_n
     jmp bvc.s6_syntax
 cmdr_n:
-    jsr bvc.bv_arg
-    ldx DRW+7
-    lda mosNUM+1                ; (Y: the line's position, kept)
-    bne cmdr_hi
+    jsr bvc.bv_arg              ; (Y: the line's position, kept)
+    ldx DIDX
     lda mosNUM
-    jmp cmdr_st
-cmdr_hi:
-    lda #$FF                    ; over 255: a width or height of 255,
-    cpx #2                      ; else off
-    beq cmdr_st
-    cpx #3
-    beq cmdr_st
-    inc DRW+6
-cmdr_st:
-    sta DRW,x
+    sta DA,x
+    lda mosNUM+1
+    sta DA+1,x
     inx
-    cpx #6
+    inx
+    cpx #12
     bcc cmdr_a
     jsr bvc.s6_end
     lda vtype                   ; the text screen only
@@ -349,71 +386,84 @@ cmdr_text:
     brk
     dta 254, 'No map loaded', 0
 cmdr_have:
-    lda DRW+6
+    lda DA+9                    ; col, row: 0-39, 0-24
+    ora DA+11
     bne cmdr_rts
-    lda OW                      ; w = min(w, OW - mx, 40 - col)
+    lda DA+5                    ; w, h over 255: 255
+    beq cmdr_w255
+    lda #255
+    sta DA+4
+cmdr_w255:
+    lda DA+7
+    beq cmdr_h255
+    lda #255
+    sta DA+6
+cmdr_h255:
+    lda HOW                     ; w = min(w, width - mx, 40 - col)
     sec
-    sbc DRW
-    bcc cmdr_rts
+    sbc DA
+    tax
+    lda HOW+1
+    sbc DA+1
+    bcc cmdr_rts                ; (mx past the map)
+    bne cmdr_w0                 ; (256 or more left: w stays)
+    txa
     beq cmdr_rts
-    cmp DRW+2
-    bcs cmdr_w1
-    sta DRW+2
-cmdr_w1:
+    cmp DA+4
+    bcs cmdr_w0
+    sta DA+4
+cmdr_w0:
     lda #40
     sec
-    sbc DRW+4
+    sbc DA+8
     bcc cmdr_rts
     beq cmdr_rts
-    cmp DRW+2
-    bcs cmdr_w2
-    sta DRW+2
-cmdr_w2:
-    lda OH                      ; h = min(h, OH - my, 25 - row)
+    cmp DA+4
+    bcs cmdr_w1
+    sta DA+4
+cmdr_w1:
+    lda HOH                     ; h = min(h, height - my, 25 - row)
     sec
-    sbc DRW+1
+    sbc DA+2
+    tax
+    lda HOH+1
+    sbc DA+3
     bcc cmdr_rts
+    bne cmdr_h0
+    txa
     beq cmdr_rts
-    cmp DRW+3
-    bcs cmdr_h1
-    sta DRW+3
-cmdr_h1:
+    cmp DA+6
+    bcs cmdr_h0
+    sta DA+6
+cmdr_h0:
     lda #25
     sec
-    sbc DRW+5
+    sbc DA+10
     bcc cmdr_rts
     beq cmdr_rts
-    cmp DRW+3
-    bcs cmdr_h2
-    sta DRW+3
-cmdr_h2:
-    lda DRW+2
+    cmp DA+6
+    bcs cmdr_h1
+    sta DA+6
+cmdr_h1:
+    lda DA+4
     beq cmdr_rts
-    lda DRW+3
+    lda DA+6
     bne cmdr_rows
 cmdr_rts:
     rts
 cmdr_rows:
-    lda DRW+1                   ; the map offset of the first cell
-    ldx OW
-    jsr cm_mul
-    lda TMP+2
-    clc
-    adc DRW
-    sta MX
-    lda TMP+3
-    adc #0
-    sta MX+1
-    lda DRW+5                   ; the screen offset: row * 40 + col
+    jsr cm_cell                 ; MX: the map offset of the first cell
+    lda DA+10                   ; the screen offset: row * 40 + col
     ldx #40
     jsr cm_mul
     lda TMP+2
     clc
-    adc DRW+4
+    adc DA+8
     sta TMP
     lda TMP+3
     adc #0
     sta TMP+1
+    jsr cm_beam                 ; (no tearing: ahead of the beam)
 cmdr_row:
     lda TMP                     ; characters: map -> screen
     sta fsADDR
@@ -429,7 +479,7 @@ cmdr_row:
     sta fsTMP+1
     jsr cm_bank
     sta fsTMP+2
-    lda DRW+2
+    lda DA+4
     sta fsLEN
     lda #0
     sta fsLEN+1
@@ -449,11 +499,11 @@ cmdr_row:
     jsr cm_dma
     lda MX                      ; next row
     clc
-    adc OW
+    adc HOW
     sta MX
-    bcc cmdr_m
-    inc MX+1
-cmdr_m:
+    lda MX+1
+    adc HOW+1
+    sta MX+1
     lda TMP
     clc
     adc #40
@@ -461,8 +511,25 @@ cmdr_m:
     bcc cmdr_s
     inc TMP+1
 cmdr_s:
-    dec DRW+3
+    dec DA+6
     bne cmdr_row
+    rts
+
+; cm_beam: wait until the copy can stay ahead of the beam (2026-10-16:
+; scrolling tore): the VIC-II's raster in the bottom border, the vertical
+; blank or the top border's first lines (0-31, 251-311) is fine, as the
+; rows go top first at about 6 lines each and the beam needs 8 a row from
+; line 51; in between, wait for line 251. The copy then never shows half
+; old, half new, and programs need no *FX 19.  Uses: A.
+cm_beam:
+    lda $D011                   ; line 256 or more: go
+    bmi cbm_rts
+    lda $D012
+    cmp #32
+    bcc cbm_rts
+    cmp #251
+    bcc cm_beam
+cbm_rts:
     rts
 
 ; ----------------------------------------------------------------------------
@@ -485,6 +552,7 @@ cm_load:
 cml_room:
     jsr ct_file
     jsr ct_parse
+    jsr cm_blank                ; (the old screen in the new font: hidden)
     jsr ct_font
     lda #REU_TO_REU             ; page &0700 aside (BASIC still reads the
     jsr cm_save7                ; command's line there afterwards)
@@ -494,6 +562,32 @@ cml_room:
     jsr cm_save7
     lda BG                      ; the screen colour
     sta $D021
+    jmp cm_unblank
+
+; cm_blank / cm_unblank: the text screen off / on (VIC-II $D011 bit 4)
+; while *MAP LOAD changes the font (2026-10-16: the screen's spaces showed
+; as the new set's character 32 during the load); not in the bitmap
+; modes.  Uses: A.
+cm_blank:
+    lda vtype
+    bne cmbl_rts
+    php
+    sei                         ; (the sprite multiplexer writes $D011)
+    lda $D011
+    and #$EF
+    sta $D011
+    plp
+cmbl_rts:
+    rts
+cm_unblank:
+    lda vtype
+    bne cmbl_rts
+    php
+    sei
+    lda $D011
+    ora #$10
+    sta $D011
+    plp
     rts
 
 ; cm_save7: page &0700 to (A = REU_TO_REU) or from (REU_TO_C64) MB_SAVE
@@ -1025,45 +1119,66 @@ ctc_put:
 
 ; ----------------------------------------------------------------------------
 ; ct_map
-;   Summary: the map, tiles expanded, row by row into the map bank: the
-;            characters (each cell's low byte) and their colours (per
-;            tile: the tile's; else COLTAB's); the header last.
-;   Function: OW = MW * TW, OH = MH * TH, each at most 255, OW * OH at
-;            most MB_MAX ("Map too big"). ESCAPE stops.
+;   Summary: the map, tiles expanded, into the map bank: the characters
+;            (each cell's low byte) and their colours (per tile: the
+;            tile's; else COLTAB's), as one run of cells (rows follow each
+;            other without gaps) through 128-cell buffers; the header last.
+;   Function: OW = MW * TW, OH = MH * TH, each 1-65535, OW * OH at most
+;            MB_MAX ("Map too big"). ESCAPE stops.
 ct_map:
-    lda MW+1                    ; the size in characters
-    bne ctm_big
-    lda MW
-    ldx TW
-    jsr cm_mul
-    lda TMP+3
-    bne ctm_big
+    lda MW                      ; the size in characters
+    sta M1
+    lda MW+1
+    sta M1+1
+    lda TW
+    sta M2
+    lda #0
+    sta M2+1
+    jsr cm_mul16
     lda TMP+2
-    beq ctm_big
+    bne ctm_big
+    lda TMP
     sta OW
-    lda MH+1
-    bne ctm_big
-    lda MH
-    ldx TH
-    jsr cm_mul
-    lda TMP+3
-    bne ctm_big
-    lda TMP+2
+    lda TMP+1
+    sta OW+1
+    ora OW
     beq ctm_big
-    sta OH
-    ldx OW                      ; cells
-    jsr cm_mul
-    lda TMP+3
-    cmp #>MB_MAX
-    bcc ctm_ok
-    bne ctm_big
+    lda MH
+    sta M1
+    lda MH+1
+    sta M1+1
+    lda TH
+    sta M2
+    jsr cm_mul16
     lda TMP+2
-    beq ctm_ok
+    bne ctm_big
+    lda TMP
+    sta OH
+    sta M1
+    lda TMP+1
+    sta OH+1
+    sta M1+1
+    ora OH
+    beq ctm_big
+    lda OW                      ; cells: at most MB_MAX
+    sta M2
+    lda OW+1
+    sta M2+1
+    jsr cm_mul16
+    lda TMP+2
+    ora TMP+3
+    bne ctm_big
+    lda TMP
+    cmp #<[MB_MAX+1]
+    lda TMP+1
+    sbc #>[MB_MAX+1]
+    bcc ctm_ok
 ctm_big:
-    lda #REU_TO_C64             ; (page &0700 back first)
+    lda #REU_TO_C64             ; (page &0700 back, the screen on first)
     jsr cm_save7
+    jsr cm_unblank
     brk
-    dta 254, 'Map too big (255 x 255, 30720 cells)', 0
+    dta 254, 'Map too big (30720 characters)', 0
 ctm_ok:
     lda TW                      ; cells per tile
     ldx TH
@@ -1076,7 +1191,11 @@ ctm_ok:
     sta RB+1
     lda #0
     sta CY
-    sta MX+1                    ; y
+    sta YY
+    sta YY+1
+    sta OP
+    sta OP+1
+    sta NB
 ctm_row:
     lda CY                      ; the offset of the tile row: cy * TW
     ldx TW
@@ -1088,7 +1207,8 @@ ctm_row:
     lda RB+1
     sta CP+1
     lda #0
-    sta MX                      ; x
+    sta XX
+    sta XX+1
     sta CX
 ctm_cell:
     lda TILES
@@ -1131,26 +1251,84 @@ ctm_cx:
     ldx COLTAB,y
 ctm_put:
     lda CH
-    ldy MX
+    ldy NB
     sta ROWCHR,y
     txa
     sta ROWCOL,y
-    inc MX
-    lda MX
+    iny
+    sty NB
+    cpy #BUFN
+    bcc ctm_nx
+    jsr ctm_flush
+ctm_nx:
+    inc XX
+    bne ctm_x
+    inc XX+1
+ctm_x:
+    lda XX
     cmp OW
-    bcc ctm_cell
-    lda MX+1                    ; the row into both planes
-    ldx OW
-    jsr cm_mul                  ; TMP+2/+3 = y * OW
-    lda TMP+2
-    sta fsTMP
-    lda TMP+3
+    lda XX+1
+    sbc OW+1
+    bcs ctm_rowend
+    jmp ctm_cell
+ctm_rowend:
+    bit ESCFLG
+    bpl ctm_noesc
+    jmp ctm_esc
+ctm_noesc:
+    inc CY                      ; the next row of the tiles, or of the map
+    lda CY
+    cmp TH
+    bcc ctm_ny
+    lda #0
+    sta CY
+    lda MW                      ; RB += MW * 2
+    asl
+    tax
+    lda MW+1
+    rol
+    tay
+    txa
     clc
-    adc #>MB_CHARS
+    adc RB
+    sta RB
+    tya
+    adc RB+1
+    sta RB+1
+ctm_ny:
+    inc YY
+    bne ctm_y
+    inc YY+1
+ctm_y:
+    lda YY
+    cmp OH
+    lda YY+1
+    sbc OH+1
+    bcs ctm_hdr
+    jmp ctm_row
+ctm_hdr:
+    jsr ctm_flush               ; the rest
+    lda #'M'                    ; the header last (a broken load: none)
+    sta ROWCHR
+    lda #'A'
+    sta ROWCHR+1
+    lda #'P'
+    sta ROWCHR+2
+    lda OW
+    sta ROWCHR+3
+    lda OW+1
+    sta ROWCHR+4
+    lda OH
+    sta ROWCHR+5
+    lda OH+1
+    sta ROWCHR+6
+    lda #<MB_HDR
+    sta fsTMP
+    lda #>MB_HDR
     sta fsTMP+1
     jsr cm_bank
     sta fsTMP+2
-    lda OW
+    lda #7
     sta fsLEN
     lda #0
     sta fsLEN+1
@@ -1159,8 +1337,31 @@ ctm_put:
     lda #>ROWCHR
     sta fsADDR+1
     lda #REU_TO_REU
+    jmp cm_dma
+
+; ctm_flush: the NB cells in the buffers to the map bank at OP (both
+; planes); OP += NB, NB = 0.  Uses: A, X, fs*.
+ctm_flush:
+    lda NB
+    beq ctf_rts
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    lda OP
+    sta fsTMP
+    lda OP+1
+    clc
+    adc #>MB_CHARS
+    sta fsTMP+1
+    jsr cm_bank
+    sta fsTMP+2
+    lda #<ROWCHR
+    sta fsADDR
+    lda #>ROWCHR
+    sta fsADDR+1
+    lda #REU_TO_REU
     jsr cm_dma
-    lda TMP+3
+    lda OP+1
     clc
     adc #>MB_COLS
     sta fsTMP+1
@@ -1170,57 +1371,21 @@ ctm_put:
     sta fsADDR+1
     lda #REU_TO_REU
     jsr cm_dma
-    bit ESCFLG
-    bmi ctm_esc
-    inc CY                      ; the next row of the tiles, or of the map
-    lda CY
-    cmp TH
-    bcc ctm_ny
-    lda #0
-    sta CY
-    lda MW                      ; RB += MW * 2
-    asl
-    php
+    lda OP
     clc
-    adc RB
-    sta RB
-    lda RB+1
-    adc #0
-    plp
-    adc #0
-    sta RB+1
-ctm_ny:
-    inc MX+1
-    lda MX+1
-    cmp OH
-    bcs ctm_hdr
-    jmp ctm_row
-ctm_hdr:
-    lda #'M'                    ; the header last (a broken load: none)
-    sta ROWCHR
-    lda #'A'
-    sta ROWCHR+1
-    lda #'P'
-    sta ROWCHR+2
-    lda OW
-    sta ROWCHR+3
-    lda OH
-    sta ROWCHR+4
-    lda #<MB_HDR
-    sta fsTMP
-    lda #>MB_HDR
-    sta fsTMP+1
-    lda #5
-    sta fsLEN
-    lda #<ROWCHR
-    sta fsADDR
-    lda #>ROWCHR
-    sta fsADDR+1
-    lda #REU_TO_REU
-    jmp cm_dma
+    adc NB
+    sta OP
+    bcc ctf_z
+    inc OP+1
+ctf_z:
+    lda #0
+    sta NB
+ctf_rts:
+    rts
 ctm_esc:
     lda #REU_TO_C64
     jsr cm_save7
+    jsr cm_unblank
     lda #$7E
     jsr OSBYTE
     brk

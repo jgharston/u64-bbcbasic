@@ -1,6 +1,7 @@
 ; ----------------------------------------------------------------------------
 ;
-; U64 BBC BASIC -- MODE 1 on the VIC-II: the 4x6 font, bank 8
+; U64 BBC BASIC -- MODE 1 on the VIC-II: the 4x6 font, bank 6 (bank 8
+; until 2026-10-16, when *MAP needed the room)
 ;
 ; Called by bank 3's MODE code (bk_mode0) at every mode change.
 ;
@@ -12,7 +13,7 @@
 ;            (2026-10-15: 80 columns).
 ;   Function: with an REU: on entering, characters 32-126 of the REU font
 ;            (REU_FONT + 32 * 8, 760 bytes) go to REU_FONTSAVE and the 4x6
-;            glyphs (font4x6, bank 8) take their place; on leaving they
+;            glyphs (font4x6, this bank) take their place; on leaving they
 ;            come back. FONT46 says which is in. Characters defined (VDU
 ;            23) while such a mode is on are lost when it ends.
 ;   Input:   vmode, vmode_ul.  Output: FONT46.  Uses: A, X, Y, fs*, MOSBUF.

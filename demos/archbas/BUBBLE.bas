@@ -4,9 +4,11 @@
 40 REM T%(c*4+t) is the nearest entry, worked out once.
 50 MODE M%
 60 *OFF
+65 PROCtable
 70 PROCsetup
+75 PROCtitle
 80 PROCdraw
-90 K%=GET
+90 PROCend
 100 CHAIN "SCHRAF"
 110 END
 120 DEF PROCsetup
@@ -34,23 +36,53 @@
 340   NEXT
 350 =N%
 360 DEF PROCdraw
-370   LOCAL I%,J%,W%,P%
+370   LOCAL I%,J%,W%,P%,F%,G%
 380   REM the Archimedes' 1280 units fill the width: 1536 in MODE 110
 390   IF M%=110 THEN W%=1536 ELSE W%=1280
 400   pi=4*TAN(1):r=2*pi/235:t=RND(4):x=0:u=0:v=0
 410   P%=TIME+500
 420   FOR I%=0 TO 249
 430     FOR J%=0 TO 249
-440       u=SIN(I%+v)+SIN(r*I%+x)
-450       v=COS(I%+v)+COS(r*I%+x)
+440       F%=INT((I%+v)*K+.5):G%=INT((r*I%+x)*K+.5)
+445       u=(S%!(4*(F% AND Q%))+S%!(4*(G% AND Q%)))*Z
+450       v=(S%!(4*((F%+H%) AND Q%))+S%!(4*((G%+H%) AND Q%)))*Z
 460       x=u+t
 470       X%=W%/2+W%/5*u:Y%=512+256*v
 480       GCOL 0,T%((I%*3) MOD 64*4+(J%*3) MOD 4)
 490       *POINT X%,Y%
 500     NEXT
+505     PROCprogress(I%+1,250)
 510     IF M%=110 AND TIME>P% THEN P%=TIME+500:OSCLI "UPIC SHOW 50"
 520   NEXT
 530 ENDPROC
+531 DEF PROCtable
+532   REM SIN and COS from *TABLE: 256 steps a turn in MODE 2 (1K: MODE 2
+533   REM leaves under 5K), 1024 in MODE 110; COS is a quarter turn on (H%)
+534   IF M%=110 THEN V%=1024 ELSE V%=256
+535   DIM S% 4*V%-1
+536   *TABLE SIN S% V%
+537   Q%=V%-1:H%=V% DIV 4:K=V%/2/PI:Z=1/65536
+538 ENDPROC
 540 DATA 0,0,0, 255,0,0, 0,255,0, 255,255,0, 0,0,255, 255,0,255
 550 DATA 0,255,255, 255,255,255, 255,128,0, 128,0,255, 0,128,255
 560 DATA 255,0,128, 128,255,0, 0,255,128, 128,128,128, 64,64,64
+570 DEF PROCtitle
+571   REM Full mode: the text screen shows while the picture is drawn
+572   IF M%<>110 THEN ENDPROC
+573   COLOUR 7:PRINT TAB(4,9);"Bubble Universe";
+574   PRINT TAB(4,10);"a look at the picture every 5 s";
+575 ENDPROC
+576 DEF PROCprogress(F%,G%)
+577   REM Full mode: a bar growing to 32 cells as F% of G% is done, in
+578   REM colour 7: bright in this demo's palette (the text screen's too)
+579   LOCAL B%
+580   IF M%<>110 THEN ENDPROC
+581   B%=F%*32 DIV G%
+582   PRINT TAB(4,12);:COLOUR 135:PRINT SPC(B%);
+583   COLOUR 128:COLOUR 7:PRINT TAB(4,14);F%*100 DIV G%;"% drawn  ";
+584 ENDPROC
+585 DEF PROCend
+586   REM Full mode: the finished picture until a key (GET shows it only
+587   REM when it changed since the last look); the key is not kept
+588   IF M%=110 THEN OSCLI "UPIC SHOW":OSCLI "FX 15,1" ELSE K%=GET
+589 ENDPROC

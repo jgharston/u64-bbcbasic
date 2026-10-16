@@ -164,7 +164,7 @@ vm_ppb:
     sta vmode_bbc               ; MODE 2), though y scales as a C64 mode
 vm_nup:
     jsr ul_choose               ; MODE 0/1/4: Upic Lite when possible
-    farcall fnt46, BANK_UP      ; 4-pixel cells: the 4x6 font (or back)
+    farcall fnt46, BANK_SND     ; 4-pixel cells: the 4x6 font (or back)
     jsr pal_default
     lda ul_active               ; leaving Upic Lite?
     beq vm_noleave

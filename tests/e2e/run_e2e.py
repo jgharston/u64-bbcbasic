@@ -331,6 +331,19 @@ def test_help(t):
     run_line(t, "*HELP *CAT", "Lists the current directory")
     run_line(t, "*HELP OPEN", "OPENUP")
     run_line(t, "*HELP FROB", "No help on FROB")
+    if not ult(t):
+        return
+    # paragraphs reflow to the width (2026-10-16): 39 characters a line on
+    # the 40-column screen, up to 79 in MODE 3's 80 columns; the command
+    # lines keep theirs
+    rm = remote(t)
+    for mode, low, high in (("MODE 3", 40, 79), ("MODE 100", 30, 39)):
+        rm.run_lines([mode])
+        out = rm.run_lines(["*HELP *EDIT"], timeout=30)
+        assert not out["error"], out
+        widest = max(len(x) for x in out["output"].split("\n"))
+        assert low <= widest <= high, (mode, widest, out["output"])
+        assert "  *EDIT BBC   the MOS line editor" in out["output"], out
 
 
 def help_pages(t, last_text):
@@ -1381,24 +1394,29 @@ def test_sprite_gfx(t):
 
 def test_sprite_spd5(t):
     # SpritePad V2-V5 files (*SPRITE LOAD): a V5 file, 20-byte header,
-    # three sprites (left half, full, top rows), then animation data and
-    # a block that would be a fourth (full) shape if the header's sprite
-    # count were not kept; dots counted per colour in the video stream
+    # four sprites (left half, full, top rows, an all-%10 multicolour
+    # one), then animation data and a block that would be a fifth (full)
+    # shape if the header's sprite count were not kept. SHAPE takes a
+    # shape's SpritePad colour and multicolour flag (attribute MYXVCCCC);
+    # COLOUR afterwards overrides. Dots counted per colour in the video
+    # stream
     if not ult(t):
         return
-    full = bytes([255] * 63 + [0])
-    left = bytes([255, 240, 0] * 21 + [0x81])            # (attribute byte)
+    full = bytes([255] * 63 + [0x0D])                    # (light green)
+    left = bytes([255, 240, 0] * 21 + [0x01])            # (white)
     top = bytes([255] * 30 + [0] * 33 + [0])
-    head = b"SPD" + bytes([5, 2, 3, 0, 0, 0, 0, 0, 1, 1, 0, 5, 6,
+    mc = bytes([0xAA] * 63 + [0x8E])                     # MC, light blue
+    head = b"SPD" + bytes([5, 2, 4, 0, 0, 0, 0, 0, 1, 1, 0, 5, 6,
                            1, 0, 1, 0])
-    spd = head + left + full + top + bytes([0, 0, 2, 0, 5, 0]) + full
+    spd = head + left + full + top + mc + bytes([0, 0, 2, 0, 5, 0]) + full
     with ftplib.FTP(t.host, timeout=20) as ftp:
         ftp.login("anonymous", "")
         ftp.storbinary("STOR /Temp/SHAPES5.SPD", io.BytesIO(spd))
     rm = remote(t)
     rm.run_lines(["MODE 100", "*SPRITE ON", "MODE 129"])
     prog = "\n".join([
-        "10 *SPRITE LOAD 40 SHAPES5.SPD",
+        "10 *SPRITE DEFINE 44 " + "00" * 63,
+        "15 *SPRITE LOAD 40 SHAPES5.SPD",
         "20 *SPRITE 0 SHAPE 40",
         "30 *SPRITE 0 COLOUR 1",
         "40 *SPRITE 0 ON 100,800",
@@ -1408,23 +1426,25 @@ def test_sprite_spd5(t):
         "80 *SPRITE 2 SHAPE 42",
         "90 *SPRITE 2 COLOUR 3",
         "100 *SPRITE 2 ON 700,400",
-        "110 *SPRITE 3 SHAPE 43",
+        "110 *SPRITE 3 SHAPE 44",
         "120 *SPRITE 3 COLOUR 4",
-        "130 *SPRITE 3 ON 1000,200", ""])
+        "130 *SPRITE 3 ON 1000,200",
+        "140 *SPRITE 4 SHAPE 43",
+        "150 *SPRITE 4 ON 1000,700", ""])
     r = rm.send_program(prog, run=True, timeout=20)
     assert r["ok"], r
     sys.path.insert(0, os.path.join(ROOT, "tools"))
     import u64shot
     time.sleep(0.5)
     rows = u64shot.grab(t.host, 11002)
-    count = {c: sum(row.count(c) for row in rows) for c in (2, 5, 7, 6)}
+    count = {c: sum(row.count(c) for row in rows) for c in (2, 5, 7, 6, 14)}
     assert 240 <= count[2] <= 265, count                 # red: left half
     assert 480 <= count[5] <= 530, count                 # green: full
     assert 230 <= count[7] <= 250, count                 # yellow: top rows
     assert count[6] < 20, count                          # blue: none loaded
+    assert 480 <= count[14] <= 530, count                # light blue, MC
     out = rm.run_lines(["MODE 100", "*SPRITE OFF", "*DELETE SHAPES5.SPD"])
     assert not out["error"], out
-
 
 def upic_bars():
     """A Upic v1.3 file: 16 bars of 24 pixels in colours 0-15."""
@@ -1545,6 +1565,34 @@ def ctm_expand(meth, ccols, tiles, tcols, mapw, maph, cells, colr):
     return rows
 
 
+def test_table(t):
+    # *TABLE SIN/COS (mathtab.s): 1024 x 32-bit, value x 65536 (or 256 /
+    # 512 steps); the
+    # quarter points exact, every 13th entry within 0.5 of SIN*65536
+    # (VICE runs at 1 MHz: all 2048 take over a minute); a table outside
+    # PAGE..HIMEM refused. (The program first: entering lines clears the
+    # variables.)
+    run_line(t, "NEW", ">")
+    run_line(t, "10 FOR I%=0 TO 1023 STEP 13:A=I%*PI/512", ">")
+    run_line(t, "20 E=ABS(S%!(4*I%)-SIN A*65536):IF E>M M=E", ">")
+    run_line(t, "30 F=ABS(C%!(4*I%)-COS A*65536):IF F>N N=F", ">")
+    run_line(t, '40 NEXT:PRINT "R=";M<=0.5;N<=0.5', ">")
+    run_line(t, "DIM S% 4095,C% 4095:*TABLE SIN S%", ">")
+    run_line(t, "*TABLE COS C%", ">")
+    run_line(t, 'PRINT "R=";S%!0;",";S%!1024;",";S%!2048;",";S%!3072;'
+                '",";S%!512', "R=0,65536,0,-65536,46341")
+    run_line(t, 'PRINT "R=";C%!0;",";C%!1024;",";C%!2048;",";C%!4092',
+             "R=65536,0,-65536,65535")
+    run_line(t, "M=0:N=0:GOTO 10", "R=-1-1", timeout=60)
+    run_line(t, "DIM Q% 1023,H% 2047:*TABLE SIN Q% 256", ">")    # 256 steps
+    run_line(t, "*TABLE COS H% 512", ">")
+    run_line(t, 'PRINT "R=";Q%!4;",";Q%!256;",";Q%!512;",";Q%!1020;",";'
+                'H%!0;",";H%!512', "R=1608,65536,0,-1608,65536,0")
+    run_line(t, "*TABLE SIN Q% 100", "Steps: 256, 512 or 1024")
+    run_line(t, "*TABLE SIN HIMEM-100", "Syntax")
+    run_line(t, "*TABLE SIN &7F00", "Bad address")
+    run_line(t, "*TABLE TAN S%", "Syntax")
+
 def test_map(t):
     # CharPad CTM files (*MAP, *FONT LOAD): four projects, versions 6, 7,
     # 82 (8) and 9, with and without tiles and with each colour method;
@@ -1614,6 +1662,25 @@ def _map_checks(t, rm):
                 'PRINT "R=";?(?&288*256+999);",";?&DBE7 AND 15',
              "R=%d,%d" % exp[2][5])
     run_line(t, "*MAP GET 99,99", ">")
+    run_line(t, 'PRINT "R=";M%', "R=0")
+    # a map wider than 255 (16-bit sizes, 2026-10-16): 300 x 3, no tiles
+    cells = [(i * 7 + i // 300) % 40 for i in range(900)]
+    f = ctm_file(9, 0, chars, None, None, None, 300, 3, cells, bg=0,
+                 colr=5)
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", "")
+        ftp.storbinary("STOR /Temp/M.CTM", io.BytesIO(f))
+    exp = ctm_expand(0, None, None, None, 300, 3, cells, 5)
+    run_line(t, "*MAP LOAD M.CTM", ">")
+    run_line(t, "*MAP", "Map 300 x 3 characters")
+    run_line(t, 'OSCLI "MAP GET 299,2":A%=M%:OSCLI "MAP GET 256,1":'
+                'PRINT "R=";A%;",";M%', "R=%d,%d" % (exp[2][299][0],
+                                                  exp[1][256][0]))
+    run_line(t, 'OSCLI "MAP DRAW 260,1,99,9 AT 0,5":'
+                'PRINT "R=";?(?&288*256+239);",";?&D8EF AND 15;",";'
+                '?(?&288*256+240)', "R=%d,%d,%d" % (exp[1][299][0], 5,
+                                                   exp[2][260][0]))
+    run_line(t, "*MAP GET 300,0", ">")
     run_line(t, 'PRINT "R=";M%', "R=0")
     run_line(t, "*FONT DEFAULT", ">")
     run_line(t, "*FONT LOAD M.CTM", ">")
@@ -2656,7 +2723,7 @@ GROUPS = {
                  test_gfx_mode3, test_gfx_teletext, test_gfx_upiclite],
     "sound": [test_sound, test_sid_mode, test_sound_none, test_inst_mods,
               test_song, test_reu_irq, test_sid, test_speech],
-    "system": [test_memory, test_star_list, test_snapshot, test_sedit,
+    "system": [test_memory, test_table, test_star_list, test_snapshot, test_sedit,
                test_acorn, test_classics, test_hanoi, test_classic_files],
     "network": [test_net, test_json, test_netchan],
     "remote": [test_remote_exec, test_remote_run_error, test_remote_input,

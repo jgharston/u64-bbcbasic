@@ -107,9 +107,9 @@ VDU          VPOS         WIDTH
 *SNAPSHOT    *SONG        *SOUND
 *SPEECH      *SPOOL       *SPRITE
 *SRREAD      *SRWRITE     *STATUS
-*SWAP        *TIME        *TURBO
-*TYPE        *UNMOUNT     *UPIC
-*UVER        *XREF
+*SWAP        *TABLE       *TIME
+*TURBO       *TYPE        *UNMOUNT
+*UPIC        *UVER        *XREF
 ```
 
 ## BBC
@@ -1223,6 +1223,41 @@ characters. The BBC characters are
 Acorn's (see CREDITS).
 ```
 
+## *TABLE
+
+Also: `TABLE`
+
+```
+  *TABLE SIN addr [steps]  sine table
+  *TABLE COS addr [steps]  cosine
+
+Fast sine and cosine for programs that
+need many of them (demos, generative
+graphics): a table of 1024 whole
+numbers, a full turn in 1024 steps,
+each the value times 65536, in 4096
+bytes of the program's memory. A table
+read takes about 30 microseconds, SIN
+itself about 775.
+
+  DIM S% 4095:*TABLE SIN S%
+  Y%=S%!(4*(A% AND 1023))
+
+gives SIN(A%*PI/512)*65536, rounded
+(65536 is 1). addr is a number or one
+of A%-Z%; the table must lie between
+PAGE and HIMEM. COS is the same a
+quarter turn on.
+
+*TABLE SIN addr 256 (or 512) makes a
+smaller table with a full turn in that
+many steps: 1K for 256, for modes that
+leave little memory (MODE 2 has under
+5K). One table is enough for both: COS
+is S%!(4*((A%+64) AND 255)) with 256
+steps.
+```
+
 ## *MAP
 
 Also: `MAP`
@@ -1240,19 +1275,21 @@ the project's characters the font, sets
 the screen colour and keeps the map in
 the REU: tiles become characters, each
 with its colour (per project, tile or
-character). At most 255 x 255
-characters and 30720 in all. The RAM
-disk then ends 128K before the REU's
-end.
+character). Up to 65535 characters wide
+or high and 30720 in all, so wide
+scrolling levels fit. The RAM disk then
+ends 128K before the REU's end.
 
 DRAW copies w x h characters from map
 column mx, row my to the text screen at
 col, row (text modes only, e.g. MODE
 100), with their colours, cut at the
-edges of the map and the screen.
-Arguments are numbers or A%-Z%, so a
-loop scrolls: *MAP DRAW X%,0,40,25 AT
-0,0.
+edges of the map and the screen. It
+waits for the right moment of the frame
+itself, so the picture never tears and
+a loop needs no *FX 19. Arguments are
+numbers or A%-Z%, so a loop scrolls:
+*MAP DRAW X%,0,40,25 AT 0,0.
 
 GET puts the character code at mx,my in
 M% (0 outside the map).
@@ -1685,9 +1722,13 @@ in the REU:
 versions 1 to 5, SpritePad 1.8 to Pro
 3; their sprites, not tiles or
 animations), files with a 3-byte
-header, or plain 64-byte shapes.
-Multicolour sprites have 12 x 21
-double-wide dots in 4 colours:
+header, or plain 64-byte shapes. A
+shape from a SpritePad file keeps its
+colour and multicolour setting: *SPRITE
+n SHAPE s gives them to the sprite, and
+*SPRITE n COLOUR afterwards changes the
+colour. Multicolour sprites have 12 x
+21 double-wide dots in 4 colours:
 transparent, the sprite's own, and the
 pair *SPRITE COLOURS sets for all
 sprites (the VIC-II has one pair).

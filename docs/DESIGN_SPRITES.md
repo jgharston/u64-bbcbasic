@@ -150,9 +150,13 @@ Options for the bitmap modes, to decide:
   sprites. The multicolours are at bytes 7/8 (V1) or &0E/&0F (V2-V5).
   Each shape's 64th byte is SpritePad's attribute (`MYXVCCCC`: multicolour,
   Y/X expand from V5, overlay, colour) and stays in the REU with the shape.
-- Not yet: `*SPRITE LOAD` does not apply SPD's colours or the
-  attribute bytes (the owner's decision is open: shapes carry no colour
-  in this sprite model).
+- SPD colours (owner, 2026-10-16): `*SPRITE n SHAPE s` also sets the
+  sprite's colour (CCCC, a C64 colour) and multicolour flag (M) from a
+  shape that came from an SPD file; a later `*SPRITE n COLOUR` overrides.
+  A marker per shape at REU bank 1 &3100 (64 bytes, cleared at
+  start-up) says which shapes have one: `*SPRITE LOAD` sets it for SPD
+  files and clears it for raw ones, `*SPRITE DEFINE` clears it. The
+  expand and overlay bits and the file's multicolour pair are not used.
 
 ## 6. GXR software sprites (owner, 2026-10-14)
 

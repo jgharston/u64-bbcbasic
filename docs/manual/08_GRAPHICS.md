@@ -254,9 +254,9 @@ With an REU (the Ultimates) the font shows on the text screen and in the graphic
 *MAP              its size
 ```
 
-Maps from CharPad (.ctm project files, versions 6-9; needs an REU). LOAD makes the project's characters the font, sets the screen colour and keeps the map in the REU: tiles become characters, each with its colour (per project, tile or character). At most 255 x 255 characters and 30720 in all. The RAM disk then ends 128K before the REU's end.
+Maps from CharPad (.ctm project files, versions 6-9; needs an REU). LOAD makes the project's characters the font, sets the screen colour and keeps the map in the REU: tiles become characters, each with its colour (per project, tile or character). Up to 65535 characters wide or high and 30720 in all, so wide scrolling levels fit. The RAM disk then ends 128K before the REU's end.
 
-DRAW copies w x h characters from map column mx, row my to the text screen at col, row (text modes only, e.g. MODE 100), with their colours, cut at the edges of the map and the screen. Arguments are numbers or A%-Z%, so a loop scrolls: *MAP DRAW X%,0,40,25 AT 0,0.
+DRAW copies w x h characters from map column mx, row my to the text screen at col, row (text modes only, e.g. MODE 100), with their colours, cut at the edges of the map and the screen. It waits for the right moment of the frame itself, so the picture never tears and a loop needs no *FX 19. Arguments are numbers or A%-Z%, so a loop scrolls: *MAP DRAW X%,0,40,25 AT 0,0.
 
 GET puts the character code at mx,my in M% (0 outside the map).
 
@@ -291,7 +291,7 @@ x,y are BBC graphics coordinates (0-1279, 0-1023), of the sprite's bottom left c
 *SPRITE 0 ON 640,512
 ```
 
-*SPRITE LOAD reads SpritePad files (SPD versions 1 to 5, SpritePad 1.8 to Pro 3; their sprites, not tiles or animations), files with a 3-byte header, or plain 64-byte shapes. Multicolour sprites have 12 x 21 double-wide dots in 4 colours: transparent, the sprite's own, and the pair *SPRITE COLOURS sets for all sprites (the VIC-II has one pair).
+*SPRITE LOAD reads SpritePad files (SPD versions 1 to 5, SpritePad 1.8 to Pro 3; their sprites, not tiles or animations), files with a 3-byte header, or plain 64-byte shapes. A shape from a SpritePad file keeps its colour and multicolour setting: *SPRITE n SHAPE s gives them to the sprite, and *SPRITE n COLOUR afterwards changes the colour. Multicolour sprites have 12 x 21 double-wide dots in 4 colours: transparent, the sprite's own, and the pair *SPRITE COLOURS sets for all sprites (the VIC-II has one pair).
 
 In the graphics modes and MODE 7 the bitmap leaves room for two shapes: the multiplexer copies each sprite's shape in as it comes, so sprites on the same lines can have at most 2 different shapes (the text screen holds all 64).
 

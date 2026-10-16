@@ -1117,3 +1117,18 @@ Decisions of 2026-10-16 (owner, asked interactively):
   waits until after the first release.
 - *SONG's "Song full" has not been seen since the REU-register fix of
   2026-10-10 (DESIGN_SOUND): closed.
+
+Schraf demos (owner, 2026-10-16): the menu in the music demo's style,
+live/full as a choice shown in the menu; SIN/COS from `*TABLE`, built
+now (DESIGN_GRAPHICS 4: steps 256/512/1024, 256 for MODE 2's under 5K),
+in every non-original demo with many SIN/COS (BUBBLE, FIELD, HAT,
+GALAXY, GFXSPR; INVADERS has one per frame). Measuring showed the
+command lookup was the bigger cost: *POINT 42 ms against PLOT 6 ms,
+*OFF alone 38 ms, as OSCLI compared the word with every table entry in
+order at 1 MHz. The table is now grouped by first letter with an index
+(cmd_index; genhelp.py checks the grouping): *POINT 13.9 ms, *OFF 10.5,
+*FX 4,0 8.6 (15.5). Bubble Universe: 4.3 s a row of 250 points, about 12
+before. What remains of a * graphics command is mostly its VDU bytes,
+about 1 ms each through OSWRCH: the next speed-up (OSWRCH's VDU path in
+RAM: "hot paths should move to RAM", the U64 findings above).
+

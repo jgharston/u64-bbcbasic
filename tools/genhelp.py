@@ -7,7 +7,10 @@ Output 1, the help banks (raw, a multiple of 16K, mapped at $8000):
   first bank, $8000: "UHLP", entry count (2 bytes, little endian), then
   one index record per name (aliases included), sorted by name:
       name (upper-case ASCII), 0, bank number, address (2 bytes)
-  then texts, each: ASCII, lines ended by CR (13), text ended by 0.
+  then texts, each: ASCII, lines ended by CR (13), text ended by 0. A
+  line starting with byte 1 is a paragraph, unwrapped: the MOS wraps it
+  to the screen's width when it shows it (40 or 80 columns); other lines
+  are shown as they are.
   A text never crosses a bank boundary. Bank numbers start at --first.
 
 Output 2: a Markdown reference (docs/HELP_REFERENCE.md).
@@ -48,14 +51,16 @@ def parse(path):
     return entries
 
 
+PARA = "\x01"           # a paragraph line: wrapped by the MOS when shown
+
+
 def format_text(src, lines):
-    """Source lines -> output lines (paragraphs wrapped)."""
+    """Source lines -> output lines; a paragraph is one line PARA + text."""
     out, para = [], []
 
     def flush():
         if para:
-            out.extend(textwrap.wrap(" ".join(para), WIDTH,
-                                     break_on_hyphens=False))
+            out.append(PARA + " ".join(para))
             para.clear()
 
     for n, line in lines:
@@ -112,8 +117,20 @@ def main():
             seen[name] = n
 
     if args.commands:
-        cmds = re.findall(r"dta '([A-Z]+)', 0, a\([\w.]+\), BANK_\w+",
-                          open(args.commands).read())
+        src = open(args.commands).read()
+        cmds = re.findall(r"dta '([A-Z]+)', 0, a\([\w.]+\), BANK_\w+", src)
+        # the MOS searches only the group of a command's first letter
+        # (mos.s cmd_index): every entry must sit under its own ct_X label
+        group = None
+        for line in src.splitlines():
+            m = re.match(r"ct_([A-Z]):", line)
+            if m:
+                group = m.group(1)
+            m = re.match(r"\s+dta '([A-Z]+)', 0, a\(", line)
+            if m and m.group(1)[0] != group:
+                raise SystemExit("*%s is in the command table group %s: it "
+                                 "belongs under ct_%s" % (m.group(1), group,
+                                                          m.group(1)[0]))
         missing = [c for c in cmds if "*" + c not in seen]
         if missing:
             raise SystemExit("no help for command(s): " + ", ".join(missing))
@@ -177,7 +194,12 @@ def main():
             md.append("Also: " + ", ".join("`%s`" % n for n in names[1:]))
         md.append("")
         md.append("```")
-        md.extend(texts[main])
+        for line in texts[main]:
+            if line.startswith(PARA):
+                md.extend(textwrap.wrap(line[1:], WIDTH,
+                                        break_on_hyphens=False))
+            else:
+                md.append(line)
         md.append("```")
         md.append("")
     with open(args.out_md, "w") as f:
