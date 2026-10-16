@@ -1593,6 +1593,55 @@ def test_table(t):
     run_line(t, "*TABLE SIN &7F00", "Bad address")
     run_line(t, "*TABLE TAN S%", "Syntax")
 
+def test_petscii(t):
+    # *PETSCII / *ASCII / *SEQ (petscii.s, core.s wr_pet): bytes go to the
+    # screen as on a C64 (screen codes read back: "A" 1, reverse "C" 131,
+    # "a" 65, a graphics glyph); GET gives PETSCII codes; *ASCII, an error
+    # and MODE end the mode (GET of PETSCII 65 is "a", 97, again).
+    # Each line ends the mode again: the harness types CLS (VDU 12, a
+    # plain byte in PETSCII mode) before every line, and its screen reader
+    # decodes ASCII.
+    run_line(t, 'MODE 100:PRINT:PRINT "R=M"', "R=M")
+    if not ult(t):                          # (VICE runs without an REU)
+        run_line(t, "*PETSCII", "PETSCII needs an REU")
+        return
+    run_line(t, 'OSCLI "PETSCII":PRINT CHR$147;"AB";CHR$18;"C";CHR$146;"a"'
+                ';CHR$13;CHR$13;:S%=?&288*256:A%=?S%:B%=S%?2:C%=S%?3:OSCLI '
+                '"ASCII"', ">")
+    run_line(t, 'PRINT "R=";A%;",";B%;",";C%', "R=1,131,65")
+    run_line(t, 'OSCLI "PETSCII":?&277=193:?&C6=1:G%=GET:OSCLI "ASCII"', ">")
+    run_line(t, 'PRINT "R=";G%', "R=193")
+    run_line(t, 'OSCLI "PETSCII":PRINT 1/0', "Division by zero")
+    run_line(t, '?&277=65:?&C6=1:G%=GET:PRINT "R=";G%', "R=97")
+    run_line(t, 'OSCLI "PETSCII":MODE 100:PRINT:PRINT "R=M"', "R=M")
+    run_line(t, '?&277=65:?&C6=1:G%=GET:PRINT "R=";G%', "R=97")
+    rm = remote(t)
+    out = rm.run_lines(["CLEAR", "MODE 1", "*PETSCII"])    # (CLEAR: no DIM
+    # of an earlier test above MODE 1's HIMEM)
+    assert "text modes only" in (out["error"] or {}).get("message", ""), out
+    rm.run_lines(["MODE 100"])
+    # *SEQ: clear, "HI", CR, reverse "X"; it waits for a key, then (the
+    # mode was off) clears the screen
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", "")
+        ftp.storbinary("STOR /Temp/T.SEQ",
+                       io.BytesIO(bytes([147, 72, 73, 13, 18, 88, 146, 13])))
+    rm.run_lines(["*SEQ /Temp/T.SEQ"], wait=False)
+    try:
+        time.sleep(2)
+        hb = rm.read(0x288, 1)[0]
+        assert rm.state()["state"] == "running"
+        assert list(rm.read(hb * 256, 2)) == [8, 9], list(rm.read(hb * 256, 2))
+        assert rm.read(hb * 256 + 40, 1)[0] == 152
+    finally:                    # the key *SEQ waits for, even on a failure
+        rm.write(0x277, bytes([32]))    # (a retry after a bridge stall
+        rm.write(0xC6, bytes([1]))      # would find it still waiting)
+        time.sleep(2)
+    assert rm.state()["state"] == "prompt"
+    out = rm.run_lines(["*DELETE /Temp/T.SEQ"])
+    assert not out["error"], out
+
+
 def test_map(t):
     # CharPad CTM files (*MAP, *FONT LOAD): four projects, versions 6, 7,
     # 82 (8) and 9, with and without tiles and with each colour method;
@@ -2723,7 +2772,7 @@ GROUPS = {
                  test_gfx_mode3, test_gfx_teletext, test_gfx_upiclite],
     "sound": [test_sound, test_sid_mode, test_sound_none, test_inst_mods,
               test_song, test_reu_irq, test_sid, test_speech],
-    "system": [test_memory, test_table, test_star_list, test_snapshot, test_sedit,
+    "system": [test_memory, test_table, test_petscii, test_star_list, test_snapshot, test_sedit,
                test_acorn, test_classics, test_hanoi, test_classic_files],
     "network": [test_net, test_json, test_netchan],
     "remote": [test_remote_exec, test_remote_run_error, test_remote_input,
@@ -2742,6 +2791,28 @@ def bridge_timeout(e):
     """True if e is the Ultimate's REST interface not answering (it stalls
     for 30 s and more now and then, docs/PLAN.md), not a wrong result."""
     return isinstance(e, BridgeError) and "timeout of" in str(e)
+
+
+def recover(t):
+    """After a failure or a bridge stall on an Ultimate: end a Upic view
+    or a running program and wait for the prompt, so the next test (or
+    the retry) does not find BASIC busy (a stall in upic_auto once left
+    the picture showing and failed the rest of its group)."""
+    if not ult(t):
+        return
+    try:
+        rm = remote(t)
+        for _ in range(5):
+            st = rm.state()["state"]
+            if st == "showing":
+                rm.end_show()
+            elif st == "running":
+                rm.stop()
+            else:
+                return
+            time.sleep(1)
+    except Exception:
+        pass
 
 
 def run_target(t, only):
@@ -2768,10 +2839,12 @@ def run_target(t, only):
                         raise
                     t.notes.append("%s: bridge timeout, retried" % name)
                     time.sleep(30)          # (the stall's end)
+                    recover(t)
                     test(t)
                 print("   ok    %s" % name, flush=True)
             except Exception as e:      # (any error fails this test only)
                 failures += 1
+                recover(t)
                 print("   FAIL  %s: %s" % (name, (str(e).splitlines() or [repr(e)])[0]),
                       flush=True)
                 try:

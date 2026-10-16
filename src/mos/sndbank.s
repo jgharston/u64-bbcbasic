@@ -164,6 +164,7 @@ stb_nn:
     icl 'songcmd.s'
     icl 'speech.s'
     icl 'font46.s'                ; (moved from bank 8, 2026-10-16)
+    icl 'petscii.s'
 
 bank6_end:
     .if bank6_end > $C000

@@ -1132,3 +1132,57 @@ before. What remains of a * graphics command is mostly its VDU bytes,
 about 1 ms each through OSWRCH: the next speed-up (OSWRCH's VDU path in
 RAM: "hot paths should move to RAM", the U64 findings above).
 
+
+PETSCII (owner, 2026-10-16, asked interactively; PLAN 13's proposal):
+- The normal (ASCII) text modes stay as they are: their font's 128
+  normal glyphs are full (95 ASCII, 33 graphics) and the reverse half
+  serves the cursor and COLOUR 128+n; all PETSCII graphics are in the
+  full mode (asked twice, "only in *PETSCII").
+- A full PETSCII mode, `*PETSCII` / `*ASCII`: bytes go to the screen as
+  on a C64. PETSCII wins: all of 0-31 and 128-159 act as on a C64
+  (colours, reverse, cursor, case), only CR stays BBC's new line; BBC's
+  TAB(x,y) and COLOUR do not work there; `*ASCII` or MODE go back.
+- Keyboard in PETSCII mode: typed lines stay ASCII; GET/INKEY return
+  PETSCII codes (C= and SHIFT graphics keys as on a C64).
+- `*SEQ file` shows a PETSCII .seq file (PETSCII mode for its duration,
+  paging like *TYPE).
+
+## 27. Release 1.0.0 (owner, 2026-10-16, asked interactively)
+
+In 1.0.0, in this order (speed first):
+
+1. Faster VDU path: OSWRCH's VDU byte path into RAM (about 1 ms a VDU
+   byte now, so every PLOT and * graphics command gains).
+2. The uneven baselines of the 6-line glyphs (VIC-II MODE 2/5) and the
+   ASCII-mode cursor (a blink as the cursor moves on, e.g. by TAB,
+   stays as a reverse cell; fixed for *PETSCII already).
+3. Ultimate batch C: *MENU, *REBOOT, *SAVEMEM, *CONFIG, and a start-up
+   check offering *SETUP when the Ultimate's settings (REU size, turbo,
+   command interface) do not suit the MOS.
+4. Ultimate batch B: *REULOAD / *REUSAVE, REU preload images, OSWORD &E0.
+5. Random numbers (section 21): RND seeded from real entropy at start-up
+   and *RANDOMIZE (the better generator and the internet seed later).
+6. *TABLE SQR and 1/x.
+7. Ultimate batch G: the rest of HTTP (*HTTPGET, methods, headers,
+   status codes).
+8. Upic's compact 48 MHz variant (the picture stays visible while BASIC
+   runs slowly).
+9. The release: a GitHub release with a ZIP (both .crt and .cfg, all
+   demos tokenised and as source, the manual as PDF, README, licences)
+   and the VS Code extension (.vsix); an announcement (Facebook post and
+   an idreamtin8bits blog post).
+10. Videos, five, one per group: 1 introduction (start-up, the line
+    editor, BASIC 3.10, *HELP, VS Code); 2 graphics (BBC modes, Upic Lite
+    and full, GXR, sprites, *MAP, PETSCII); 3 sound and music (SOUND and
+    ENVELOPE on 8 SIDs, the song tracker, speech); 4 files, Ultimate and
+    network (drives, the /REU RAM disk, DFS commands, *NET, *JSON, HTTP);
+    5 demos (classics, Schraf, Hanoi, the music demo).
+    Recorded from the VIC video stream with scripted key presses, no
+    REST probing during a take (it corrupts the picture); the stream has
+    no palette, so each scene's palette is applied in post (from the
+    demo's *COLOUR/VDU 19 values, or one read after the take).
+
+After 1.0.0: Ultimate batch E (tape capture, GEOS RAM disk, track
+decoding, an IEC filing system on SoftIEC), bigger *MAP maps (over 30720
+cells), the better random generator and the internet seed, and the C128
+cartridge.

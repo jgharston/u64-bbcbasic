@@ -42,7 +42,7 @@ instead of `GOSUB`; see the example programs in `demos/`.
 
 ## 6.9 Keyboard and text on the screen
 
-@@help PRINT INPUT GET GET$ INKEY INKEY$ TAB SPC POS VPOS COUNT WIDTH CLS COLOUR
+@@help PRINT INPUT GET GET$ INKEY INKEY$ TAB SPC POS VPOS COUNT WIDTH CLS COLOUR *PETSCII *SEQ
 
 ## 6.10 Time
 

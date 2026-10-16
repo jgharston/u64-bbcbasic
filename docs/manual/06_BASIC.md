@@ -954,6 +954,30 @@ Sets the text colour (n) or background (128+n). See COLOURS.
 
 On the text screen COLOUR 128+n prints the following characters in reverse video in colour n (black text on a coloured bar); COLOUR 128 ends it. The whole screen's background is VDU 19,0,n,0,0,0.
 
+#### `*PETSCII` (also `*ASCII`, `ASCII`)
+
+```
+*PETSCII  print as a C64 does
+*ASCII    back to BBC (ASCII)
+```
+
+PETSCII mode, for PETSCII art and C64-style screens (text modes such as MODE 100; needs an REU). Bytes printed go to the screen as on a C64: the C64's own character set (upper case and graphics; CHR$14 switches to lower case, CHR$142 back), colour codes (CHR$5 white, 28 red, 144 black, ...), CHR$18 reverse on, 146 off, 147 clears the screen, 19 home, 17/145/29/157 move the cursor. CHR$13 starts a new line. BBC's PRINT TAB(x,y) and COLOUR do not work in this mode; MODE and VDU 23 do. GET and INKEY give PETSCII codes, so the C= and SHIFT graphics keys read as on a C64. Lines you type are shown as usual.
+
+The mode ends with *ASCII, MODE or an error (BASIC's messages are ASCII).
+
+```
+*PETSCII
+PRINT CHR$147;CHR$28;"RED";CHR$18;"R"
+```
+
+#### `*SEQ`
+
+```
+*SEQ file [LOWER|UPPER]  show a .seq
+```
+
+Shows a PETSCII file (PETSCII art usually comes as .seq, e.g. from Petmate) on a cleared text screen in PETSCII mode, then waits for a key; ESCAPE stops. LOWER shows it in the lower case character set, UPPER in upper case and graphics (screens made in lower case often do not say so themselves); without either the set stays as it is (upper case when PETSCII mode was off). If PETSCII mode was off it goes off again and the screen is cleared. Any filing system: SD, USB, /REU, IEC drives.
+
 
 ## 6.10 Time
 

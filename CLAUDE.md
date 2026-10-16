@@ -61,7 +61,7 @@ what this BASIC can and cannot do.
 | `src/mos/resident.s` | RAM $C400-$C7FF: entry points, trampoline, IRQ/BRK/NMI, mailbox |
 | `src/mos/uci.s`, `fs.s`, `ucmds.s` | bank 2: UCI driver, filing system, Ultimate commands |
 | `src/mos/reudisk.s`, `rdglue.s` | bank 5: the /REU RAM disk; its routing (bank 2) |
-| `src/mos/sndbank.s`, `sound*.s`, `sndcmd.s`, `songcmd.s`, `font46.s` | bank 6: the sound engine images (RAM &0900), sound and song commands, the 4x6 font |
+| `src/mos/sndbank.s`, `sound*.s`, `sndcmd.s`, `songcmd.s`, `font46.s`, `petscii.s` | bank 6: the sound engine images (RAM &0900), sound and song commands, the 4x6 font, the PETSCII mode |
 | `src/mos/netbank.s`, `netcmd.s`, `netchan.s` | bank 7: network (*NET, *JSON, network channels); helpers `bankhelp.s` |
 | `src/help/help.txt` | *HELP source (banks 8+, docs/HELP_REFERENCE.md) |
 | `tools/` | mkcrt, gentables, genhelp, checkcfg, bbctok (tokeniser), u64remote, u64mcp |

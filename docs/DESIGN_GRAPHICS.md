@@ -818,3 +818,45 @@ bank 8 (BANK_UP).
   in 5.2 s; the largest map takes about 10 s. To make room, the 4x6
   font (font46.s) moved from bank 8 to bank 6. Checked against a Python model of the format on
   both, and on 1814 example files for the parsing.
+
+## 13. The PETSCII mode (owner, 2026-10-16)
+
+`*PETSCII` / `*ASCII` / `*SEQ file` (petscii.s, bank 6; decisions in
+PLAN.md). The ASCII text modes stay as they are: their font's 128 normal
+glyphs are full (95 ASCII, 33 graphics) and the reverse half serves the
+cursor and COLOUR 128+n, so the PETSCII graphics live in this mode only.
+
+- Output: OSWRCH (core.s) tests `pet_on` after the remote capture and
+  the debug filter, so `*SPOOL` and the remote see the bytes. `wr_pet`
+  sends a byte to the KERNAL's CHROUT unchanged (quote mode as on a
+  C64), except: VDU 22 (MODE) and 23 with their parameters stay BBC's,
+  line input (OSWORD 0, `inlinein`) is echoed the BBC way, and LF does
+  nothing (CR starts the new line; BBC's new line is LF, CR).
+- The font: the character ROM's upper case/graphics set at FONT
+  ($F000), its lower/upper set at $F800. $D018 bit 1 selects between
+  them, which is what the KERNAL changes for codes 14 and 142, so case
+  switching works unchanged. The six bytes from $FFFA (RAM vectors) are
+  not written: the last glyph of the lower/upper set loses its bottom
+  rows there. SHIFT+C= stays locked ($0291 = $80) unless a program sends
+  CHR$(9); every way out locks it again.
+- The cursor: MODE 100 starts the KERNAL's blink (BBC-style, a cursor
+  while programs run), and a blink showing as the cursor moves on stays
+  as a reverse cell (seen in the PETSCII demo's box). `*PETSCII` hides
+  it and stops the blink (wk_hide), as a C64 runs programs without one;
+  GET shows it while it waits. The ASCII modes keep the BBC behaviour.
+- Input: GET and INKEY (OSRDCH, OSBYTE &81) return the PETSCII code
+  instead of translating it; typed lines (the line editor) are as ever.
+- The way out: `*ASCII`, MODE (bk_mode clears `pet_on`), or an error:
+  `*PETSCII` puts `pet_brkv` (core.s) on BRKV, which ends the mode and
+  then jumps to BASIC's handler (the old vector, `pet_obrk`), so the
+  message is readable. The resident page had no room for a hook in the
+  BRK handler. The ASCII font comes back from its REU copy, so the mode
+  needs an REU.
+- Room: the VDU core in RAM was full; font_to_reu's loop building the
+  ASCII-order REU font at start-up moved to bank 2's `fo_mkascii`
+  (which already did the same after `*FONT LOAD`).
+- `*SEQ file [LOWER|UPPER]`: OSFIND/OSBGET (any filing system), a
+  clear screen first, then the character set asked for (screens from
+  Petmate and the VDC Screen Editor start without a clear or case code
+  and rely on the 40-column wrap), bytes straight to CHROUT, ESCAPE
+  stops, a key ends; a mode it switched on ends again with CLS.

@@ -84,6 +84,10 @@ wr_nodbg:
     jsr wr_tee
     lda wr_a
 wr_notee:
+    ldx pet_on                  ; *PETSCII: wr_pet
+    beq wr_bbc
+    jmp wr_pet
+wr_bbc:
     ldx vduq
     bne wr_param
     cmp #32
@@ -412,6 +416,8 @@ gx_save01   dta 0
 gx_a        dta 0
 gx_code     dta 0               ; VDU code for the engine's e_vdu
 vmode_pal   dta 0               ; offset of the mode's palette set
+pet_on      dta 0               ; *PETSCII: OSWRCH sends bytes as PETSCII
+pet_obrk    dta a(0)            ; *PETSCII: BASIC's BRKV (pet_brkv)
 vm_t        dta 0               ; scratch (never the MOS zero page: the
                                 ; VDU path runs inside MOS commands)
 pal         :16 dta 0           ; logical colour -> C64 colour
@@ -795,6 +801,53 @@ p2s_space:
     lda #$20
     rts
 
+; wr_pet: *PETSCII (petscii.s): the byte to the KERNAL as on a C64 (quote
+; mode as there: after a quote, colour codes print as symbols, as PRINT
+; does on a C64); BBC's way while VDU 22/23
+; collect parameters, for MODE and VDU 23 themselves, and in line input
+; (the line editor's echo and cursor codes); LF does nothing, as CR
+; starts the new line (BBC's new line is LF, CR)
+wr_pet:
+    ldx vduq
+    bne wp_bbc
+    ldx inlinein
+    bne wp_bbc
+    cmp #22
+    beq wp_bbc
+    cmp #23
+    beq wp_bbc
+    cmp #10
+    beq wr_pdone
+    jsr K_CHROUT
+wr_pdone:
+    jmp wr_done
+wp_bbc:
+    jmp wr_bbc
+
+; pet_brkv: BRKV while *PETSCII is on (set by petscii.s, the old vector
+; in pet_obrk): an error ends the mode first (BASIC's message is ASCII),
+; then BASIC's own handler. It stays on BRKV after the mode: it only
+; passes on then.
+pet_brkv:
+    jsr pet_brk
+    jmp (pet_obrk)
+
+; pet_brk: *PETSCII off: the output back, the text font from its REU copy,
+; the font slot $F000 ($D018 bit 1 clear).  Uses: A.
+pet_brk:
+    lda pet_on
+    beq pb_rts
+    lda #0
+    sta pet_on
+    jsr font_restore
+    lda $D018
+    and #$FD
+    sta $D018
+    lda #$80                    ; no SHIFT+C= charset switch (CHR$(9) in
+    sta MODE                    ; the mode may have allowed it)
+pb_rts:
+    rts
+
 ; font_restore: the text font at FONT after a bitmap mode (from the REU
 ; copy made at start-up, or rebuilt from the character ROM)
 font_restore:
@@ -829,9 +882,10 @@ fr_rom:
 
 ; ----------------------------------------------------------------------------
 ; font_to_reu
-;   Summary: at start-up: the text font to REU_VICFONT (for MODE changes)
-;            and, in ASCII order, to REU_FONT (text in bitmap modes; codes
-;            128-255 get the glyph of code - 128).
+;   Summary: at start-up: the text font to REU_VICFONT (for MODE changes);
+;            the ASCII-order REU_FONT follows from it in bank 2
+;            (fo_mkascii, called after this by the cold start; 2026-10-16:
+;            the loop that did it here gave its room to *PETSCII).
 ;   Function: runs here, in RAM, with $01 = $35: the font at FONT is RAM
 ;            under the KERNAL, and I/O is needed for the REU.
 ;   Input:   reu_banks.  Uses: A, X, Y, vm_t.
@@ -858,43 +912,6 @@ font_to_reu:
     lda #8                      ; 2K
     sta REU_LEN+1
     jsr ftr_go
-    ldx #0
-ftr_loop:
-    txa
-    and #$7F
-    tay
-    lda asc2pet,y
-    jsr pet2scr
-    sta vm_t                    ; C64 address = FONT + screen code * 8
-    lda #0
-    asl vm_t
-    rol
-    asl vm_t
-    rol
-    asl vm_t
-    rol
-    adc #>FONT
-    sta REU_C64+1
-    lda vm_t
-    sta REU_C64
-    txa                         ; REU address = REU_FONT + code * 8
-    asl
-    sta REU_ADDR
-    lda #0
-    rol
-    asl REU_ADDR
-    rol
-    asl REU_ADDR
-    rol
-    adc #>REU_FONT
-    sta REU_ADDR+1
-    lda #8
-    sta REU_LEN
-    lda #0
-    sta REU_LEN+1
-    jsr ftr_go
-    inx
-    bne ftr_loop
     pla
     sta $01
     plp

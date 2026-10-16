@@ -58,6 +58,10 @@ pal_ulb4:
 ;            KERNAL cursor off, and the engine clears the bitmap and
 ;            resets windows, cursors and colours.
 bk_mode:
+    lda #0                      ; MODE ends *PETSCII (the mode sets the
+    sta pet_on                  ; font and $D018 itself; SHIFT+C= locked
+    lda #$80                    ; again, CHR$(9) may have allowed it)
+    sta MODE
     lda spr_page                ; the sprite multiplexer out first: the
     beq bkm_mode                ; mode sets $0314 itself (MODE 7), and an
     farcall spr.sp_remove, BANK_RD ; unanswered raster interrupt would

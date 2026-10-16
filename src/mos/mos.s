@@ -72,6 +72,7 @@ cold:
     farcall fs_init, BANK_FS    ; find the Ultimate (up to 0.5 s)
     farcall sid_auto, BANK_FS   ; fewer than 8 SIDs: the 8SID layout
     jsr font_to_reu             ; fonts for MODE changes and bitmap text
+    farcall fo_mkascii, BANK_FS ; (the ASCII-order one, font.s)
     jsr key_init                ; no *KEY texts
     lda #0                      ; Upic full: auto-show on, nothing drawn
     sta UP_DIRTY
@@ -897,6 +898,7 @@ wk_hidden:
 ;   Input:   none.
 ;   Output:  A = ASCII code, C = 0; or A = 27, C = 1 if ESCAPE is pending.
 ;            X, Y preserved. Keys without an ASCII meaning are skipped.
+;            In *PETSCII mode (pet_on) A is the key's PETSCII code.
 ;   Uses:    rd_x, rd_y.
 
 mos_rdch:
@@ -909,6 +911,12 @@ rd_loop:
     bmi rd_esc
     jsr waitkey
     tax
+    lda pet_on                  ; *PETSCII: GET gives the PETSCII code
+    beq rd_asc
+    txa
+    clc
+    bcc rd_ret
+rd_asc:
     lda pet2asc,x
     beq rd_loop
     clc
@@ -1293,9 +1301,12 @@ ink_loop:
     beq ink_time
     jsr key_get
     tax
+    lda pet_on                  ; *PETSCII: the PETSCII code
+    bne ink_pet
     lda pet2asc,x
     beq ink_loop
     tax
+ink_pet:
     ldy #0
     clc
     jmp by_ret
@@ -1909,6 +1920,7 @@ cmd_table:
 ct_A:
     dta 'ADVAL', 0, a(acorn.cmd_adval), BANK_NET
     dta 'ACCESS', 0, a(cmd_access), BANK_FS
+    dta 'ASCII', 0, a(pet.cmd_ascii), BANK_SND
     dta 0
 ct_B:
     dta 'BUILD', 0, a(dfs.cmd_build), BANK_NET
@@ -1984,6 +1996,7 @@ ct_P:
     dta 'PWD', 0, a(cmd_pwd), BANK_FS
     dta 'POINT', 0, a(bvc.cmd_point), BANK_UP
     dta 'PACK', 0, a(tk.cmd_pack), BANK_NET
+    dta 'PETSCII', 0, a(pet.cmd_petscii), BANK_SND
     dta 0
 ct_Q:
     dta 0
@@ -2023,6 +2036,7 @@ ct_S:
     dta 'STATUS', 0, a(cmd_status), BANK_FS
     dta 'SWAP', 0, a(cmd_swap), BANK_FS
     dta 'SYS', 0, a(cmd_status), BANK_FS
+    dta 'SEQ', 0, a(pet.cmd_seq), BANK_SND
     dta 0
 ct_T:
     dta 'TABLE', 0, a(mtab.cmd_tab), BANK_UP
