@@ -1102,3 +1102,18 @@ characters, the per-character colours) and draws any part of it on the
 C64 text screen (`*MAP DRAW mx,my,w,h AT col,row`); `*MAP GET mx,my`
 puts the cell's character in M% for game logic; `*MAP` alone shows the
 sizes. Text screen only (fast enough to redraw a window each frame).
+
+Decisions of 2026-10-16 (owner, asked interactively):
+- SpritePad colours: `*SPRITE n SHAPE s` also takes the colour and the
+  multicolour flag a shape got from an SPD file; a later `*SPRITE n
+  COLOUR` overrides.
+- `*MAP`: 16-bit map sizes (up to 65535 wide or high), still 30720
+  cells in one REU bank (1659 of CharPad's 1814 examples fit, 976
+  before); `*MAP DRAW` and `GET` take 16-bit coordinates.
+- `*HELP` reflows its paragraphs to the screen width when shown (40 or
+  80 columns); command lists and tables keep their lines.
+- Order: these three first, then a PETSCII mode, then the uneven
+  baselines of the 6-line glyphs (VIC MODE 2/5). The C128 cartridge
+  waits until after the first release.
+- *SONG's "Song full" has not been seen since the REU-register fix of
+  2026-10-10 (DESIGN_SOUND): closed.
