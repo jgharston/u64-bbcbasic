@@ -1553,6 +1553,15 @@ def test_map(t):
     # clipping, a non-CTM file and a graphics mode
     if not ult(t):
         return
+    rm = remote(t)
+    try:
+        _map_checks(t, rm)
+    finally:                                # the font back, even on a failure
+        rm.run_lines(["MODE 100", "*FONT DEFAULT", "*DELETE M.CTM",
+                      "*DELETE NOMAP.SPD"])
+
+
+def _map_checks(t, rm):
     chars = [bytes([i * 7 & 255] + [i] * 7) for i in range(128)]
     cases = [
         (9, 1, None, (2, 2, [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]),
@@ -1565,7 +1574,6 @@ def test_map(t):
         (7, 0, None, (3, 1, [[1, 5, 9], [2, 6, 10]]), None, 2, 3,
          [0, 1, 1, 0, 0, 1], 0),
     ]
-    rm = remote(t)
     rm.run_lines(["MODE 100"])
     prog = "\n".join([
         "10 DEF FNG(C%):?B%=C%:A%=10:X%=B% MOD 256:Y%=B% DIV 256:"
@@ -1615,9 +1623,6 @@ def test_map(t):
     run_line(t, "*MAP LOAD NOMAP.SPD", "Not a CharPad file")
     out = rm.run_lines(["MODE 1", "*MAP DRAW 0,0,1,1 AT 0,0"])
     assert "text modes only" in (out["error"] or {}).get("message", ""), out
-    out = rm.run_lines(["MODE 100", "*FONT DEFAULT", "*DELETE M.CTM",
-                        "*DELETE NOMAP.SPD"])
-    assert not out["error"], out
 
 
 def test_upic(t):
