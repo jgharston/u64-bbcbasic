@@ -18,8 +18,21 @@ set `ULTIMATE_PASSWORD`.
 make e2e                 # all targets (also checks the .cfg on both devices)
 make e2e-vice            # VICE only
 make e2e-u64             # Ultimates only
+make e2e-u64 GROUP=graphics            # one group ("files sound": several)
 tests/e2e/run_e2e.py --device 192.168.1.148 --kind tmb --only time speed
+tests/e2e/run_e2e.py --device 192.168.1.148 --kind tmb --group ultimate
 ```
+
+The tests are in groups (`GROUPS` in `run_e2e.py`): core, files,
+ultimate, graphics, sound, system, network, remote. The make targets run
+each group on its own (`--split`): a fresh cartridge start per group, so a
+long run piles up no state and a failure cannot spill into the next group.
+Without `--split` all chosen tests run after one start.
+
+The Ultimate's REST interface sometimes stops answering for 30 s and more
+(seen on the U64 from 2026-10-15, also when idle, while ping keeps
+answering). A test that fails only on such a bridge timeout waits 30 s and
+runs once more; the run notes it ("bridge timeout, retried").
 
 ## How a test works
 

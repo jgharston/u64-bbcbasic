@@ -152,14 +152,17 @@ compare-core:
 vice: $(BUILD)/$(NAME)-ef.crt
 	$(X64) -cartcrt $< &
 
+# GROUP=graphics (or several, quoted) runs only those groups
+E2E_GROUPS = --split $(if $(GROUP),--group $(GROUP))
+
 e2e: $(CRTS) checkcfg
-	$(PYTHON) tests/e2e/run_e2e.py
+	$(PYTHON) tests/e2e/run_e2e.py $(E2E_GROUPS)
 
 e2e-vice: $(CRTS)
-	$(PYTHON) tests/e2e/run_e2e.py --vice-only
+	$(PYTHON) tests/e2e/run_e2e.py --vice-only $(E2E_GROUPS)
 
 e2e-u64: $(CRTS) checkcfg
-	$(PYTHON) tests/e2e/run_e2e.py --no-vice
+	$(PYTHON) tests/e2e/run_e2e.py --no-vice $(E2E_GROUPS)
 
 # --- Deploy to the Ultimates: /<drive>/idi8b/u64bbcbasic/ (cartridges,
 # .cfg) and its demos/ (tokenised programs and their files); the drive per

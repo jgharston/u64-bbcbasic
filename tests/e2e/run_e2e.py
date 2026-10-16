@@ -13,6 +13,7 @@ buffer and waits for the expected text. Failing screens are saved in
 build/e2e/<target>/<test>.txt. Python 3 standard library + npx.
 
 Usage: run_e2e.py [--vice-only | --no-vice] [--device IP ...] [--only NAME]
+                  [--group NAME ...] [--split]
 """
 import argparse
 import ftplib
@@ -2627,33 +2628,54 @@ def test_remote_debug(t):
         rm.debug_end()
 
 
-TESTS = [test_boot, test_basic_ram, test_arith, test_hex, test_line_editor, test_copy_bitmap, test_osbyte87, test_caps_lock, test_key, test_ascii, test_program,
-         test_error, test_mos_error, test_help, test_help_paging,
-         test_bad_number,
-         test_vdu_overflow, test_fx_escape, test_stop_key,
-         test_time, test_inkey, test_get, test_long_line, test_speed,
-         test_fs_uver, test_fs_time, test_fs_dir, test_fs_save_load,
-         test_fs_channels, test_fs_type, test_fs_errors,
-         test_fs_rename_delete, test_turbo_cmd, test_status,
-         test_a_clock, test_a_copy, test_a_mount, test_a_drive,
-         test_a_settime, test_a_partition, test_a_dirhome,
-         test_gfx_point_line, test_gfx_rect_clg_window, test_gfx_gcol_actions,
-         test_gfx_origin_relative, test_gfx_text, test_gfx_shapes,
-         test_gfx_patterns, test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
-         test_palette, test_memory, test_sound, test_sid_mode, test_sound_none,
-         test_inst_mods, test_song, test_star_list, test_reu_irq, test_snapshot, test_sprite, test_sprite_gfx, test_sprite_spd5, test_map, test_upic, test_upic_mode, test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr, test_gxr_plot, test_sedit, test_acorn, test_dfs, test_toolkit, test_speech, test_net, test_json, test_netchan, test_classics, test_hanoi,
-         test_sid, test_text_colours, test_reu_storage,
-         test_ramdisk,
-         test_gfx_vdu5,
-         test_gfx_mode3,
-         test_gfx_teletext,
-         test_gfx_upiclite, test_classic_files,
-         test_remote_exec, test_remote_run_error, test_remote_input,
-         test_remote_long_output, test_remote_tokeniser, test_remote_stop,
-         test_remote_debug]
+# The tests in logical groups (--group, --split): each group starts from a
+# fresh cartridge boot with --split, so a long run never piles up state
+# and one failure cannot spill into the next group. boot runs first in
+# every run.
+GROUPS = {
+    "core": [test_boot, test_basic_ram, test_arith, test_hex,
+             test_line_editor, test_copy_bitmap, test_osbyte87,
+             test_caps_lock, test_key, test_ascii, test_program, test_error,
+             test_mos_error, test_help, test_help_paging, test_bad_number,
+             test_vdu_overflow, test_fx_escape, test_stop_key, test_time,
+             test_inkey, test_get, test_long_line, test_speed],
+    "files": [test_fs_uver, test_fs_time, test_fs_dir, test_fs_save_load,
+              test_fs_channels, test_fs_type, test_fs_errors,
+              test_fs_rename_delete, test_turbo_cmd, test_status,
+              test_reu_storage, test_ramdisk, test_dfs, test_toolkit],
+    "ultimate": [test_a_clock, test_a_copy, test_a_mount, test_a_drive,
+                 test_a_settime, test_a_partition, test_a_dirhome],
+    "graphics": [test_gfx_point_line, test_gfx_rect_clg_window,
+                 test_gfx_gcol_actions, test_gfx_origin_relative,
+                 test_gfx_text, test_gfx_shapes, test_gfx_patterns,
+                 test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,
+                 test_palette, test_sprite, test_sprite_gfx,
+                 test_sprite_spd5, test_map, test_upic, test_upic_mode,
+                 test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr,
+                 test_gxr_plot, test_text_colours, test_gfx_vdu5,
+                 test_gfx_mode3, test_gfx_teletext, test_gfx_upiclite],
+    "sound": [test_sound, test_sid_mode, test_sound_none, test_inst_mods,
+              test_song, test_reu_irq, test_sid, test_speech],
+    "system": [test_memory, test_star_list, test_snapshot, test_sedit,
+               test_acorn, test_classics, test_hanoi, test_classic_files],
+    "network": [test_net, test_json, test_netchan],
+    "remote": [test_remote_exec, test_remote_run_error, test_remote_input,
+               test_remote_long_output, test_remote_tokeniser,
+               test_remote_stop, test_remote_debug],
+}
+TESTS = [test for group in GROUPS.values() for test in group]
+_defined = {v for k, v in globals().items() if k.startswith("test_")}
+assert len(TESTS) == len(set(TESTS)) and set(TESTS) == _defined, \
+    sorted(f.__name__ for f in _defined ^ set(TESTS))
 
 
 # ----------------------------------------------------------------------------
+
+def bridge_timeout(e):
+    """True if e is the Ultimate's REST interface not answering (it stalls
+    for 30 s and more now and then, docs/PLAN.md), not a wrong result."""
+    return isinstance(e, BridgeError) and "timeout of" in str(e)
+
 
 def run_target(t, only):
     outdir = os.path.join(BUILD, "e2e", t.name)
@@ -2672,9 +2694,16 @@ def run_target(t, only):
             if only and name not in only and name != "boot":
                 continue
             try:
-                test(t)
+                try:
+                    test(t)
+                except BridgeError as e:
+                    if not bridge_timeout(e):
+                        raise
+                    t.notes.append("%s: bridge timeout, retried" % name)
+                    time.sleep(30)          # (the stall's end)
+                    test(t)
                 print("   ok    %s" % name, flush=True)
-            except (AssertionError, TimeoutError, BridgeError) as e:
+            except Exception as e:      # (any error fails this test only)
                 failures += 1
                 print("   FAIL  %s: %s" % (name, (str(e).splitlines() or [repr(e)])[0]),
                       flush=True)
@@ -2700,7 +2729,13 @@ def main():
     ap.add_argument("--device", nargs="*")
     ap.add_argument("--kind", nargs="*", default=["tmb", "ef"])
     ap.add_argument("--only", nargs="*")
+    ap.add_argument("--group", nargs="*", choices=list(GROUPS))
+    ap.add_argument("--split", action="store_true",
+                    help="each group in a run of its own (fresh boot)")
     args = ap.parse_args()
+    if args.group:
+        picked = [f.__name__[5:] for g in args.group for f in GROUPS[g]]
+        args.only = [n for n in picked if not args.only or n in args.only]
 
     for path in CRT.values():
         if not os.path.exists(path):
@@ -2716,7 +2751,17 @@ def main():
             for kind in args.kind:
                 targets.append(UltimateTarget(host, kind))
 
-    failures = sum(run_target(t, args.only) for t in targets)
+    if args.split:
+        failures = 0
+        for t in targets:
+            for g in (args.group or list(GROUPS)):
+                names = [f.__name__[5:] for f in GROUPS[g]]
+                names = [n for n in names if not args.only or n in args.only]
+                if names:
+                    print("-- group %s" % g, flush=True)
+                    failures += run_target(t, names)
+    else:
+        failures = sum(run_target(t, args.only) for t in targets)
     print("\n%s: %d failure(s)" % ("PASS" if not failures else "FAIL", failures))
     sys.exit(1 if failures else 0)
 

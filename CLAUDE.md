@@ -12,7 +12,8 @@ roadmap: `docs/PLAN.md`.
 - `make compare-core`: the interpreter must stay identical to Ivo van
   Poorten's reference ROM. Never patch `lib/bbc-basic`; the only change is
   `src/basic/u64-target.patch` (build target).
-- `make e2e` (VICE + the Ultimates in `.env`) through c64bridge;
+- `make e2e` (VICE + the Ultimates in `.env`) through c64bridge, group by
+  group (`GROUP=graphics` for one; groups in `tests/e2e/README.md`);
   `tests/e2e/run_e2e.py --device IP --kind tmb --only NAME ...` for a
   subset. Run the affected tests after every MOS change; the full suite
   before a commit. Don't run `make` while an E2E run is uploading
