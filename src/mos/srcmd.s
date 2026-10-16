@@ -307,3 +307,70 @@ r24_hexd:
     clc
 r24h_rts:
     rts
+
+; ----------------------------------------------------------------------------
+; ru_saveop (*REUSAVE, reucmd.s, bank 6): SAVE_REU (&22) on the file just
+; opened (rx_create): REU address MOSBUF+$E0 (3 bytes), length +$E4 (3);
+; raises the Ultimate's error (the file closed).  Uses: A, X, Y, fs*.
+ru_saveop:
+    lda #0
+    sta MOSBUF+$E3
+    sta MOSBUF+$E7
+    lda #$22
+    jsr fs_hdr2
+    lda #<[MOSBUF+$E0]
+    sta fsPTR
+    lda #>[MOSBUF+$E0]
+    sta fsPTR+1
+    lda #8
+    sta fsLEN
+    lda #0
+    sta fsLEN+1
+    jsr uci_send
+    jsr uci_finish
+    bcc rsop_rts
+    jsr fs_saveerr              ; (closes the file, raises the status)
+    jmp uci_error
+rsop_rts:
+    rts
+
+; ctl_cmd (*REU SAVE / LOAD, reucmd.s): control command A, no payload;
+; raises the Ultimate's error.  Uses: A, X, Y, fs*.
+ctl_cmd:
+    pha
+    jsr uci_need
+    lda #TARGET_CTRL
+    sta fsTGT
+    pla
+    jsr fs_hdr2
+    jmp uci_cmd
+
+; ----------------------------------------------------------------------------
+; rs_clock (rnd_seed, rndseed.s, bank 5)
+;   Summary: the Ultimate clock's text ("YYYY/MM/DD HH:MM:SS") into MOSBUF.
+;   Input:   none.  Output: fsCNT = its length (0 without the Ultimate).
+;   Uses:    A, X, Y, fs*.
+rs_clock:
+    lda #0
+    sta fsCNT
+    lda uci_ok
+    beq rsc_rts
+    lda #TARGET_DOS1
+    sta fsTGT
+    lda #DOS_TIME
+    jsr fs_hdr2
+    lda #0
+    sta fsLEN
+    sta fsLEN+1
+    jsr uci_send
+    lda #<MOSBUF
+    sta fsADDR
+    lda #>MOSBUF
+    sta fsADDR+1
+    lda #32
+    sta fsLEN
+    jsr uci_read_to
+    jsr uci_finish
+rsc_rts:
+    rts
+

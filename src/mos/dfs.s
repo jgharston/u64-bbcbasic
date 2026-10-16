@@ -2,7 +2,7 @@
 ;
 ; U64 BBC BASIC -- DFS commands: *EXEC, *SPOOL, *BUILD, *DUMP, *INFO, *RUN
 ;
-; Bank 7 (.local dfs). They work on any file the filing system reaches
+; Bank 9 (.local dfs). They work on any file the filing system reaches
 ; (the Ultimate's drives, /REU) through the OS calls (OSFIND, OSBGET,
 ; OSBPUT, OSFILE): no filing-system internals here. docs/DESIGN_ACORN.md 2.
 ;
@@ -197,7 +197,7 @@ spp_rts:
 sps_load:
     .local sps
     org DF_STUB, sps_load
-    farcall dfs.sp_put, BANK_NET
+    farcall dfs.sp_put, BANK_TOOLS
     jmp mos_wrch
 LEN         = * - DF_STUB
     .endl

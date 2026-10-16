@@ -165,6 +165,8 @@ stb_nn:
     icl 'speech.s'
     icl 'font46.s'                ; (moved from bank 8, 2026-10-16)
     icl 'petscii.s'
+    icl 'cfg_text.s'                ; *SETUP's settings (ultctl.s, bank 7)
+    icl 'reucmd.s'                  ; *REULOAD, *REUSAVE, *REU
 
 bank6_end:
     .if bank6_end > $C000

@@ -91,18 +91,20 @@ VDU          VPOS         WIDTH
 * commands (*HELP *<command>):
 
 *ACCESS      *ADVAL       *BUILD
-*CAT         *COPY        *CP
-*CRUNCH      *DELETE      *DIR
-*DRIVE       *DUMP        *EDIT
-*EXEC        *FLOOD       *FONT
-*FX          *HELP        *INFO
-*INSTRUMENT  *JSON        *KEY
-*LIST        *LOAD        *MAP
-*MEMORY      *MKDIR       *MOUNT
-*NET         *PALETTE     *PARTITION
-*PARTITIONS  *PETSCII     *PWD
-*RECTANGLE   *RENAME      *RUN
-*SAVE        *SEARCH      *SEDIT
+*CAT         *CONFIG      *COPY
+*CP          *CRUNCH      *DELETE
+*DIR         *DRIVE       *DUMP
+*EDIT        *EXEC        *FLOOD
+*FONT        *FX          *HELP
+*INFO        *INSTRUMENT  *JSON
+*KEY         *LIST        *LOAD
+*MAP         *MEMORY      *MENU
+*MKDIR       *MOUNT       *NET
+*PALETTE     *PARTITION   *PARTITIONS
+*PETSCII     *PWD         *RANDOMIZE
+*RECTANGLE   *RENAME      *REU
+*REULOAD     *RUN         *SAVE
+*SAVEMEM     *SEARCH      *SEDIT
 *SEQ         *SETTIME     *SGET
 *SHADOW      *SID         *SNAPSHOT
 *SONG        *SOUND       *SPEECH
@@ -230,12 +232,43 @@ below HIMEM: MODE 7 keeps its screen at
 &7C00, the Upic Lite modes their
 picture at &5800 (MODE 4, 5, 6) or
 &3000 (MODE 1, 2); HIMEM is lowered to
-match, as on a BBC Micro. Under the I/O
-area is the drawing engine, under the
-KERNAL the bitmap (&E000) and the text
-font (&F000). The area &70-&8F is free
-for your own machine code, as on a BBC
+match, as on a BBC Micro. The graphics
+modes keep a further 768 bytes below
+that for the fast * graphics commands
+(*POINT, *LINE, ...), *SPRITE ON 1.25K
+for the sprites. Under the I/O area is
+the drawing engine, under the KERNAL
+the bitmap (&E000) and the text font
+(&F000). The area &70-&8F is free for
+your own machine code, as on a BBC
 Micro.
+
+Free for programs per mode (HIMEM -
+PAGE; on a 64 MHz Ultimate):
+
+  Mode         HIMEM  free   no sound
+  100, 134     &8000  24.75K 29.75K
+  7, 135       &7C00  23.75K 28.75K
+  0, 3         &7D00  24K    29K
+  103, 104     &7D00  24K    29K
+  110, 111     &7D00  24K    29K
+  128-133      &7D00  24K    29K
+  6            &5800  14.75K 19.75K
+  4, 5         &5500  14K    19K
+  1, 2         &2D00   4K     9K
+
+"no sound": *SOUND NONE, then
+PAGE=&900. *SPRITE ON (VIC-II modes
+only) takes 1.25K more. The Upic Lite
+modes (1, 2, 4, 5, 6) keep their
+picture below HIMEM; the graphics modes
+keep 768 bytes for the fast * graphics
+commands. 48 MHz Ultimates use the
+VIC-II versions of MODE 0, 1 and 4, and
+VICE of every mode: &7D00 there. Short
+of memory in MODE 1 or 2: MODE 129 or
+130 (the VIC-II versions), or *SOUND
+NONE.
 
 BASIC runs from RAM because the
 Ultimate 64 reads cartridge ROM at 1
@@ -293,13 +326,16 @@ turbo registers for speed.
 The cartridge's .cfg file switches on
 everything needed when the cartridge is
 started from the Ultimate's file
-browser: Command Interface, REU,
-Ultimate Audio and the U64 turbo
-registers.
+browser: Command Interface, REU (16
+MB), Ultimate Audio and the U64 turbo
+registers. Started another way, the
+start-up applies the same settings
+itself when the REU is not 16 MB or the
+turbo registers are off (see *SETUP).
 
-Planned: drives and disk images, REU,
-network, Ultimate Audio, Upic graphics,
-palette.
+More: *DRIVE, *MOUNT, *MENU, *REBOOT,
+*SAVEMEM, *CONFIG, *NET, *UPIC,
+*PALETTE.
 ```
 
 ## ERRORS
@@ -727,6 +763,68 @@ Moves a drive (drive A if none is
 given) on to the next disk of its disk
 set, as the Ultimate's swap function
 does for multi-disk games.
+```
+
+## *MENU
+
+Also: `MENU`, `*REBOOT`, `REBOOT`
+
+```
+  *MENU         the Ultimate's menu
+  *REBOOT [Y]   restart the C64
+
+MENU opens the Ultimate's menu, as its
+freeze button does; the program goes on
+where it was when the menu is left.
+REBOOT restarts the C64 (and the
+cartridge): it asks "Reboot? (Y/N)"
+first unless Y is given. The program in
+memory is lost.
+```
+
+## *SAVEMEM
+
+Also: `SAVEMEM`
+
+```
+  *SAVEMEM file   64K of RAM to a file
+
+Ultimate 64 only: saves all 64K of the
+C64's RAM, as it is now, to a file
+(overwritten if it exists), for looking
+at memory on a PC. A name without a
+leading / is in the current directory.
+```
+
+## *CONFIG
+
+Also: `CONFIG`, `*SETUP`, `SETUP`
+
+```
+  *CONFIG file   Ultimate settings
+  *SETUP         the settings for BASIC
+
+CONFIG loads Ultimate settings from a
+.cfg file (the format of the Ultimate's
+own "Save settings": [section] lines,
+then item=value lines); only the items
+in the file change, for this session
+(they are not saved in the Ultimate's
+flash). Firmware 3.15 or later; on an
+SD card or USB stick put the file in a
+folder (/SD/cfg/my.cfg: firmware 3.15a
+cannot open one in the drive's root).
+
+SETUP applies the settings this BASIC
+needs (the same as the u64bbc .cfg file
+next to the cartridge: command
+interface, REU of 16 MB, Ultimate
+Audio, the U64's turbo registers, the
+SIDs), then finds the REU and the turbo
+again. The start-up does this by itself
+when the REU is not 16 MB or a U64 has
+its turbo registers off, and says so in
+one line.
 ```
 
 ## *DRIVE
@@ -1231,6 +1329,8 @@ Also: `TABLE`
 ```
   *TABLE SIN addr [steps]  sine table
   *TABLE COS addr [steps]  cosine
+  *TABLE SQR addr [n]      square roots
+  *TABLE RECIP addr [n]    1/x
 
 Fast sine and cosine for programs that
 need many of them (demos, generative
@@ -1257,6 +1357,19 @@ leave little memory (MODE 2 has under
 5K). One table is enough for both: COS
 is S%!(4*((A%+64) AND 255)) with 256
 steps.
+
+*TABLE SQR and *TABLE RECIP hold n
+entries (256, 512, 1024 when left out,
+2048 or 4096; 4 bytes each), entry i
+being SQR(i)*65536 or 65536/i, rounded
+(entry 0 of RECIP: &7FFFFFFF). A table
+read replaces SQR (about 700
+microseconds) or a division of reals.
+
+  DIM Q% 4095:*TABLE SQR Q%
+  R%=Q%!(4*D%) DIV 65536
+
+gives SQR(D%) for D% up to 1023.
 ```
 
 ## *PETSCII
@@ -1904,6 +2017,13 @@ expressions:
   X%=640:Y%=512:R%=200
   *CIRCLE FILL X%,Y%,R%
   *RECTANGLE 0,0,1279,100
+
+In the graphics modes RECTANGLE,
+CIRCLE, ELLIPSE, LINE and POINT take a
+fast path in RAM (768 bytes below
+HIMEM): about as quick as PLOT itself,
+some 25 times quicker than other *
+commands.
 ```
 
 ## *SGET
@@ -2038,6 +2158,68 @@ Copies from the REU into memory at
 start, the reverse of *SRWRITE.
 
   *SRREAD &3000 +&1000 &40000
+```
+
+## *REULOAD
+
+Also: `REULOAD`, `*REUSAVE`, `REUSAVE`
+
+```
+  *REULOAD <file> [<REU addr>]
+  *REUSAVE <file> <REU addr> <len>
+
+Load a file straight into the REU, or
+save part of the REU to a file: the
+Ultimate copies the bytes itself, they
+never pass through the C64's memory, so
+megabytes take moments. Program area
+only: &40000-&8FFFF, as *SRWRITE and
+*SRREAD. *REULOAD loads at &40000 when
+no address is given, and stops at
+&8FFFF. Files on the Ultimate's drives
+(not /REU). Numbers decimal or &hex.
+
+  *REUSAVE LEVELS &40000 &20000
+  *REULOAD LEVELS
+  *SRREAD &3000 +&800 &40000
+```
+
+## *RANDOMIZE
+
+Also: `RANDOMIZE`, `*RANDOMISE`, `RANDOMISE`
+
+```
+  *RANDOMIZE     (also *RANDOMISE)
+
+Seeds RND afresh from real entropy: the
+time of day of the Ultimate's clock,
+the centisecond clock and the hardware
+timers at the moment of the call. The
+MOS does this at every start, so RND
+gives another sequence each time; call
+it in a program right after a key press
+for more. RND(-n) still starts a
+reproducible sequence.
+```
+
+## *REU
+
+Also: `REU`
+
+```
+  *REU SAVE
+  *REU LOAD [Y]
+
+Saves the whole REU to the Ultimate's
+REU preload image (the file set in its
+menu under C64 and Cartridge Settings),
+and loads it back: the /REU RAM disk
+and a program's REU data survive
+switching off. *REU LOAD replaces
+everything in the REU, so it asks first
+unless Y follows. Set the REU preload
+in the Ultimate's menu to load it at
+power-on instead.
 ```
 
 ## /REU
@@ -2644,7 +2826,9 @@ Continues at line.
 ```
   HIMEM
 
-The top of BASIC's memory (&8000).
+The top of BASIC's memory: &8000, lower
+in modes that need RAM below it (see
+MEMORY).
 ```
 
 ## IF
@@ -3255,7 +3439,11 @@ The last n characters of s$.
   RND(n)    1 to n
   RND(-n)   sets the seed
 
-Random numbers.
+Random numbers. The MOS seeds RND from
+real entropy at every start, so each
+start gives another sequence;
+*RANDOMIZE seeds it again. RND(-n)
+gives a reproducible sequence.
 ```
 
 ## RUN

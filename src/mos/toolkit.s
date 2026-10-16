@@ -1,7 +1,7 @@
 ; ----------------------------------------------------------------------------
 ;
 ; U64 BBC BASIC -- BASIC toolkit: *SEARCH, *FIND, *REPLACE, *XREF,
-; *VARLIST, *CRUNCH, *PACK (bank 7)
+; *VARLIST, *CRUNCH, *PACK (bank 9)
 ;
 ; In the style of Beebug's Toolkit Plus (owner, 2026-10-14; its manual
 ; scanned at 8bs.com, "Beebug Toolkit Plus"): *SEARCH s1[,s2] with the
@@ -1043,7 +1043,7 @@ xr_name:
     tay                         ; 0 PROC, 1 FN
     lda xn_kw_lo,y
     sta mosTMP
-    lda #>xn_proc
+    lda xn_kw_hi,y
     sta mosTMP+1
     ldy #0
 xn_kw:
@@ -1072,11 +1072,10 @@ xn_pad:
     rts
 xn_kw_lo:
     dta <xn_proc, <xn_fn
+xn_kw_hi:                       ; (high bytes too: the words may now lie
+    dta >xn_proc, >xn_fn        ; in two pages)
 xn_proc     dta 'PROC', 0
 xn_fn       dta 'FN', 0
-    .if >xn_proc != >xn_fn
-    .error "xr_name's keywords cross a page"
-    .endif
 
 ; xr_int: the integer at (TK_Q) through FCON
 xr_int:

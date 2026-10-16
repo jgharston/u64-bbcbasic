@@ -10,6 +10,8 @@
     icl 'sprite.s'
     icl 'gxr.s'
     icl 'gxblock.s'
+    icl 'fastpath.s'
+    icl 'mathtab2.s'
 
 bank5_end:
     .if bank5_end > $C000

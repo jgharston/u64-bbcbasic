@@ -17,9 +17,9 @@ U64 BBC BASIC uses the Ultimate's command interface (UCI) for files, the clock a
 *CAT     files (see FILES)
 ```
 
-The cartridge's .cfg file switches on everything needed when the cartridge is started from the Ultimate's file browser: Command Interface, REU, Ultimate Audio and the U64 turbo registers.
+The cartridge's .cfg file switches on everything needed when the cartridge is started from the Ultimate's file browser: Command Interface, REU (16 MB), Ultimate Audio and the U64 turbo registers. Started another way, the start-up applies the same settings itself when the REU is not 16 MB or the turbo registers are off (see *SETUP).
 
-Planned: drives and disk images, REU, network, Ultimate Audio, Upic graphics, palette.
+More: *DRIVE, *MOUNT, *MENU, *REBOOT, *SAVEMEM, *CONFIG, *NET, *UPIC, *PALETTE.
 
 #### `*STATUS` (also `*SYS`, `SYS`)
 
@@ -36,6 +36,34 @@ Shows the system: MOS and cartridge, the Ultimate's hardware, CPU speed, REU siz
 ```
 
 Shows the identification of the Ultimate's DOS and control targets.
+
+#### `*MENU` (also `*REBOOT`, `REBOOT`)
+
+```
+*MENU         the Ultimate's menu
+*REBOOT [Y]   restart the C64
+```
+
+MENU opens the Ultimate's menu, as its freeze button does; the program goes on where it was when the menu is left. REBOOT restarts the C64 (and the cartridge): it asks "Reboot? (Y/N)" first unless Y is given. The program in memory is lost.
+
+#### `*SAVEMEM`
+
+```
+*SAVEMEM file   64K of RAM to a file
+```
+
+Ultimate 64 only: saves all 64K of the C64's RAM, as it is now, to a file (overwritten if it exists), for looking at memory on a PC. A name without a leading / is in the current directory.
+
+#### `*CONFIG` (also `*SETUP`, `SETUP`)
+
+```
+*CONFIG file   Ultimate settings
+*SETUP         the settings for BASIC
+```
+
+CONFIG loads Ultimate settings from a .cfg file (the format of the Ultimate's own "Save settings": [section] lines, then item=value lines); only the items in the file change, for this session (they are not saved in the Ultimate's flash). Firmware 3.15 or later; on an SD card or USB stick put the file in a folder (/SD/cfg/my.cfg: firmware 3.15a cannot open one in the drive's root).
+
+SETUP applies the settings this BASIC needs (the same as the u64bbc .cfg file next to the cartridge: command interface, REU of 16 MB, Ultimate Audio, the U64's turbo registers, the SIDs), then finds the REU and the turbo again. The start-up does this by itself when the REU is not 16 MB or a U64 has its turbo registers off, and says so in one line.
 
 
 ## 11.2 Drives and disk images

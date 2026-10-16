@@ -355,6 +355,8 @@ X%=640:Y%=512:R%=200
 *RECTANGLE 0,0,1279,100
 ```
 
+In the graphics modes RECTANGLE, CIRCLE, ELLIPSE, LINE and POINT take a fast path in RAM (768 bytes below HIMEM): about as quick as PLOT itself, some 25 times quicker than other * commands.
+
 
 ## 8.8 GXR software sprites
 

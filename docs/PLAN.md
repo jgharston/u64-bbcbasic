@@ -173,6 +173,8 @@ fewer extensions, and is useful for VICE and for quick turnaround.
 
 ## 4. Memory map (running)
 
+(The original plan; the current maps are in `ARCHITECTURE.md`.)
+
 | Range | Use |
 |---|---|
 | `$0000–$0001` | 6510 port |
@@ -1151,27 +1153,64 @@ PETSCII (owner, 2026-10-16, asked interactively; PLAN 13's proposal):
 
 In 1.0.0, in this order (speed first):
 
-1. Faster VDU path: OSWRCH's VDU byte path into RAM (about 1 ms a VDU
-   byte now, so every PLOT and * graphics command gains).
+1. Faster * graphics commands (was "faster VDU path": measuring without
+   the remote's capture showed VDU bytes take 15 us, but *POINT 2 ms;
+   owner's choice, 2026-10-16): a RAM fast path for *POINT, *LINE,
+   *RECTANGLE, *CIRCLE, *ELLIPSE in the graphics modes, 768 bytes below
+   HIMEM (DESIGN_GRAPHICS 14). Done: *POINT 25-34 times faster.
 2. The uneven baselines of the 6-line glyphs (VIC-II MODE 2/5) and the
    ASCII-mode cursor (a blink as the cursor moves on, e.g. by TAB,
-   stays as a reverse cell; fixed for *PETSCII already).
+   stays as a reverse cell; fixed for *PETSCII already). Done: the owner chose
+   a fixed baseline (row 7 last, two of rows 0-6 dropped: leading blank,
+   repeated, then rows 1 and 3); O/o, V/v and X/x then look the same in
+   those cells (COPY and OSBYTE &87 read the capital); MODE no longer
+   starts the cursor blink in the text modes (only input does).
 3. Ultimate batch C: *MENU, *REBOOT, *SAVEMEM, *CONFIG, and a start-up
    check offering *SETUP when the Ultimate's settings (REU size, turbo,
-   command interface) do not suit the MOS.
-4. Ultimate batch B: *REULOAD / *REUSAVE, REU preload images, OSWORD &E0.
+   command interface) do not suit the MOS. Done (ultctl.s, bank 7): the
+   owner chose to apply the settings automatically at start-up, and
+   *REBOOT asks first.
+4. Ultimate batch B: *REULOAD / *REUSAVE, REU preload images, OSWORD &E0. Done
+   (reucmd.s in bank 6, the file work in bank 2).
+   Owner, 2026-10-16: *REULOAD/*REUSAVE in the program area only
+   (&40000-&8FFFF, as *SRWRITE; *REULOAD defaults to &40000); the preload
+   image as *REU SAVE / *REU LOAD, presented as keeping the RAM disk (and
+   REU data) over a power-off, LOAD asking first; OSWORD &E0 dropped
+   (OSWORD &42 covers it).
 5. Random numbers (section 21): RND seeded from real entropy at start-up
-   and *RANDOMIZE (the better generator and the internet seed later).
-6. *TABLE SQR and 1/x.
+   and *RANDOMIZE (the better generator and the internet seed later). Done
+   (rndseed.s, bank 3): no entropy pool (no free resident RAM); the
+   entropy is gathered when seeding: BBC TIME, CIA 1 timer A, the raster
+   line and TOD before and after a request to the Ultimate's clock, and
+   its date/time text, hashed into &0D-&11 (33 bits, never zero).
+   *RANDOMISE is the same command.
+6. *TABLE SQR and 1/x. Done (mathtab2.s, bank 5; owner, 2026-10-16: as
+   SIN, 32-bit x 65536): *TABLE SQR / RECIP addr [n], n 256-4096; the
+   bit-by-bit maths runs as a RAM image in MOSBUF at turbo speed.
 7. Ultimate batch G: the rest of HTTP (*HTTPGET, methods, headers,
-   status codes).
+   status codes). Owner, 2026-10-16: *NET POST url file|"text" [outfile],
+   *NET PUT (the same), *NET DELETE url [outfile]: the reply to outfile
+   or the screen; *NET HEADER Name: value for all following requests
+   (alone: cleared); a status of 400 or more raises a catchable error
+   ("HTTP 404 Not Found"), an OSBYTE returns the last status; and the
+   JSON body builder: *JSON NEW, *JSON SET key value, *JSON POST url.
+   Also (owner, 2026-10-16, firmware coverage check): *NET shows the MAC
+   address, and *STATUS SID lists the SID configuration (control &28).
 8. Upic's compact 48 MHz variant (the picture stays visible while BASIC
    runs slowly).
-9. The release: a GitHub release with a ZIP (both .crt and .cfg, all
+8a. Ultimate Audio (owner, 2026-10-16): sample sound effects (SOUND on
+   voices 24-30, *SAMPLE LOAD n file: samples in the REU) and *MODPLAY
+   file / *MODSTOP (a ProTracker MOD in the background), the player
+   ported to MADS from ultimate-uci-oscar64's (credited), in its own
+   bank, under the sound engine's interrupt rules. *HBPLAY after 1.0.0.
+9. A showcase demo (owner, 2026-10-16): one program that shows off
+   the BASIC with nice graphics and music, the last thing before the
+   release and the videos.
+10. The release: a GitHub release with a ZIP (both .crt and .cfg, all
    demos tokenised and as source, the manual as PDF, README, licences)
    and the VS Code extension (.vsix); an announcement (Facebook post and
    an idreamtin8bits blog post).
-10. Videos, five, one per group: 1 introduction (start-up, the line
+11. Videos, five, one per group: 1 introduction (start-up, the line
     editor, BASIC 3.10, *HELP, VS Code); 2 graphics (BBC modes, Upic Lite
     and full, GXR, sprites, *MAP, PETSCII); 3 sound and music (SOUND and
     ENVELOPE on 8 SIDs, the song tracker, speech); 4 files, Ultimate and
@@ -1182,7 +1221,8 @@ In 1.0.0, in this order (speed first):
     no palette, so each scene's palette is applied in post (from the
     demo's *COLOUR/VDU 19 values, or one read after the take).
 
-After 1.0.0: Ultimate batch E (tape capture, GEOS RAM disk, track
-decoding, an IEC filing system on SoftIEC), bigger *MAP maps (over 30720
+After 1.0.0: *HBPLAY (Heartbeat songs), Ultimate batch E (tape capture, GEOS RAM disk, track
+decoding, an IEC filing system on SoftIEC, RAM disk info, echo), *NET IP
+(setting the address) and the interface count, bigger *MAP maps (over 30720
 cells), the better random generator and the internet seed, and the C128
 cartridge.

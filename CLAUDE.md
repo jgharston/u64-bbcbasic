@@ -2,7 +2,8 @@
 
 BBC BASIC 3.10 for the Ultimate 64 / C64 Ultimate as a cartridge, with a
 BBC-style MOS in 6502 assembler (MADS). Plan, findings, decisions and
-roadmap: `docs/PLAN.md`.
+roadmap: `docs/PLAN.md`. Banks, RAM, zero page, HIMEM and REU maps:
+`docs/ARCHITECTURE.md` (update it when an area changes).
 
 ## Build and test
 
@@ -62,7 +63,8 @@ what this BASIC can and cannot do.
 | `src/mos/uci.s`, `fs.s`, `ucmds.s` | bank 2: UCI driver, filing system, Ultimate commands |
 | `src/mos/reudisk.s`, `rdglue.s` | bank 5: the /REU RAM disk; its routing (bank 2) |
 | `src/mos/sndbank.s`, `sound*.s`, `sndcmd.s`, `songcmd.s`, `font46.s`, `petscii.s` | bank 6: the sound engine images (RAM &0900), sound and song commands, the 4x6 font, the PETSCII mode |
-| `src/mos/netbank.s`, `netcmd.s`, `netchan.s` | bank 7: network (*NET, *JSON, network channels); helpers `bankhelp.s` |
-| `src/help/help.txt` | *HELP source (banks 8+, docs/HELP_REFERENCE.md) |
+| `src/mos/netbank.s`, `netcmd.s`, `netchan.s` | bank 7: network (*NET, *JSON, network channels), `ultctl.s`; helpers `bankhelp.s` |
+| `src/mos/toolbank.s` | bank 9: `sedit.s`, `acorn.s`, `dfs.s`, `toolkit.s` |
+| `src/help/help.txt` | *HELP source (banks 10+, docs/HELP_REFERENCE.md) |
 | `tools/` | mkcrt, gentables, genhelp, checkcfg, bbctok (tokeniser), u64remote, u64mcp |
 | `tests/e2e/` | end-to-end suite |

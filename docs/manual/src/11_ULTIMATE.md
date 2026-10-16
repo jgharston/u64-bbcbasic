@@ -4,7 +4,7 @@ The Ultimate's drives, disk images, clock and speed.
 
 ## 11.1 Overview
 
-@@help ULTIMATE *STATUS *UVER
+@@help ULTIMATE *STATUS *UVER *MENU *SAVEMEM *CONFIG
 
 ## 11.2 Drives and disk images
 

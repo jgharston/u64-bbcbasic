@@ -524,6 +524,7 @@ spo_vic:
     sta $07
     lda #0
     sta $06
+    jmp fpa.fp_place            ; (the * graphics fast path below it)
 spo_rts:
     rts
 
@@ -538,6 +539,7 @@ sp_off:
     sta $07
     lda #0
     sta $06
+    jmp fpa.fp_place            ; (the * graphics fast path up again)
 spf_rts:
     rts
 

@@ -622,7 +622,7 @@ RND(n)    1 to n
 RND(-n)   sets the seed
 ```
 
-Random numbers.
+Random numbers. The MOS seeds RND from real entropy at every start, so each start gives another sequence; *RANDOMIZE seeds it again. RND(-n) gives a reproducible sequence.
 
 #### `AND`
 
@@ -681,6 +681,8 @@ The value 0.
 ```
 *TABLE SIN addr [steps]  sine table
 *TABLE COS addr [steps]  cosine
+*TABLE SQR addr [n]      square roots
+*TABLE RECIP addr [n]    1/x
 ```
 
 Fast sine and cosine for programs that need many of them (demos, generative graphics): a table of 1024 whole numbers, a full turn in 1024 steps, each the value times 65536, in 4096 bytes of the program's memory. A table read takes about 30 microseconds, SIN itself about 775.
@@ -693,6 +695,23 @@ Y%=S%!(4*(A% AND 1023))
 gives SIN(A%*PI/512)*65536, rounded (65536 is 1). addr is a number or one of A%-Z%; the table must lie between PAGE and HIMEM. COS is the same a quarter turn on.
 
 *TABLE SIN addr 256 (or 512) makes a smaller table with a full turn in that many steps: 1K for 256, for modes that leave little memory (MODE 2 has under 5K). One table is enough for both: COS is S%!(4*((A%+64) AND 255)) with 256 steps.
+
+*TABLE SQR and *TABLE RECIP hold n entries (256, 512, 1024 when left out, 2048 or 4096; 4 bytes each), entry i being SQR(i)*65536 or 65536/i, rounded (entry 0 of RECIP: &7FFFFFFF). A table read replaces SQR (about 700 microseconds) or a division of reals.
+
+```
+DIM Q% 4095:*TABLE SQR Q%
+R%=Q%!(4*D%) DIV 65536
+```
+
+gives SQR(D%) for D% up to 1023.
+
+#### `*RANDOMIZE` (also `*RANDOMISE`, `RANDOMISE`)
+
+```
+*RANDOMIZE     (also *RANDOMISE)
+```
+
+Seeds RND afresh from real entropy: the time of day of the Ultimate's clock, the centisecond clock and the hardware timers at the moment of the call. The MOS does this at every start, so RND gives another sequence each time; call it in a program right after a key press for more. RND(-n) still starts a reproducible sequence.
 
 
 ## 6.7 Strings

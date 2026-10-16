@@ -339,3 +339,27 @@ Copies from the REU into memory at start, the reverse of *SRWRITE.
 ```
 *SRREAD &3000 +&1000 &40000
 ```
+
+#### `*REULOAD` (also `*REUSAVE`, `REUSAVE`)
+
+```
+*REULOAD <file> [<REU addr>]
+*REUSAVE <file> <REU addr> <len>
+```
+
+Load a file straight into the REU, or save part of the REU to a file: the Ultimate copies the bytes itself, they never pass through the C64's memory, so megabytes take moments. Program area only: &40000-&8FFFF, as *SRWRITE and *SRREAD. *REULOAD loads at &40000 when no address is given, and stops at &8FFFF. Files on the Ultimate's drives (not /REU). Numbers decimal or &hex.
+
+```
+*REUSAVE LEVELS &40000 &20000
+*REULOAD LEVELS
+*SRREAD &3000 +&800 &40000
+```
+
+#### `*REU`
+
+```
+*REU SAVE
+*REU LOAD [Y]
+```
+
+Saves the whole REU to the Ultimate's REU preload image (the file set in its menu under C64 and Cartridge Settings), and loads it back: the /REU RAM disk and a program's REU data survive switching off. *REU LOAD replaces everything in the REU, so it asks first unless Y follows. Set the REU preload in the Ultimate's menu to load it at power-on instead.

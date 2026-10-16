@@ -417,6 +417,7 @@ gx_a        dta 0
 gx_code     dta 0               ; VDU code for the engine's e_vdu
 vmode_pal   dta 0               ; offset of the mode's palette set
 pet_on      dta 0               ; *PETSCII: OSWRCH sends bytes as PETSCII
+fp_page     dta 0               ; the graphics fast path's page (0: none)
 pet_obrk    dta a(0)            ; *PETSCII: BASIC's BRKV (pet_brkv)
 vm_t        dta 0               ; scratch (never the MOS zero page: the
                                 ; VDU path runs inside MOS commands)

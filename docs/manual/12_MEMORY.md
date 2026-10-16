@@ -31,7 +31,24 @@ Memory map while BASIC runs:
 &E000-&FFFF  KERNAL, bitmap below
 ```
 
-PAGE is &1D00 (as on a BBC Micro with ADFS) and HIMEM &8000: 25.75K for programs. *SOUND NONE takes the sound engine out: a program may then set PAGE=&900 (31K). Some modes need RAM below HIMEM: MODE 7 keeps its screen at &7C00, the Upic Lite modes their picture at &5800 (MODE 4, 5, 6) or &3000 (MODE 1, 2); HIMEM is lowered to match, as on a BBC Micro. Under the I/O area is the drawing engine, under the KERNAL the bitmap (&E000) and the text font (&F000). The area &70-&8F is free for your own machine code, as on a BBC Micro.
+PAGE is &1D00 (as on a BBC Micro with ADFS) and HIMEM &8000: 25.75K for programs. *SOUND NONE takes the sound engine out: a program may then set PAGE=&900 (31K). Some modes need RAM below HIMEM: MODE 7 keeps its screen at &7C00, the Upic Lite modes their picture at &5800 (MODE 4, 5, 6) or &3000 (MODE 1, 2); HIMEM is lowered to match, as on a BBC Micro. The graphics modes keep a further 768 bytes below that for the fast * graphics commands (*POINT, *LINE, ...), *SPRITE ON 1.25K for the sprites. Under the I/O area is the drawing engine, under the KERNAL the bitmap (&E000) and the text font (&F000). The area &70-&8F is free for your own machine code, as on a BBC Micro.
+
+Free for programs per mode (HIMEM - PAGE; on a 64 MHz Ultimate):
+
+```
+Mode         HIMEM  free   no sound
+100, 134     &8000  24.75K 29.75K
+7, 135       &7C00  23.75K 28.75K
+0, 3         &7D00  24K    29K
+103, 104     &7D00  24K    29K
+110, 111     &7D00  24K    29K
+128-133      &7D00  24K    29K
+6            &5800  14.75K 19.75K
+4, 5         &5500  14K    19K
+1, 2         &2D00   4K     9K
+```
+
+"no sound": *SOUND NONE, then PAGE=&900. *SPRITE ON (VIC-II modes only) takes 1.25K more. The Upic Lite modes (1, 2, 4, 5, 6) keep their picture below HIMEM; the graphics modes keep 768 bytes for the fast * graphics commands. 48 MHz Ultimates use the VIC-II versions of MODE 0, 1 and 4, and VICE of every mode: &7D00 there. Short of memory in MODE 1 or 2: MODE 129 or 130 (the VIC-II versions), or *SOUND NONE.
 
 BASIC runs from RAM because the Ultimate 64 reads cartridge ROM at 1 MHz even in turbo mode.
 
@@ -64,7 +81,7 @@ The start of the program (&1D00). With *SOUND NONE it may be set as low as &900.
 HIMEM
 ```
 
-The top of BASIC's memory (&8000).
+The top of BASIC's memory: &8000, lower in modes that need RAM below it (see MEMORY).
 
 #### `LOMEM`
 

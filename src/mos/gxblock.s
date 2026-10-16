@@ -537,8 +537,9 @@ g23_rts:
 ;            each glyph's rows as the engine draws them: 8 (or 10, the last
 ;            two blank, in Upic Lite's 10-line rows) as they are; 6-line
 ;            cells: the 4x6 font's rows 0-5, an 8x8 glyph's six rows that
-;            e_rows6 (gfx.s) keeps -- its blank bottom row or else row 0
-;            out, and the first row equal to the next kept one (else row 2).
+;            e_rows6 (gfx.s) keeps -- row 7 last, of rows 0-6 the leading
+;            blank rows, then a row equal to the next, then rows 1 and 3
+;            out.
 ;   Input:   X = column, Y = row.  Output: A = ASCII 32-126, 0 if none.
 ;   Uses:    A, X, Y, ex, ey, MOSBUF+$00-$2F.
 GC_ROWS     = MOSBUF+$00        ; 10: the cell's rows
@@ -686,43 +687,51 @@ gcg_id:
     lda vmode_cw                ; the 4x6 font: rows 0-5
     cmp #4
     beq gcg_rts
-    lda #7                      ; e_rows6: the blank bottom row out, else
-    ldx GC_GLY+7                ; row 0
-    beq gcg_a
-    lda #0
-gcg_a:
-    sta GC_A
-    ldy #0                      ; the first row equal to the next kept
-gcg_dup:                        ; one (else row 2)
-    cpy GC_A
-    beq gcg_nx
-    tya
-    tax
-    inx
-    cpx GC_A
-    bne gcg_c
-    inx
-gcg_c:
-    cpx #8
-    bcs gcg_none
+    lda #0                      ; e_rows6's choice (gfx.s, 2026-10-16):
+    sta GC_A                    ; row 7 last; of rows 0-6 two out:
+    tax                         ; leading blank rows, then a row equal to
+    tay                         ; the next, then rows 1 and 3
+gcg_lead:
     lda GC_GLY,y
-    cmp GC_GLY,x
-    beq gcg_got
-gcg_nx:
+    bne gcg_rep
+    jsr gcg_drop
+    beq gcg_build
     iny
-    cpy #7
-    bne gcg_dup
-gcg_none:
-    ldy #2
-gcg_got:
-    sty GC_B
+    bne gcg_lead
+gcg_rep:
+    ldy #0
+gcg_rl:
+    lda gcg_bit,y                ; (row y+1 is only out when row y
+    and GC_A                    ; is: leading blank rows)
+    bne gcg_rn
+    lda GC_GLY,y
+    cmp GC_GLY+1,y
+    bne gcg_rn
+    jsr gcg_drop
+    beq gcg_build
+gcg_rn:
+    iny
+    cpy #6
+    bne gcg_rl
+    ldy #1
+gcg_fb:
+    lda gcg_bit,y
+    and GC_A
+    bne gcg_fn
+    jsr gcg_drop
+    beq gcg_build
+gcg_fn:
+    iny
+    iny
+    cpy #5
+    bcc gcg_fb
+gcg_build:
     ldx #0                      ; the six rows kept
     ldy #0
 gcg_l:
-    cpy GC_A
-    beq gcg_s
-    cpy GC_B
-    beq gcg_s
+    lda gcg_bit,y
+    and GC_A
+    bne gcg_s
     tya
     sta GC_KEEP,x
     inx
@@ -730,6 +739,16 @@ gcg_s:
     iny
     cpy #8
     bne gcg_l
+    rts
+gcg_drop:                       ; row Y out; X counts, Z = 1 at two
+    lda gcg_bit,y
+    ora GC_A
+    sta GC_A
+    inx
+    cpx #2
+    rts
+gcg_bit:
+    dta 1, 2, 4, 8, 16, 32, 64, 128
 gcg_rts:
     rts
 

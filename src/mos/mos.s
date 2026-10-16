@@ -71,6 +71,7 @@ cold:
     cli
     farcall fs_init, BANK_FS    ; find the Ultimate (up to 0.5 s)
     farcall sid_auto, BANK_FS   ; fewer than 8 SIDs: the 8SID layout
+    farcall net.uc_check, BANK_NET ; the Ultimate's settings (ultctl.s)
     jsr font_to_reu             ; fonts for MODE changes and bitmap text
     farcall fo_mkascii, BANK_FS ; (the ASCII-order one, font.s)
     jsr key_init                ; no *KEY texts
@@ -90,6 +91,7 @@ cold_nogxr:
     farcall rd_boot, BANK_RD    ; the REU RAM disk
     farcall net.net_init, BANK_NET ; no JSON reply kept
     jsr ul_detect               ; Upic Lite possible?
+    farcall rnd_seed, BANK_GFX   ; RND: another sequence every start
     jsr banner
     jmp enter_lang
 
@@ -1067,7 +1069,9 @@ by_oshwm:                       ; &83: PAGE = &1D00 (&0800-&1CFF: MOSBUF,
     ldy #>OSHWM_NONE
     bne by_ret
 by_himem:                       ; &84: HIMEM of the current mode (below
-    ldx #0                      ; the sprite multiplexer when it is there)
+    ldx #0                      ; the graphics fast path and the sprite
+    ldy fp_page                 ; multiplexer when they are there)
+    bne bh84_rts
     ldy spr_page
     bne bh84_rts
     ldy vmode_himem
@@ -1076,16 +1080,40 @@ bh84_rts:
 by_himem85:                     ; &85: HIMEM for mode X (BASIC's MODE)
     farcall bk_himem, BANK_GFX
     lda spr_on                  ; *SPRITE ON: 5 pages lower in the VIC-II
-    beq bh85_rts                ; modes (HIMEM &8000 or &7C00; not Upic
+    beq bh85_fp                 ; modes (HIMEM &8000 or &7C00; not Upic
     cpy #$7C                    ; Lite's, not Upic full's: no sprites)
-    bcc bh85_rts
+    bcc bh85_fp
     txa
     and #$7F
     cmp #110
-    bcs bh85_rts
+    bcs bh85_fp
     tya
     sec
     sbc #5
+    tay
+bh85_fp:                        ; graphics modes: 3 pages lower for the
+    txa                         ; * graphics fast path (fastpath.s): MODE
+    and #$7F                    ; 0-5, 103, 104, 110, 111 (as mode_tab;
+    cmp #8                      ; other numbers as n AND 7, as MODE does)
+    bcc bf_low
+    cmp #100
+    beq bh85_rts
+    cmp #103
+    beq bf_gfx
+    cmp #104
+    beq bf_gfx
+    cmp #110
+    beq bf_gfx
+    cmp #111
+    beq bf_gfx
+    and #7
+bf_low:
+    cmp #6
+    bcs bh85_rts
+bf_gfx:
+    tya
+    sec
+    sbc #3                      ; (fastpath.s FP_PAGES)
     tay
 bh85_rts:
     ldx #0
@@ -1255,7 +1283,7 @@ bed_set:
     tax
     jmp by_ret
 by_acorn:                       ; &04, &0B, &0C, &13, &A3, &C8, &DC: bank 7
-    farcall acorn.ac_byte, BANK_NET
+    farcall acorn.ac_byte, BANK_TOOLS
     jmp by_ret
 bae_exec:                       ; (by_ackesc) the *EXEC file closed
     ldy DF_EXEC
@@ -1267,7 +1295,7 @@ bae_rts:
     ldy by_y
     rts
 bad_acorn:                      ; ADVAL 0-4, -1: bank 7
-    farcall acorn.ac_adval, BANK_NET
+    farcall acorn.ac_adval, BANK_TOOLS
     jmp by_ret
 
 ; by_inkey (OSBYTE &81)
@@ -1281,7 +1309,7 @@ bad_acorn:                      ; ADVAL 0-4, -1: bank 7
 by_inkey:
     cpy #$FF
     bne ink_wait
-    farcall acorn.ac_scan, BANK_NET ; INKEY(-n), INKEY(-256)
+    farcall acorn.ac_scan, BANK_TOOLS ; INKEY(-n), INKEY(-256)
     jmp by_ret
 ink_wait:
     stx mosNUM
@@ -1918,12 +1946,12 @@ cli_badnum:
 ; of their letter's group in this order. genhelp.py checks the grouping.
 cmd_table:
 ct_A:
-    dta 'ADVAL', 0, a(acorn.cmd_adval), BANK_NET
+    dta 'ADVAL', 0, a(acorn.cmd_adval), BANK_TOOLS
     dta 'ACCESS', 0, a(cmd_access), BANK_FS
     dta 'ASCII', 0, a(pet.cmd_ascii), BANK_SND
     dta 0
 ct_B:
-    dta 'BUILD', 0, a(dfs.cmd_build), BANK_NET
+    dta 'BUILD', 0, a(dfs.cmd_build), BANK_TOOLS
     dta 0
 ct_C:
     dta 'CAT', 0, a(cmd_cat), BANK_FS
@@ -1933,23 +1961,24 @@ ct_C:
     dta 'CDIR', 0, a(cmd_mkdir), BANK_FS
     dta 'CIRCLE', 0, a(bvc.cmd_circle), BANK_UP
     dta 'COLOUR', 0, a(bvc.cmd_colour), BANK_UP
-    dta 'CRUNCH', 0, a(tk.cmd_crunch), BANK_NET
+    dta 'CRUNCH', 0, a(tk.cmd_crunch), BANK_TOOLS
+    dta 'CONFIG', 0, a(net.cmd_config), BANK_NET
     dta 0
 ct_D:
     dta 'DIR', 0, a(cmd_dir), BANK_FS
     dta 'DELETE', 0, a(cmd_delete), BANK_FS
     dta 'DRIVE', 0, a(cmd_drive), BANK_FS
-    dta 'DUMP', 0, a(dfs.cmd_dump), BANK_NET
+    dta 'DUMP', 0, a(dfs.cmd_dump), BANK_TOOLS
     dta 0
 ct_E:
     dta 'EDIT', 0, a(cmd_edit), BANK_MOS
     dta 'ELLIPSE', 0, a(bvc.cmd_ellipse), BANK_UP
-    dta 'EXEC', 0, a(dfs.cmd_exec), BANK_NET
+    dta 'EXEC', 0, a(dfs.cmd_exec), BANK_TOOLS
     dta 0
 ct_F:
     dta 'FONT', 0, a(cmd_font), BANK_FS
     dta 'FX', 0, a(cmd_fx), BANK_MOS
-    dta 'FIND', 0, a(tk.cmd_find), BANK_NET
+    dta 'FIND', 0, a(tk.cmd_find), BANK_TOOLS
     dta 'FLOOD', 0, a(gxr.cmd_accept), BANK_RD
     dta 0
 ct_G:
@@ -1961,7 +1990,7 @@ ct_H:
     dta 0
 ct_I:
     dta 'INSTRUMENT', 0, a(cmd_instrument), BANK_SND
-    dta 'INFO', 0, a(dfs.cmd_info), BANK_NET
+    dta 'INFO', 0, a(dfs.cmd_info), BANK_TOOLS
     dta 0
 ct_J:
     dta 'JSON', 0, a(net.cmd_json), BANK_NET
@@ -1979,6 +2008,7 @@ ct_M:
     dta 'MOUNT', 0, a(cmd_mount), BANK_FS
     dta 'MEMORY', 0, a(cmd_memory), BANK_FS
     dta 'MAP', 0, a(cmap.cmd_map), BANK_UP
+    dta 'MENU', 0, a(net.cmd_menu), BANK_NET
     dta 0
 ct_N:
     dta 'NET', 0, a(net.cmd_net), BANK_NET
@@ -1995,7 +2025,7 @@ ct_P:
     dta 'PARTITIONS', 0, a(cmd_partitions), BANK_FS
     dta 'PWD', 0, a(cmd_pwd), BANK_FS
     dta 'POINT', 0, a(bvc.cmd_point), BANK_UP
-    dta 'PACK', 0, a(tk.cmd_pack), BANK_NET
+    dta 'PACK', 0, a(tk.cmd_pack), BANK_TOOLS
     dta 'PETSCII', 0, a(pet.cmd_petscii), BANK_SND
     dta 0
 ct_Q:
@@ -2003,8 +2033,14 @@ ct_Q:
 ct_R:
     dta 'RENAME', 0, a(cmd_rename), BANK_FS
     dta 'RECTANGLE', 0, a(bvc.cmd_rectangle), BANK_UP
-    dta 'RUN', 0, a(dfs.cmd_run), BANK_NET
-    dta 'REPLACE', 0, a(tk.cmd_replace), BANK_NET
+    dta 'RUN', 0, a(dfs.cmd_run), BANK_TOOLS
+    dta 'REPLACE', 0, a(tk.cmd_replace), BANK_TOOLS
+    dta 'REBOOT', 0, a(net.cmd_reboot), BANK_NET
+    dta 'REU', 0, a(cmd_reu), BANK_SND
+    dta 'REULOAD', 0, a(cmd_reuload), BANK_SND
+    dta 'REUSAVE', 0, a(cmd_reusave), BANK_SND
+    dta 'RANDOMIZE', 0, a(cmd_randomize), BANK_GFX
+    dta 'RANDOMISE', 0, a(cmd_randomize), BANK_GFX
     dta 0
 ct_S:
     dta 'SAVE', 0, a(cmd_save), BANK_FS
@@ -2014,7 +2050,7 @@ ct_S:
     dta 'SPRITE', 0, a(spr.cmd_sprite), BANK_RD
     dta 'SCHOOSE', 0, a(gxr.cmd_schoose), BANK_RD
     dta 'SDELETE', 0, a(gxr.cmd_sdelete), BANK_RD
-    dta 'SEDIT', 0, a(sed.cmd_sedit), BANK_NET
+    dta 'SEDIT', 0, a(sed.cmd_sedit), BANK_TOOLS
     dta 'SGET', 0, a(gxr.cmd_sget), BANK_RD
     dta 'SLOAD', 0, a(gxr.cmd_sload), BANK_RD
     dta 'SMASK', 0, a(gxr.cmd_smask), BANK_RD
@@ -2023,8 +2059,8 @@ ct_S:
     dta 'SRENUMBER', 0, a(gxr.cmd_srenumber), BANK_RD
     dta 'SSAVE', 0, a(gxr.cmd_ssave), BANK_RD
     dta 'SSPACE', 0, a(gxr.cmd_sspace), BANK_RD
-    dta 'SPOOL', 0, a(dfs.cmd_spool), BANK_NET
-    dta 'SEARCH', 0, a(tk.cmd_search), BANK_NET
+    dta 'SPOOL', 0, a(dfs.cmd_spool), BANK_TOOLS
+    dta 'SEARCH', 0, a(tk.cmd_search), BANK_TOOLS
     dta 'SPEECH', 0, a(spch.cmd_speech), BANK_SND
     dta 'SAY', 0, a(spch.cmd_say), BANK_SND
     dta 'SPEAK', 0, a(spch.cmd_speak), BANK_SND
@@ -2037,9 +2073,11 @@ ct_S:
     dta 'SWAP', 0, a(cmd_swap), BANK_FS
     dta 'SYS', 0, a(cmd_status), BANK_FS
     dta 'SEQ', 0, a(pet.cmd_seq), BANK_SND
+    dta 'SAVEMEM', 0, a(net.cmd_savemem), BANK_NET
+    dta 'SETUP', 0, a(net.cmd_setup), BANK_NET
     dta 0
 ct_T:
-    dta 'TABLE', 0, a(mtab.cmd_tab), BANK_UP
+    dta 'TABLE', 0, a(mt5.cmd_tab5), BANK_RD
     dta 'TIME', 0, a(cmd_time), BANK_FS
     dta 'TURBO', 0, a(cmd_turbo), BANK_MOS
     dta 'TYPE', 0, a(cmd_type), BANK_FS
@@ -2050,12 +2088,12 @@ ct_U:
     dta 'UVER', 0, a(cmd_uver), BANK_FS
     dta 0
 ct_V:
-    dta 'VARLIST', 0, a(tk.cmd_varlist), BANK_NET
+    dta 'VARLIST', 0, a(tk.cmd_varlist), BANK_TOOLS
     dta 0
 ct_W:
     dta 0
 ct_X:
-    dta 'XREF', 0, a(tk.cmd_xref), BANK_NET
+    dta 'XREF', 0, a(tk.cmd_xref), BANK_TOOLS
     dta 0
 ct_Y:
     dta 0

@@ -860,3 +860,32 @@ cursor and COLOUR 128+n, so the PETSCII graphics live in this mode only.
   Petmate and the VDC Screen Editor start without a clear or case code
   and rely on the 40-column wrap), bytes straight to CHROUT, ESCAPE
   stops, a key ends; a mode it switched on ends again with CLS.
+
+## 14. The fast path for the BASIC V graphics commands (2026-10-16)
+
+PLAN.md 27 item 1, after measuring (without the remote's output capture,
+which throttles OSWRCH while the PC drains its ring: the "1 ms per VDU
+byte" first seen was that): a VDU byte costs about 15 us, PLOT 69 0.06
+ms, but *POINT 2 ms, as OSCLI's lookup and the argument parsing run in
+cartridge code at 1 MHz. In the Upic Lite modes everything takes about
+7-8 times as long (the CPU draws the live picture): *POINT 13.8 ms, PLOT
+0.48 ms.
+
+- fastcmd.s, a RAM image on CLIV in the graphics modes (vtype 1): it
+  recognises POINT, LINE, RECTANGLE [FILL], CIRCLE [FILL] and ELLIPSE
+  [FILL] (whole words, any case), reads the arguments as bvcmd.s does
+  (A%-Z%, decimal, &hex, negative) and sends the same VDU bytes at turbo
+  speed. Anything else (other commands, abbreviations, anything it does
+  not read cleanly) jumps to v_cli, the normal path, which also raises
+  the errors: it never raises one itself.
+- fastpath.s (bank 5) holds the image twice, assembled at $1000 and
+  $2000; copying it to page P, a byte that differs between the copies is
+  an internal address's high byte and becomes copy-1's - $10 + P. 767
+  bytes in three pages below HIMEM, below the sprite multiplexer when it
+  is in (`*SPRITE ON`/`OFF` at the prompt move it); `fp_place` runs at
+  the end of every MODE. OSBYTE &84 returns its page, &85 counts 3 pages
+  for the graphics modes; text modes and MODE 7 keep CLIV on v_cli.
+- Measured on the U64-II: *POINT 2.1 -> 0.08 ms (VIC-II), 13.8 -> 0.40
+  ms (Upic Lite); *LINE 0.14 / 0.72 ms. A small circle takes 27 ms in
+  the VIC-II modes against 5.7 ms in Upic Lite, with PLOT 149 as much as
+  with *CIRCLE: the VIC-II engine's circle, a separate matter.

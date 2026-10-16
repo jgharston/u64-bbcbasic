@@ -1982,60 +1982,67 @@ egc_x:
     .if GXUL = 0
 ; e_rows6
 ;   Summary: the 6 glyph rows to draw in a 6-line cell, per glyph.
-;   Function: drops row 7 if it is blank (capitals, most signs), else row
-;            0 (descenders), then the first row equal to the next kept
-;            one (C64 glyphs repeat their stems), else row 2 (keeps the
-;            tip of > and <, the strokes of Z).
-;   Input:   glyph[].  Output: erows[0..5] = row numbers.  Uses: A, X, Y.
+;   Function: one baseline for all (owner, 2026-10-16: descenders sat a
+;            line higher, the old choice dropped row 0 for them, row 7 for
+;            the rest): row 7 (the descenders' row) is always the last;
+;            of rows 0-6 two go: leading blank rows first, then a row
+;            equal to the next (C64 glyphs repeat their stems), then rows
+;            1 and 3.
+;   Input:   glyph[].  Output: erows[0..5] = row numbers.  Uses: A, X, Y,
+;            er6a (the rows dropped, a bit each).
 e_rows6:
-    lda vmode_cw                ; MODE 1's 4-pixel cells: the 4x6 font,
-    cmp #4                      ; rows 0-5 as they are
-    bne er6_pick
-    ldx #5
-er6_46:
-    txa
-    sta erows,x
-    dex
-    bpl er6_46
-    rts
-er6_pick:
-    lda #7
-    ldx glyph+7
-    beq er6_a
-    lda #0
-er6_a:
+    ldx vmode_cw                ; MODE 1's 4-pixel cells: the 4x6 font,
+    cpx #4                      ; rows 0-5 as they are (6 and 7 out)
+    bne er6_norm
+    lda #$C0
     sta er6a
-    ldy #0
-er6_dup:
-    cpy er6a
-    beq er6_next
-    tya                         ; the next kept row
-    tax
-    inx
-    cpx er6a
-    bne er6_cmp
-    inx
-er6_cmp:
-    cpx #8
-    bcs er6_none
-    lda glyph,y
-    cmp glyph,x
-    beq er6_got
-er6_next:
+    bne er6_build
+er6_norm:
+    lda #0
+    tax                         ; X: rows dropped so far
+    tay
+    sta er6a
+er6_lead:                       ; leading blank rows (a blank glyph:
+    lda glyph,y                 ; rows 0 and 1, so this ends)
+    bne er6_rep
+    jsr er6_drop
+    beq er6_build
     iny
-    cpy #7
-    bne er6_dup
-er6_none:
-    ldy #2
-er6_got:
-    sty er6b
-    ldx #0
+    bne er6_lead
+er6_rep:                        ; a row equal to the next (both kept)
     ldy #0
+er6_rl:
+    lda er6_bit,y                ; (row y+1 is only out when row y
+    and er6a                    ; is: leading blank rows)
+    bne er6_rn
+    lda glyph,y
+    cmp glyph+1,y
+    bne er6_rn
+    jsr er6_drop
+    beq er6_build
+er6_rn:
+    iny
+    cpy #6
+    bne er6_rl
+    ldy #1                      ; then rows 1 and 3 (one of them is free:
+er6_fb:                         ; at most one row is gone by now; 1 first:
+    lda er6_bit,y               ; 3 is the middle bar of 6, G, ...)
+    and er6a
+    bne er6_fn
+    jsr er6_drop
+    beq er6_build
+er6_fn:
+    iny
+    iny
+    cpy #5
+    bcc er6_fb
+er6_build:
+    ldx #0                      ; the rows kept, 0-7 (row 7, never
+    ldy #0                      ; dropped, comes last)
 er6_list:
-    cpy er6a
-    beq er6_skip
-    cpy er6b
-    beq er6_skip
+    lda er6_bit,y
+    and er6a
+    bne er6_skip
     tya
     sta erows,x
     inx
@@ -2044,6 +2051,16 @@ er6_skip:
     cpy #8
     bne er6_list
     rts
+; er6_drop: drop row Y; X counts, Z = 1 when two are gone
+er6_drop:
+    lda er6_bit,y
+    ora er6a
+    sta er6a
+    inx
+    cpx #2
+    rts
+er6_bit:
+    dta 1, 2, 4, 8, 16, 32, 64, 128
 
     .endif
 

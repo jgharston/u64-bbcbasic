@@ -34,7 +34,8 @@ BANK_RD     = 5                 ; the REU RAM disk (reudisk.s)
 BANK_SND    = 6                 ; sound: engine images, commands (sndbank.s)
 BANK_NET    = 7                 ; network (netbank.s)
 BANK_UP     = 8                 ; Upic full: *UPIC, MODE 110/111 (upbank.s)
-BANK_HELP   = 9                 ; first help bank: index + texts (tools/genhelp.py)
+BANK_TOOLS  = 9                 ; tools: *EDIT, Acorn, DFS, toolkit (toolbank.s)
+BANK_HELP   = 10                ; first help bank: index + texts (tools/genhelp.py)
 BANK_RAM    = $FF               ; cartridge off: BASIC runs from its RAM
                                 ; copy at $8000-$BFFF. The Ultimate 64 runs
                                 ; cartridge ROM fetches at 1 MHz, RAM at

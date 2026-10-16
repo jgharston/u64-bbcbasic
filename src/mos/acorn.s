@@ -2,7 +2,7 @@
 ;
 ; U64 BBC BASIC -- Acorn compatibility: keys, analogue channels, *FX
 ;
-; Bank 7 (.local acorn). INKEY(-n) scans one key of the C64 keyboard by
+; Bank 9 (.local acorn). INKEY(-n) scans one key of the C64 keyboard by
 ; the BBC's internal key number, INKEY(-256) gives &FF (BBC B, OS 1.2);
 ; ADVAL(0-4) reads the joysticks, paddles or a 1351 mouse in the control
 ; ports (*ADVAL picks which), ADVAL(-1) the keys waiting; the OSBYTEs

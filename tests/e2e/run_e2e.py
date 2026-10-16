@@ -178,7 +178,9 @@ def test_copy_bitmap(t):
 def test_osbyte87(t):
     # OSBYTE &87 reads the character at the cursor in every mode: text
     # screens and MODE 7 from their codes, the bitmap modes from the pixels
-    # (gxb_chr), Upic full from its console. VICE: the VIC-II modes only
+    # (gxb_chr), Upic full from its console. VICE: the VIC-II modes only.
+    # (No O/o, V/v, X/x: in the 6-line cells of VIC-II MODE 2/5 each pair
+    # looks the same since the even baselines, e_rows6; capitals win.)
     if t.is_vice:                       # (no REU: no 4x6 font, and the
         modes = "2,4,5,130,132,133,103,104,7"  # ROM glyphs' left halves
     else:                               # are not unique: 0, 1, 3 left out)
@@ -186,7 +188,7 @@ def test_osbyte87(t):
     n = modes.count(",") + 1
     prog = """10 DIM M%%(%d):FOR I%%=0 TO %d:READ M%%(I%%):NEXT
 20 DATA %s
-30 T$="Hi,BBC!{[x_y]}0@#?":R$=""
+30 T$="Hi,BBC!{[w_y]}0@#?":R$=""
 40 FOR J%%=0 TO %d
 50   MODE M%%(J%%)
 60   PRINT TAB(0,3);T$;
@@ -704,6 +706,49 @@ def test_a_partition(t):
     assert not r.run_lines(["*CP 0"], timeout=60)["error"]
 
 
+def test_a_machine(t):
+    # Batch C (ultctl.s): *REBOOT asks first (N: nothing happens);
+    # *SAVEMEM writes the 64K of RAM (a full and a relative name);
+    # *CONFIG loads a .cfg from a folder and from /Temp's root (the
+    # firmware's root limit concerns SD and USB drives); *SETUP applies
+    # the built-in settings. *MENU (the
+    # freeze) is left out: it stops the machine until the menu is left.
+    if not ult(t):
+        run_line(t, "*SAVEMEM X", "Ultimate")
+        return
+    rm = remote(t)
+    rm.run_lines(["*REBOOT"], wait=False)
+    time.sleep(1)
+    rm.write(0x277, bytes([0x4E]))              # N
+    rm.write(0xC6, bytes([1]))
+    time.sleep(2)
+    assert rm.state()["state"] == "prompt"
+    out = rm.run_lines(["*SAVEMEM /Temp/MEM1.BIN", "*DIR /Temp",
+                        "*SAVEMEM MEM2.BIN"], timeout=30)
+    assert not out["error"], out
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", "")
+        assert ftp.size("/Temp/MEM1.BIN") == 65536
+        assert ftp.size("/Temp/MEM2.BIN") == 65536
+        ftp.delete("/Temp/MEM1.BIN")
+        ftp.delete("/Temp/MEM2.BIN")
+        try:
+            ftp.mkd("/Temp/u64bbc")
+        except ftplib.error_perm:
+            pass
+        cfg = b"[C64 and Cartridge Settings]\nREU Size=16 MB\n"
+        ftp.storbinary("STOR /Temp/u64bbc/t.cfg", io.BytesIO(cfg))
+        ftp.storbinary("STOR /Temp/t.cfg", io.BytesIO(cfg))
+    out = rm.run_lines(["*CONFIG /Temp/u64bbc/t.cfg"], timeout=30)
+    assert not out["error"], out
+    out = rm.run_lines(["*CONFIG /Temp/t.cfg"], timeout=30)
+    assert not out["error"], out                # (/Temp's root works)
+    out = rm.run_lines(["*SETUP"], timeout=60)
+    assert "Ultimate settings set" in out["output"], out
+    out = rm.run_lines(["*DELETE /Temp/t.cfg", "*DELETE /Temp/u64bbc/t.cfg",
+                        "*DIR ~"], timeout=30)
+
+
 def test_a_dirhome(t):
     if not ult(t):
         return
@@ -928,6 +973,7 @@ def test_memory(t):
     # MODE 1 is Upic Lite (HIMEM &3000), MODE 129 and *SHADOW modes the
     # VIC-II version (HIMEM &8000), *MEMORY UPIC OFF/AUTO as *SHADOW, and
     # BASIC's "Bad MODE" when variables are in the way. VICE: always &8000.
+    # (The graphics modes 768 bytes lower for the fast path, fastpath.s.)
     rd = 'A%=&72:X%=255:PRINT "R=";(USR&C7F4 AND &FF00) DIV 256'
     run_line(t, "*SHADOW", ">")
     run_line(t, rd, "R=0")
@@ -940,7 +986,7 @@ def test_memory(t):
         "MODE 4:C%=HIMEM:*MEMORY UPIC AUTO",
         "MODE 4:D%=HIMEM:A%=&75:E%=(USR&C7F4 AND &FF00) DIV 256",
         'R$="R="+STR$~F%+","+STR$~B%+","+STR$~C%+","+STR$~D%+","+STR$E%'],
-        "R=3000,8000,8000,5800,0" if up else "R=8000,8000,8000,8000,0")
+        "R=2D00,7D00,7D00,5500,0" if up else "R=7D00,7D00,7D00,7D00,0")
     if up:
         run_line(t, "CLEAR:DIM Z% 20000:MODE 1", "Bad MODE")
         run_line(t, "CLEAR", ">")
@@ -1209,8 +1255,9 @@ def test_classics(t):
     # (animal first: after MODE 2, Upic Lite, BASIC runs at 1/6 speed)
     progs += [("persian", None), ("polygon", None)]
     for name, want in progs:
+        rm.run_lines(["MODE 100"])      # (persian leaves MODE 2: HIMEM
         r = rm.send_program(open(os.path.join(d, name + ".bas")).read(),
-                            run=True, timeout=12)
+                            run=True, timeout=12)       # &2D00)
         if name == "animal":            # no animal; don't save: it ends
             rm.wait_line_wanted(30)     # (reading the file takes a while)
             first = rm.run_lines(["N"], timeout=30)  # lists what it knows
@@ -1577,6 +1624,10 @@ def test_table(t):
     run_line(t, "20 E=ABS(S%!(4*I%)-SIN A*65536):IF E>M M=E", ">")
     run_line(t, "30 F=ABS(C%!(4*I%)-COS A*65536):IF F>N N=F", ">")
     run_line(t, '40 NEXT:PRINT "R=";M<=0.5;N<=0.5', ">")
+    run_line(t, "50 FOR I%=1 TO 1023 STEP 11", ">")     # SQR, RECIP
+    run_line(t, "60 E=ABS(S%!(4*I%)-SQR I%*65536):IF E>M M=E", ">")
+    run_line(t, "70 F=ABS(C%!(4*I%)-65536/I%):IF F>N N=F", ">")
+    run_line(t, '80 NEXT:PRINT "R=";M<=0.5;N<=0.5', ">")
     run_line(t, "DIM S% 4095,C% 4095:*TABLE SIN S%", ">")
     run_line(t, "*TABLE COS C%", ">")
     run_line(t, 'PRINT "R=";S%!0;",";S%!1024;",";S%!2048;",";S%!3072;'
@@ -1592,6 +1643,19 @@ def test_table(t):
     run_line(t, "*TABLE SIN HIMEM-100", "Syntax")
     run_line(t, "*TABLE SIN &7F00", "Bad address")
     run_line(t, "*TABLE TAN S%", "Syntax")
+    # *TABLE SQR / RECIP (mathtab2.s): SQR(i) and 65536/i x 65536 (n
+    # entries), rounded; over the SIN/COS tables now
+    run_line(t, "*TABLE SQR S%", ">")
+    run_line(t, "*TABLE RECIP C%", ">")
+    run_line(t, 'PRINT "R=";S%!0;",";S%!4;",";S%!8;",";S%!4092',
+             "R=0,65536,92682,2096128")
+    run_line(t, 'PRINT "R=";~C%!0;",";C%!4;",";C%!12;",";C%!4092',
+             "R=7FFFFFFF,65536,21845,64")    # (~: 10 digits print as E9)
+    run_line(t, "M=0:N=0:GOTO 50", "R=-1-1", timeout=60)
+    run_line(t, "*TABLE recip Q% 256", ">")
+    run_line(t, 'PRINT "R=";Q%!1020', "R=257")
+    run_line(t, "*TABLE SQR Q% 300", "Entries: 256 to 4096")
+    run_line(t, "*TABLE SQR &7C00 512", "Bad address")
 
 def test_petscii(t):
     # *PETSCII / *ASCII / *SEQ (petscii.s, core.s wr_pet): bytes go to the
@@ -1640,6 +1704,24 @@ def test_petscii(t):
     assert rm.state()["state"] == "prompt"
     out = rm.run_lines(["*DELETE /Temp/T.SEQ"])
     assert not out["error"], out
+
+
+def test_fastpath(t):
+    # The RAM fast path for the BASIC V graphics commands (fastcmd.s,
+    # fastpath.s): in a graphics mode *POINT (decimal; lower case, &hex
+    # and a negative 0; A%-Z%) plots as PLOT 69 does; HIMEM is the page CLIV
+    # points to (3 pages below the mode's); an unclear command still gives
+    # the normal path's error; MODE 100 puts HIMEM and CLIV back
+    run_line(t, 'MODE 4:OSCLI "POINT 100,200":B%=POINT(100,200):OSCLI "poi'
+                'nt &40,-0":C%=POINT(64,0):X%=300:Y%=400:OSCLI "POINT X%,Y%'
+                '":D%=POINT(300,400):E%=(!&208 AND &FFFF)=HIMEM:MODE 100:PR'
+                'INT:PRINT "R=";B%;C%;D%;E%', "R=111-1")
+    run_line(t, "NEW", ">")
+    run_line(t, '10 ON ERROR E%=ERR:MODE 100:PRINT:PRINT "R=";E%:END', ">")
+    run_line(t, '20 MODE 4:OSCLI "POINT 1"', ">")
+    run_line(t, "RUN", "R=220")
+    run_line(t, 'MODE 100:PRINT:PRINT "R=";~HIMEM;" ";~!&208 AND &FFFF',
+             "R=8000 C42B")
 
 
 def test_map(t):
@@ -2422,6 +2504,53 @@ def test_reu_storage(t):
     run_line(t, "*SRREAD &1000 +16 &40000", "Bad address")
 
 
+
+def test_randomize(t):
+    # *RANDOMIZE: a new seed each time (two in a row differ), RND(-n)
+    # still reproducible; nothing may follow the command
+    run_line(t, "*RANDOMIZE", ">")
+    run_line(t, "A%=RND", ">")
+    run_line(t, "*RANDOMISE", ">")
+    run_line(t, "B%=RND", ">")
+    run_line(t, 'X=RND(-7):C%=RND:X=RND(-7):D%=RND', ">")
+    run_line(t, 'PRINT "R=";A%<>B%;",";C%=D%', "R=-1,-1")
+    run_line(t, "*RANDOMIZE 5", "Syntax")
+
+def test_reu_files(t):
+    # *REUSAVE / *REULOAD: REU memory to a file and back (one DOS command
+    # each), the program area's limits, not /REU; *REU LOAD asks first (N:
+    # nothing happens). *REU SAVE is left out: it writes the 16 MB preload
+    # image the Ultimate's menu names (the owner's file).
+    if not ult(t):
+        run_line(t, "*REUSAVE X &40000 16", "Ultimate")
+        return
+    run_line(t, "FOR I%=0 TO 255:I%?&4000=I%:NEXT", ">")
+    run_line(t, "*SRWRITE &4000 +256 &50000", ">")
+    run_line(t, "*REUSAVE /Temp/TREU &50000 &10100", ">")
+    run_line(t, "FOR I%=0 TO 255:I%?&4000=0:NEXT", ">")
+    run_line(t, "*SRWRITE &4000 +256 &50000", ">")
+    run_line(t, "*REULOAD /Temp/TREU &60000", ">")
+    run_line(t, "*SRREAD &4000 +256 &60000", ">")
+    run_line(t, 'PRINT "R=";?&4001;",";?&40FF', "R=1,255")
+    run_line(t, "*REULOAD /Temp/TREU", ">")      # (at &40000)
+    run_line(t, "*SRREAD &4000 +256 &40000", ">")
+    run_line(t, 'PRINT "R=";?&4080', "R=128")
+    run_line(t, "*REULOAD /Temp/TREU &8FF00", ">")   # stops at &8FFFF
+    run_line(t, "*SRREAD &4000 +256 &8FF00", ">")
+    run_line(t, 'PRINT "R=";?&40FF', "R=255")
+    run_line(t, "*REUSAVE /Temp/TREU &3FFFF 16", "Bad address")
+    run_line(t, "*REUSAVE /Temp/TREU &8FFF0 &11", "Bad address")
+    run_line(t, "*REULOAD /Temp/TREU &90000", "Bad address")
+    run_line(t, "*REUSAVE /REU/X &40000 16", "Not on /REU")
+    run_line(t, "*DELETE /Temp/TREU", ">")
+    rm = remote(t)
+    rm.run_lines(["*REU LOAD"], wait=False)
+    time.sleep(1)
+    rm.write(0x277, bytes([0x4E]))              # N
+    rm.write(0xC6, bytes([1]))
+    time.sleep(2)
+    assert rm.state()["state"] == "prompt"
+
 def test_ramdisk(t):
     # the REU RAM disk as /REU: SAVE/LOAD, *SAVE/*LOAD, *CAT, *RENAME,
     # *DELETE, *TYPE, *COPY both ways, full names from elsewhere
@@ -2523,7 +2652,7 @@ def test_gfx_mode3(t):
         "MODE 100",
         'PRINT "M=";M%;",";N%;",";C%;",";P%;",";V%;",";Q%;",";W%'],
         timeout=30)["output"]
-    assert "M=3,0,32768,79,24,79,31" in out, out
+    assert "M=3,0,32000,79,24,79,31" in out, out   # (HIMEM: fast path)
 
 
 def test_gfx_teletext(t):
@@ -2579,7 +2708,7 @@ def test_gfx_upiclite(t):
         t.notes.append("Upic Lite: not on this machine (VIC-II modes)")
         r.run_lines(["MODE 100"])
         return
-    assert "22528" in out, out
+    assert "21760" in out, out          # (the fast path: 3 pages)
     sys.path.insert(0, os.path.join(ROOT, "tools"))
     import u64shot
     rows = u64shot.grab(t.host, 11002)
@@ -2588,16 +2717,16 @@ def test_gfx_upiclite(t):
     side = [(rows[top + y][191] & 1) | (rows[top + y][193] & 1) for y in range(256)]
     assert all(col) and not any(side), (col.count(1), side.count(1))
     out = r.run_lines(["MODE 1", "PRINT HIMEM", "GCOL 0,2:PLOT 69,0,1020"])["output"]
-    assert "12288" in out, out
+    assert "11520" in out, out
     rows = u64shot.grab(t.host, 11002)
     assert rows[top][32] & 3 == 2, rows[top][28:40]
     out = r.run_lines(["MODE 2", "PRINT HIMEM", "GCOL 0,9:PLOT 69,0,1020",
                        "PRINT POINT(0,1020)"])["output"]
-    assert "12288" in out and re.search(r"\b9\b", out), out
+    assert "11520" in out and re.search(r"\b9\b", out), out
     rows = u64shot.grab(t.host, 11002)     # 160 wide: pixel 0 = dots 32, 33
     assert rows[top][32] & 15 == 9 and rows[top][33] & 15 == 9, rows[top][28:40]
     out = r.run_lines(["MODE 5", "PRINT HIMEM"])["output"]
-    assert "22528" in out, out
+    assert "21760" in out, out          # (the fast path: 3 pages)
     out = r.run_lines(["MODE 100", "PRINT HIMEM"])["output"]
     assert "32768" in out, out
     t.notes.append("Upic Lite: MODE 4/1/2/5 live, pixel-exact")
@@ -2758,10 +2887,11 @@ GROUPS = {
     "files": [test_fs_uver, test_fs_time, test_fs_dir, test_fs_save_load,
               test_fs_channels, test_fs_type, test_fs_errors,
               test_fs_rename_delete, test_turbo_cmd, test_status,
-              test_reu_storage, test_ramdisk, test_dfs, test_toolkit],
+              test_reu_storage, test_reu_files, test_randomize, test_ramdisk, test_dfs, test_toolkit],
     "ultimate": [test_a_clock, test_a_copy, test_a_mount, test_a_drive,
-                 test_a_settime, test_a_partition, test_a_dirhome],
-    "graphics": [test_gfx_point_line, test_gfx_rect_clg_window,
+                 test_a_settime, test_a_partition, test_a_machine,
+                 test_a_dirhome],
+    "graphics": [test_fastpath, test_gfx_point_line, test_gfx_rect_clg_window,
                  test_gfx_gcol_actions, test_gfx_origin_relative,
                  test_gfx_text, test_gfx_shapes, test_gfx_patterns,
                  test_gfx_flood, test_gfx_arcs, test_vdu23_chars, test_font,

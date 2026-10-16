@@ -26,4 +26,4 @@ the file cannot be opened).
 Programs can keep data in the REU, from &40000 up (the MOS uses the
 first 256K):
 
-@@help *SRWRITE *SRREAD
+@@help *SRWRITE *SRREAD *REULOAD *REU

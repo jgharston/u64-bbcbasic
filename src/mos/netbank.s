@@ -13,12 +13,8 @@
     icl 'uci.s'
     icl 'netcmd.s'
     icl 'netchan.s'
+    icl 'ultctl.s'
     .endl
-
-    icl 'sedit.s'
-    icl 'acorn.s'
-    icl 'dfs.s'
-    icl 'toolkit.s'
 
 bank7_end:
     .if bank7_end > $C000

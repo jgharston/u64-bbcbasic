@@ -236,7 +236,11 @@ frb_none:
     lda #0
     rts
 
+FR_LENH     = MOSBUF+$ED        ; fs_reurest3: the room's high byte
 fs_reurest:
+    lda #0                      ; (room: 16 bits)
+    sta FR_LENH
+fs_reurest3:                    ; (*REULOAD: room 24 bits, FR_LENH)
     lda FR_ONREU
     beq frr_ult
     farcall rd_xrest, BANK_RD
@@ -250,8 +254,9 @@ frr_a:
     bpl frr_a
     lda #0
     sta MOSBUF+$E3
-    sta MOSBUF+$E6
     sta MOSBUF+$E7
+    lda FR_LENH
+    sta MOSBUF+$E6
     lda fsCNT
     sta MOSBUF+$E4
     lda fsCNT+1
@@ -382,7 +387,7 @@ ff_all:
     pha                         ; first (dfs.s: through OSBPUT/OSFIND,
     lda fsSY                    ; which use the fs variables)
     pha
-    farcall dfs.dfs_closeall, BANK_NET
+    farcall dfs.dfs_closeall, BANK_TOOLS
     pla
     sta fsSY
     pla

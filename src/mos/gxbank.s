@@ -68,9 +68,10 @@ bk_mode:
 bkm_mode:                       ; come back for ever
     jsr bk_mode0
     lda spr_on                  ; sprites on: the multiplexer below the new
-    beq bkm_rts                 ; HIMEM (or out: Upic Lite)
+    beq bkm_fp                  ; HIMEM (or out: Upic Lite)
     farcall spr.spr_modehook, BANK_RD
-bkm_rts:
+bkm_fp:
+    farcall fpa.fp_place, BANK_RD ; the * graphics fast path (fastpath.s)
     rts
 bk_mode0:
     lda #1
@@ -204,7 +205,10 @@ vm_nup2:
 vm_nottx:
     lda vtype
     bne vm_bitmap
-    ; text mode: VIC text, font back, KERNAL cursor on, clear
+    ; text mode: VIC text, font back, clear; the KERNAL cursor blinks
+    ; only while input is awaited (the line editor, GET), as on a C64: a
+    ; blink as a program moves the cursor (TAB) stayed as a reverse cell
+    ; (2026-10-16, PLAN 27 item 2)
     lda #$1B
     sta $D011
     lda #$C8
@@ -212,9 +216,11 @@ vm_nottx:
     lda #$0C
     sta $D018
     jsr font_restore
-    lda #0
-    sta $D021
+    lda #1
     sta BLNSW
+    lda #0
+    sta BLNON
+    sta $D021
     sta tbgon
     lda #1
     sta COLOR
@@ -1001,6 +1007,7 @@ ttx_len = * - ENGINE
 
 
     icl 'gxs_bank.s'
+    icl 'rndseed.s'             ; RND's seed (bank 5 was full)
 
 
 bank3_end:
