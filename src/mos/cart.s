@@ -6,7 +6,7 @@
 ; symbols are shared across banks. The raw output holds bank 0 at offset
 ; $0000 and bank 2 at offset $4000; tools/mkcrt.py splits it into 16K
 ; banks; bank 3 (gxbank.s) follows at $8000. Bank 1 is BBC BASIC
-; (build/basic.rom), banks 10+ the help texts (tools/genhelp.py).
+; (build/basic.rom), banks 11+ the help texts (tools/genhelp.py).
 ;
 ; ----------------------------------------------------------------------------
 
@@ -38,5 +38,8 @@
     org $8000, $C000            ; bank 8 (Upic full)
     icl 'upbank.s'
 
-    org $8000, $C000            ; bank 9 (tools: *EDIT, Acorn, DFS, toolkit)
+    org $8000, $C000            ; bank 9 (tools: *SEDIT, Acorn, DFS, toolkit)
     icl 'toolbank.s'
+
+    org $8000, $C000            ; bank 10 (Ultimate Audio)
+    icl 'audbank.s'

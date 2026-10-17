@@ -576,6 +576,9 @@ def test_status(t):
         assert "Drive      15" in out and "Network    " in out, out
         reu = [l for l in out.splitlines() if l.startswith("REU")]
         t.notes.append(reu[0] if reu else "REU line missing")
+        # *STATUS SID (control &28 item 1): UltiSIDs first on the U64
+        sids = u64remote.Remote(mem=t.bridge).run_lines(["*STATUS SID"])["output"]
+        assert re.search(r"SID 1  &D[4-7][0-9A-F]{2}  UltiSID", sids), sids
         assert reu and reu[0] != "REU        none", out
         drives = [l for l in out.splitlines() if l.startswith("Drive")]
         t.notes.extend(drives)
@@ -1144,17 +1147,45 @@ def test_star_list(t):
 
 
 def test_net(t):
-    # *NET: the Ultimate's address; *NET GET through the firmware's HTTP
-    # target (needs the internet: example.com over plain http)
+    # *NET: the Ultimate's address and MAC; the MOS's own HTTP/1.0 client
+    # (nethttp.s; needs the internet: example.com, httpbin.org over plain
+    # http): GET to a file and over 16K, a 404 as error 223 and in OSBYTE
+    # &65, POST with a string body and a *NET HEADER line (httpbin echoes
+    # both), PUT with a file body, DELETE to the screen
     if not ult(t):
         run_line(t, "*NET", "No Ultimate")
         return
-    run_line(t, "*NET", "Gateway")
-    run_line(t, "*NET GET http://example.com/ /Temp/TNET", "bytes", timeout=60)
+    run_line(t, "*NET", "MAC")
+    rm = remote(t)
+    def net(line, timeout=60):
+        out = rm.run_lines([line], timeout=timeout)
+        assert out["state"] == "prompt", out
+        return out
+    out = net("*NET GET http://example.com/ /Temp/TNET")
+    assert "bytes" in out["output"] and not out["error"], out
     run_line(t, "*TYPE /Temp/TNET", "</html>")
-    # (no 404 check: firmware 3.15a's raw exchange returns no status, so
-    # an error page is saved like any reply; DESIGN_NETWORK.md section 8)
-    run_line(t, "*DELETE /Temp/TNET", ">")
+    out = net("*NET GET http://httpbin.org/bytes/40000 /Temp/TNET", 120)
+    assert "40000 bytes" in out["output"], out
+    out = net("*NET GET http://example.com/nothere")
+    assert out["error"] and out["error"]["number"] == 223 \
+        and "404" in out["error"]["message"], out
+    out = net("A%=&65:PRINT (USR&C7F4 AND &FFFF00) DIV 256")
+    assert "404" in out["output"], out
+    net("*NET HEADER X-Test: u64bbc")
+    out = net('*NET POST http://httpbin.org/post "Hello BBC"')
+    assert '"data": "Hello BBC"' in out["output"] \
+        and '"X-Test": "u64bbc"' in out["output"], out
+    net("*NET HEADER")
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", "")
+        ftp.storbinary("STOR /Temp/TBODY", io.BytesIO(b"PUTBODY" * 50))
+    out = net("*NET PUT http://httpbin.org/put /Temp/TBODY /Temp/TNET")
+    assert "bytes" in out["output"], out
+    run_line(t, "*TYPE /Temp/TNET", "PUTBODYPUTBODY")
+    out = net("*NET DELETE http://httpbin.org/delete")
+    assert '"url": "http://httpbin.org/delete"' in out["output"], out
+    for name in ("TNET", "TBODY"):
+        run_line(t, "*DELETE /Temp/" + name, ">")
     rows = run_line(t, "*NET TIME", ">", timeout=30)   # the firmware's SNTP
     assert any(r.count(":") == 2 for r in rows), rows  # "Sat,10 Oct 2026.08:00:00"
     run_line(t, "*NET RANDOM", "RND seeded", timeout=60)
@@ -1171,6 +1202,16 @@ def test_json(t):
     rows = run_line(t, "*JSON timestamp", ">")
     assert any(r.strip().isdigit() for r in rows), rows
     run_line(t, "*JSON nothere", "element nothere")   # (firmware: 400 ...)
+    # a JSON body built by the firmware, POSTed: httpbin echoes it
+    run_line(t, "*JSON NEW", ">")
+    run_line(t, 'S%=-12345:*JSON SET name "BBC"', ">")
+    run_line(t, "*JSON SET score S%", ">")
+    run_line(t, "*JSON SET ok TRUE", ">")
+    run_line(t, "*JSON POST http://httpbin.org/post", ">", timeout=60)
+    run_line(t, "*JSON json/name", "BBC")
+    run_line(t, "*JSON json/score", "-12345")
+    run_line(t, "*JSON json/ok", "TRUE")
+    run_line(t, "*JSON GET http://api.open-notify.org/iss-now.json", ">", timeout=60)
     lib = open(os.path.join(os.path.dirname(__file__), "..", "..", "demos", "net",
                             "JSONLIB.bas")).read()
     prog = ('10 PROCjsoninit\n'
@@ -2551,6 +2592,82 @@ def test_reu_files(t):
     time.sleep(2)
     assert rm.state()["state"] == "prompt"
 
+def mos_label(name):
+    """A MOS label's address (build/mos-tmb.lab, MADS -t: bank, address,
+    name)."""
+    with open(os.path.join(ROOT, "build", "mos-tmb.lab")) as f:
+        for line in f:
+            p = line.split()
+            if len(p) == 3 and p[2] == name.upper():
+                return int(p[1], 16)
+    raise KeyError(name)
+
+
+def test_samples(t):
+    # *SAMPLE (sample.s): a WAV (rate from it, made signed) and raw data
+    # at a given rate into the REU, the list (8000 Hz -> rate 781 -> 8002
+    # Hz shown), SOUND 24/25 playing, looping and stopping them
+    if not ult(t):
+        run_line(t, "*SAMPLE", "Audio needs")
+        return
+    sys.path.insert(0, os.path.dirname(__file__))
+    import audio_assets
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", "")
+        ftp.storbinary("STOR /Temp/TS.WAV", io.BytesIO(audio_assets.make_wav()))
+        ftp.storbinary("STOR /Temp/TS.RAW", io.BytesIO(bytes(range(256)) * 4))
+    run_line(t, "*SAMPLE CLEAR", ">")
+    run_line(t, "*SAMPLE LOAD 1 /Temp/TS.WAV", ">", timeout=30)
+    run_line(t, "*SAMPLE LOAD 2 /Temp/TS.RAW 16000", ">", timeout=30)
+    rows = run_line(t, "*SAMPLE", "Hz")
+    text = "\n".join(rows)
+    assert re.search(r"1  4000 bytes  8002 Hz", text), rows
+    assert re.search(r"2  1024 bytes  160\d\d Hz", text), rows
+    run_line(t, "*SAMPLE LOAD 0 /Temp/TS.WAV", "Samples 1-32")
+    out = remote(t).send_program(                # (the end flag needs
+        "10 SOUND 24,1,53,1:SOUND 25,2,65,255\n"  # the channel's interrupt:
+        "20 T%=TIME:REPEAT UNTIL TIME>T%+30\n"    # playing, looping and
+        "30 SOUND 25,-8,0,0:SOUND 25,0,0,0\n"     # stopping must leave the
+        '40 PRINT "OK"\n', run=True, timeout=20)  # machine running)
+    assert "OK" in out["output"] and out["state"] == "prompt", out
+    for name in ("TS.WAV", "TS.RAW"):
+        run_line(t, "*DELETE /Temp/" + name, ">")
+
+
+def test_modplay(t):
+    # *MODPLAY / *MODSTOP (modplay.s, modengine.s): a generated MOD plays
+    # (the engine's row moves on), TIME keeps time while the interrupt runs
+    # at the MOD's tempo, *MODSTOP brings the SID engine back
+    if not ult(t):
+        run_line(t, "*MODPLAY X", "Audio needs")
+        return
+    sys.path.insert(0, os.path.dirname(__file__))
+    import audio_assets
+    with ftplib.FTP(t.host, timeout=20) as ftp:
+        ftp.login("anonymous", "")
+        ftp.storbinary("STOR /Temp/TM.MOD", io.BytesIO(audio_assets.make_mod()))
+    rm = remote(t)
+    try:
+        out = rm.run_lines(["*MODPLAY /Temp/TM.MOD"], timeout=30)
+        assert not out["error"], out
+        on = mos_label("aud.modi.mp_on")
+        div = mos_label("aud.modi.curdivision")
+        assert rm.read(on, 1)[0] == 1
+        d1 = rm.read(div, 1)[0]
+        time.sleep(1.5)
+        d2 = rm.read(div, 1)[0]
+        assert d1 != d2, (d1, d2)
+        t1 = int(rm.run_lines(["PRINT TIME"])["output"].split()[-1])
+        time.sleep(4)
+        t2 = int(rm.run_lines(["PRINT TIME"])["output"].split()[-1])
+        assert 360 <= t2 - t1 <= 460, (t1, t2)    # 4 s (+ the REST calls)
+    finally:
+        rm.run_lines(["*MODSTOP"], timeout=30)
+    out = rm.run_lines(["*SOUND"])["output"]
+    assert "SID mode" in out, out
+    run_line(t, "*DELETE /Temp/TM.MOD", ">")
+
+
 def test_ramdisk(t):
     # the REU RAM disk as /REU: SAVE/LOAD, *SAVE/*LOAD, *CAT, *RENAME,
     # *DELETE, *TYPE, *COPY both ways, full names from elsewhere
@@ -2900,7 +3017,7 @@ GROUPS = {
                  test_upic_auto, test_bv_cmds, test_mode1_font, test_gxr,
                  test_gxr_plot, test_text_colours, test_gfx_vdu5,
                  test_gfx_mode3, test_gfx_teletext, test_gfx_upiclite],
-    "sound": [test_sound, test_sid_mode, test_sound_none, test_inst_mods,
+    "sound": [test_samples, test_modplay, test_sound, test_sid_mode, test_sound_none, test_inst_mods,
               test_song, test_reu_irq, test_sid, test_speech],
     "system": [test_memory, test_table, test_petscii, test_star_list, test_snapshot, test_sedit,
                test_acorn, test_classics, test_hanoi, test_classic_files],

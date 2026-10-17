@@ -7,10 +7,11 @@ BBC-style MOS (machine operating system) on top of the C64 KERNAL, and
 **Status: in development (0.1.0).** BBC BASIC programs run at the
 device's maximum turbo speed: the BBC's screen modes and graphics (Upic
 Lite pictures with square pixels on 64 MHz machines, teletext MODE 7),
-sound on up to 8 SIDs with instruments and a song player, files on the
-Ultimate's drives and an REU RAM disk, network channels and JSON, a
-line editor with history and BBC copy editing, and a built-in help
-system (`*HELP`). The **user manual** is [docs/manual](docs/manual/README.md);
+sound on up to 8 SIDs with instruments and a song player, Ultimate Audio
+sample effects and ProTracker MOD music in the background, files on the
+Ultimate's drives and an REU RAM disk, network channels, HTTP requests
+(GET, POST, PUT, DELETE, headers, status codes) and JSON, a line editor
+with history and BBC copy editing, and a built-in help system (`*HELP`). The **user manual** is [docs/manual](docs/manual/README.md);
 [docs/PLAN.md](docs/PLAN.md) has the plan and roadmap.
 
 **Compatibility.** The aim is that BBC BASIC *programs* run: the
@@ -103,6 +104,14 @@ tokenised as BBC BASIC programs, in its `demos/` folder (`music`, `net`,
 - The MOS design follows Ivo van Poorten's
   [Atari port](https://github.com/ivop/atari-bbc-basic).
 - Ultimate knowledge: [ultimate-uci-oscar64](https://github.com/xahmol/ultimate-uci-oscar64).
+- The MOD player is ModPlayer_16k by Freshness (6510nl),
+  [CSDb release 131522](https://csdb.dk/release/?id=131522), ported to MADS
+  (`src/mos/modengine.s`; its tables in `src/mos/modtables/`).
+- Upic: Aleksi Eeben's renderer, the 48 MHz path by Christian Gleissner
+  (through ultimate-uci-oscar64's Upic module).
+- Demos: Eric Schraf's graphics programs (`demos/archbas`); music and
+  sound effects in `demos/audio` and the showcase: see
+  [demos/audio/CREDITS.md](demos/audio/CREDITS.md).
 - MOS, tools and tests: Xander Mol, GPL-3.0 (see `LICENSE`). The BBC BASIC
   interpreter itself is not covered by this licence: see
   [NOTICE.md](NOTICE.md).

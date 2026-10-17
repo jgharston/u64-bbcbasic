@@ -105,18 +105,18 @@ $(BUILD)/gen/upic_r48.s: tools/upic_gen.py
 
 # banks 0 and 2 in one assembly (src/mos/cart.s): 32K, bank 0 then bank 2
 $(BUILD)/mos-ef.bin: $(MOS_SRCS) $(GEN)
-	$(MADS) -d:CART_EF=1 -i:src/mos -i:$(BUILD)/gen -l:$(BUILD)/mos-ef.lst -o:$@ src/mos/cart.s >/dev/null || \
+	$(MADS) -d:CART_EF=1 -i:src/mos -i:$(BUILD)/gen -l:$(BUILD)/mos-ef.lst -t:$(BUILD)/mos-ef.lab -o:$@ src/mos/cart.s >/dev/null || \
 		($(MADS) -d:CART_EF=1 -i:src/mos -i:$(BUILD)/gen -o:$@ src/mos/cart.s | grep -i -B1 error; rm -f $@; false)
 
 $(BUILD)/mos-tmb.bin: $(MOS_SRCS) $(GEN)
-	$(MADS) -d:CART_TMB=1 -i:src/mos -i:$(BUILD)/gen -l:$(BUILD)/mos-tmb.lst -o:$@ src/mos/cart.s >/dev/null || \
+	$(MADS) -d:CART_TMB=1 -i:src/mos -i:$(BUILD)/gen -l:$(BUILD)/mos-tmb.lst -t:$(BUILD)/mos-tmb.lab -o:$@ src/mos/cart.s >/dev/null || \
 		($(MADS) -d:CART_TMB=1 -i:src/mos -i:$(BUILD)/gen -o:$@ src/mos/cart.s | grep -i -B1 error; rm -f $@; false)
 
 # --- Help texts: banks 3+ and the Markdown reference
 
 $(BUILD)/help.bin: src/help/help.txt tools/genhelp.py src/mos/mos.s Makefile
 	@$(MKDIR) $(BUILD)
-	$(PYTHON) tools/genhelp.py --first 10 --commands src/mos/mos.s src/help/help.txt $@ docs/HELP_REFERENCE.md
+	$(PYTHON) tools/genhelp.py --first 11 --commands src/mos/mos.s src/help/help.txt $@ docs/HELP_REFERENCE.md
 
 docs/HELP_REFERENCE.md: $(BUILD)/help.bin
 
@@ -130,10 +130,10 @@ manual: $(BUILD)/manual.stamp
 # --- Cartridges
 
 $(BUILD)/$(NAME)-ef.crt: $(BUILD)/mos-ef.bin $(BUILD)/basic.rom $(BUILD)/help.bin tools/mkcrt.py
-	$(PYTHON) tools/mkcrt.py --type ef --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-ef.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-ef.bin:1 $(BUILD)/mos-ef.bin:2 $(BUILD)/mos-ef.bin:3 $(BUILD)/mos-ef.bin:4 $(BUILD)/mos-ef.bin:5 $(BUILD)/mos-ef.bin:6 $(BUILD)/mos-ef.bin:7 $(BUILD)/mos-ef.bin:8 $(BUILD)/help.bin
+	$(PYTHON) tools/mkcrt.py --type ef --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-ef.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-ef.bin:1 $(BUILD)/mos-ef.bin:2 $(BUILD)/mos-ef.bin:3 $(BUILD)/mos-ef.bin:4 $(BUILD)/mos-ef.bin:5 $(BUILD)/mos-ef.bin:6 $(BUILD)/mos-ef.bin:7 $(BUILD)/mos-ef.bin:8 $(BUILD)/mos-ef.bin:9 $(BUILD)/help.bin
 
 $(BUILD)/$(NAME)-tmb.crt: $(BUILD)/mos-tmb.bin $(BUILD)/basic.rom $(BUILD)/help.bin tools/mkcrt.py
-	$(PYTHON) tools/mkcrt.py --type tmb --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-tmb.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-tmb.bin:1 $(BUILD)/mos-tmb.bin:2 $(BUILD)/mos-tmb.bin:3 $(BUILD)/mos-tmb.bin:4 $(BUILD)/mos-tmb.bin:5 $(BUILD)/mos-tmb.bin:6 $(BUILD)/mos-tmb.bin:7 $(BUILD)/mos-tmb.bin:8 $(BUILD)/help.bin
+	$(PYTHON) tools/mkcrt.py --type tmb --name "U64 BBC BASIC" -o $@ $(BUILD)/mos-tmb.bin:0 $(BUILD)/basic.rom $(BUILD)/mos-tmb.bin:1 $(BUILD)/mos-tmb.bin:2 $(BUILD)/mos-tmb.bin:3 $(BUILD)/mos-tmb.bin:4 $(BUILD)/mos-tmb.bin:5 $(BUILD)/mos-tmb.bin:6 $(BUILD)/mos-tmb.bin:7 $(BUILD)/mos-tmb.bin:8 $(BUILD)/mos-tmb.bin:9 $(BUILD)/help.bin
 
 # --- Ultimate settings, loaded with the cartridge when it is started from
 # the Ultimate's file browser (firmware 3.15+: same name, same directory)

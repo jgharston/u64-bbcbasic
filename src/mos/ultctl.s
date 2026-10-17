@@ -444,3 +444,96 @@ ucf_e:
     jmp OSNEWL
 
 ; (cfg_text, the built-in settings: bank 6, sndbank.s, read by bank_peek)
+
+; ----------------------------------------------------------------------------
+; uc_sids
+;   Summary: *STATUS SID: the SIDs the Ultimate has, from control &28 item
+;            1: per SID its address, a second address (a socket with two
+;            SIDs), and its kind.
+;   Function: the reply: a count, then 5 bytes per SID: address (2), the
+;            second address (2, 0: none), the kind (bit 7: present; 2/3
+;            UltiSID, 4/5 a SID socket on the U64, 1 on an Ultimate II+);
+;            firmware 3.15a's control_target.cc (GideonZ/1541ultimate).
+;   Uses:    A, X, Y, fs*, mosTMP, MOSBUF.
+uc_sids:
+    jsr uci_need
+    ldx #TARGET_CTRL            ; hardware info, item 1
+    lda #$28
+    ldy #3
+    jsr uc_h
+    lda #1
+    sta uciHDR+2
+    lda #0
+    sta fsLEN
+    sta fsLEN+1
+    sta MOSBUF
+    jsr uci_send
+    lda #<MOSBUF
+    sta fsADDR
+    lda #>MOSBUF
+    sta fsADDR+1
+    lda #41                     ; (count + 8 x 5)
+    sta fsLEN
+    jsr uci_read_to
+    jsr uci_finish
+    bcc us_got
+    jmp uci_error
+us_got:
+    lda #0                      ; mosTMP: the SID, mosTMP+1: its offset
+    sta mosTMP
+    lda #1
+    sta mosTMP+1
+us_sid:
+    lda mosTMP
+    cmp MOSBUF
+    bcs us_rts
+    cmp #8
+    bcs us_rts
+    jsr s6_text
+    dta 'SID ', 0
+    lda mosTMP
+    clc
+    adc #'1'
+    jsr OSWRCH
+    jsr s6_text
+    dta '  &', 0
+    ldx mosTMP+1
+    jsr us_addr
+    lda MOSBUF+2,x              ; a second address
+    ora MOSBUF+3,x
+    beq us_kind
+    jsr s6_text
+    dta ' &', 0
+    ldx mosTMP+1
+    inx
+    inx
+    jsr us_addr
+us_kind:
+    ldx mosTMP+1
+    lda MOSBUF+4,x
+    and #$7F
+    cmp #2
+    bcc us_sock
+    cmp #4
+    bcs us_sock
+    jsr s6_text
+    dta '  UltiSID', 13, 0
+    jmp us_next
+us_sock:
+    jsr s6_text
+    dta '  socket', 13, 0
+us_next:
+    inc mosTMP
+    lda mosTMP+1
+    clc
+    adc #5
+    sta mosTMP+1
+    bne us_sid
+us_rts:
+    rts
+; us_addr: the address at MOSBUF+X (low, high) as 4 hex digits
+us_addr:
+    lda MOSBUF+1,x              ; (cn_hex keeps X)
+    jsr cn_hex
+    lda MOSBUF,x
+    jmp cn_hex

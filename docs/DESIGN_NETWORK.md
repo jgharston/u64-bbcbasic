@@ -230,3 +230,41 @@ More firmware 3.15a findings with U64TEXT (2026-10-10):
 - A bug of the MOS on the way: nc_open kept the channel index in the
   byte where http_fetch keeps the header handle; OPENIN "http://..." then
   used the handle as the channel (it worked while the handle was 0).
+
+## 10. The MOS's own HTTP/1.0 client (1.0.0 item 7, 2026-10-17)
+
+Measured again on 2026-10-17: the HTTP target's raw exchange (`$32`)
+gives no status at all, neither before nor after the first packet's
+acknowledgement (a 404 page arrives like any reply); the JSON exchange
+(`$31`) reports "200 OK" for a valid JSON reply and "400 NO VALID JSON"
+for anything else, so a 404 or 500 cannot be seen there either. With the
+findings of section 8 (16 KB limit, unreliable long replies) the owner
+chose that the MOS speak HTTP/1.0 itself over the network target's TCP
+socket (`nethttp.s`, bank 7):
+
+- Request: `VERB path HTTP/1.0`, `Host:`, `Connection: close`, the
+  `*NET HEADER` lines, `Content-Length:` with a body, an empty line, the
+  body (a "string" from the command line or a file up to 64K, sent a page
+  at a time). HTTP/1.0 keeps servers from sending chunked replies.
+- Reply: `NET_READ` of 254 bytes at a time into MOSBUF (the count and the
+  data then fill it exactly: 255 wrote one byte into &0900, the sound
+  engine; `nc_fill` had the same bug, fixed). The status line and the
+  headers are parsed byte by byte (`Content-Length` honoured, else the
+  end is the server closing); 30 s without data: error 223 "Timeout".
+- Sinks: a file (streamed through `rx_wtail`, no size limit: 60 KB took
+  6 s), the screen, or the 16K REU buffer (`OPENIN "http://..."`).
+- A status of 400 or more stops at the headers and raises error 223
+  "HTTP 404 Not Found" (220 is the MOS's "Syntax"); OSBYTE &65 returns
+  the last code. The code, the status line, a socket an error left open
+  (closed by the next request) and the header lines live in REU bank 0
+  `$3C80-$3FFF` (docs/ARCHITECTURE.md 7).
+- State during a request: `&06E0-&06FF`, the top of BASIC's string
+  buffer (no RAM is free elsewhere); a command line in page 6 must end
+  before it ("Line too long").
+- `*JSON GET`/`POST` stay on the firmware's HTTP target (its JSON
+  parser); `*JSON NEW`/`SET` build the request body there
+  (`jsonbody.s`), and `*NET HEADER`'s lines are added to its header
+  handle (HEADER_ADD `$13`).
+- `*NET` shows the MAC address (network command `$04`); `*STATUS SID`
+  lists control `$28` item 1 (UltiSIDs first on the U64, kinds 2/3, then
+  the sockets, 4/5; bit 7 present; firmware `control_target.cc`).

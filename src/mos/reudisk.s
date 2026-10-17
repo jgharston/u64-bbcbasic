@@ -613,11 +613,17 @@ rlb_16:
     rts
 
 ; rd_resbank: A = the first bank kept off the RAM disk: the REU's last
-; but one (*MAP's map, cmap.s; the last: *SPOOL and speech)
+; but one (*MAP's map, cmap.s; the last: *SPOOL and speech); with 16 MB
+; also the 1 MB under it, Ultimate Audio's (&EE0000, sample.s)
 rd_resbank:
+    lda reu_banks+1
+    bne rrb_16
     jsr rd_lastbank
     sec
     sbc #1
+    rts
+rrb_16:
+    lda #aud.AD_BANK
     rts
 
 ; rd_spoolok (from *SPOOL, dfs.s, and *MAP LOAD, cmap.s): C = 0 if the

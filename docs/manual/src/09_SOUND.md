@@ -16,3 +16,9 @@ written with `SOUND` while recording and play in the background.
 ## 9.3 Instruments and songs
 
 @@help *INSTRUMENT *SONG
+
+## Ultimate Audio: samples and MOD music
+
+On the U64 with its 16 MB REU, Ultimate Audio's seven sample channels play sound effects (SOUND on voices 24-30) and ProTracker MOD music in the background.
+
+@@help *SAMPLE *MODPLAY

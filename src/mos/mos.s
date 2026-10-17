@@ -91,6 +91,7 @@ cold_nogxr:
     farcall rd_boot, BANK_RD    ; the REU RAM disk
     farcall net.net_init, BANK_NET ; no JSON reply kept
     jsr ul_detect               ; Upic Lite possible?
+    farcall aud.aud_init, BANK_AUD ; Ultimate Audio found? (sample.s)
     farcall rnd_seed, BANK_GFX   ; RND: another sequence every start
     jsr banner
     jmp enter_lang
@@ -954,7 +955,9 @@ mos_byte:
     stx by_x
     sty by_y
     cmp #0
-    beq by_osver
+    bne by_look
+    jmp by_osver
+by_look:
     ldy #0
 by_find:
     lda byte_codes,y
@@ -982,7 +985,7 @@ by_found:
 
 byte_codes:
     dta $0F, $15, $7C, $7D, $7E, $80, $81, $82, $83, $84, $85, $86
-    dta $87, $DA, $E5, $7F, $72, $75, $CA
+    dta $87, $DA, $E5, $7F, $72, $75, $CA, $65
     dta $04, $0B, $0C, $13, $A3, $C8, $DC, 0
 byte_handlers:
     dta a(by_flush-1)
@@ -1004,6 +1007,7 @@ byte_handlers:
     dta a(by_shadow-1)
     dta a(by_vdustat-1)
     dta a(by_kbdstat-1)
+    dta a(by_http-1)
     dta a(by_acorn-1), a(by_acorn-1), a(by_acorn-1), a(by_acorn-1)
     dta a(by_acorn-1), a(by_acorn-1), a(by_acorn-1)
 
@@ -1239,6 +1243,9 @@ by_eof:                         ; &7F: EOF#, X = channel -> X = $FF at end
 ;            bit 5 = 1 SHIFT LOCK off (there is none), bit 3 SHIFT and
 ;            bit 6 CTRL held (read only); setting bit 4 switches CAPS LOCK.
 ;   Input:   X, Y.  Output: X = the old status.  Uses: A, mosTMP.
+by_http:                        ; &65: X/Y = the last HTTP status code
+    farcall net.http_code, BANK_NET ; (nethttp.s; 0: none)
+    jmp by_ret
 by_kbdstat:
     lda caps_ofs                ; 8 (off) -> bit 4
     asl
@@ -2009,6 +2016,8 @@ ct_M:
     dta 'MEMORY', 0, a(cmd_memory), BANK_FS
     dta 'MAP', 0, a(cmap.cmd_map), BANK_UP
     dta 'MENU', 0, a(net.cmd_menu), BANK_NET
+    dta 'MODPLAY', 0, a(aud.cmd_modplay), BANK_AUD
+    dta 'MODSTOP', 0, a(aud.cmd_modstop), BANK_AUD
     dta 0
 ct_N:
     dta 'NET', 0, a(net.cmd_net), BANK_NET
@@ -2075,6 +2084,7 @@ ct_S:
     dta 'SEQ', 0, a(pet.cmd_seq), BANK_SND
     dta 'SAVEMEM', 0, a(net.cmd_savemem), BANK_NET
     dta 'SETUP', 0, a(net.cmd_setup), BANK_NET
+    dta 'SAMPLE', 0, a(aud.cmd_sample), BANK_AUD
     dta 0
 ct_T:
     dta 'TABLE', 0, a(mt5.cmd_tab5), BANK_RD

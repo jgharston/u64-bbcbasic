@@ -27,6 +27,15 @@ ST_MAXCOL   = 38                ; values end before column 39: no line
 ;   Input:   none.  Output: text.  Uses: A, X, Y, mosTMP, fs*, osfblk.
 
 cmd_status:
+    lda #<sw_sid                ; *STATUS SID: the SIDs (ultctl.s)
+    ldx #>sw_sid
+    jsr arg_word
+    bcc cs_all
+    jsr ff_end
+    farcall net.uc_sids, BANK_NET
+    rts
+sw_sid      dta 'SID', 0
+cs_all:
     jsr st_text
     dta 13, 'U64 BBC BASIC 0.1.0, BASIC 3.10', 13
     .if .def CART_TMB

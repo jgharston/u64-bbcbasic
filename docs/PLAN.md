@@ -1192,20 +1192,57 @@ In 1.0.0, in this order (speed first):
    *NET PUT (the same), *NET DELETE url [outfile]: the reply to outfile
    or the screen; *NET HEADER Name: value for all following requests
    (alone: cleared); a status of 400 or more raises a catchable error
-   ("HTTP 404 Not Found"), an OSBYTE returns the last status; and the
+   ("HTTP 404 Not Found"; error 223: 220 is the MOS's "Syntax"), an OSBYTE returns the last status; and the
    JSON body builder: *JSON NEW, *JSON SET key value, *JSON POST url.
    Also (owner, 2026-10-16, firmware coverage check): *NET shows the MAC
    address, and *STATUS SID lists the SID configuration (control &28).
+   Measured 2026-10-17 (firmware 3.15a): the HTTP target's raw exchange
+   (&32) gives no status at all (a 404 page arrives as a reply), the JSON
+   exchange (&31) only for valid JSON replies ("200 OK"; otherwise "400
+   NO VALID JSON"). Owner's choice: the MOS speaks HTTP/1.0 itself over
+   the network target's TCP socket for *NET GET/POST/PUT/DELETE and
+   OPENIN "http://" (real status codes, response headers, replies
+   streamed to a file without the 16K limit); *JSON keeps the firmware's
+   JSON parser. Done 2026-10-17 (nethttp.s, jsonbody.s; DESIGN_NETWORK.md 10):
+   all of it, plus *NET's MAC line and *STATUS SID; HTTP errors are
+   error 223 (220 is the MOS's "Syntax").
 8. Upic's compact 48 MHz variant (the picture stays visible while BASIC
-   runs slowly).
+   runs slowly). Dropped (owner, 2026-10-17): the 36K picture leaves
+   about 6K for programs, or BASIC from the cartridge at 1 MHz; Upic full
+   (MODE 110/111, auto-show) and Upic Lite cover showing pictures.
 8a. Ultimate Audio (owner, 2026-10-16): sample sound effects (SOUND on
    voices 24-30, *SAMPLE LOAD n file: samples in the REU) and *MODPLAY
    file / *MODSTOP (a ProTracker MOD in the background), the player
    ported to MADS from ultimate-uci-oscar64's (credited), in its own
    bank, under the sound engine's interrupt rules. *HBPLAY after 1.0.0.
+   Decisions of 2026-10-17 (owner): the MOD engine is a third sound
+   engine image in &0900-&1C5F (*MODPLAY swaps the SID engine out,
+   *MODSTOP back; sample sounds keep working); timing as the sources:
+   CIA1 timer A at the MOD's tick rate while it plays, the MOS interrupt
+   follows it (keyboard, ESCAPE live) and the MOD engine keeps TIME right
+   (250/BPM cs per tick); SOUND 24-30: A = sample (or -15..0 a volume),
+   P the BBC pitch scale (53 = the sample's own rate), D in 1/20 s (0: to
+   the end, 255: loop). The player is ported to MADS from ModPlayer_16k by
+   Freshness (6510nl), CSDb release 131522 (KickAssembler source,
+   2014; no licence statement): port and credit (owner), as the library's
+   C port (ultimate_modplay_lib.c) used it as its reference. REU
+   (owner): 1 MB below *MAP's bank for audio (16 MB REU: &EE0000-&F1FFFF
+   samples with their directory, &F20000-&FDFFFF the MOD, up to 768K;
+   the RAM disk ends below &EE0000). Formats (owner): 8-bit mono WAV
+   (rate from the header, unsigned data made signed on load) and raw
+   signed 8-bit (*SAMPLE LOAD n file [rate], default 8000 Hz). Built in
+   two steps (samples, then the MOD engine) in cartridge bank 10 (the
+   help moves to 11+). Built 2026-10-17 (sample.s, modplay.s, modengine.s; demos/audio
+   with 4ev.mod, wild_perspective.mod and Juhani Junkala's CC0 effects):
+   measured that control bit 2 enables a channel's CPU interrupt (the
+   library's "restart"; unacknowledged it hangs the machine), so loops use
+   control 3 with relative loop points; the registers are big-endian.
 9. A showcase demo (owner, 2026-10-16): one program that shows off
    the BASIC with nice graphics and music, the last thing before the
-   release and the videos.
+   release and the videos. Owner, 2026-10-17: a timed scene show
+   (2-3 minutes, any key skips a scene), music in turns: SID (8 SIDs,
+   the song tracker) in the first half, a MOD on Ultimate Audio in the
+   second ("and now: Ultimate Audio" as a scene).
 10. The release: a GitHub release with a ZIP (both .crt and .cfg, all
    demos tokenised and as source, the manual as PDF, README, licences)
    and the VS Code extension (.vsix); an announcement (Facebook post and

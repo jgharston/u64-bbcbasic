@@ -21,6 +21,8 @@ This is BBC mode (*SOUND BBC): channels 1-3 on SID 1, channel 0 on the second SI
 
 SID mode (the start-up mode): c = &FSVV: VV voice 0-23 (voice v MOD 3 of SID v DIV 3), S sync with S other voices (0-15), F: 1 flush, 2 hold, 4 tie (new pitch, no new attack). a: instrument 1-64; instrument + 256 * loudness (1-15, scales the instrument's own sustain: &0A08 is instrument 8 at 10/15; drums stay drums); -15..-1 the voice's instrument at that loudness; 0 a rest. p: as BBC mode, also below 0 for low notes.
 
+Voices 24-30 (SID mode) are Ultimate Audio's sample channels 0-6: SOUND 24+c,n,p,d plays sample n (*SAMPLE), n + 256 * loudness (1-15) for its volume, -15..-1 the channel's last sample at that loudness, 0 silence; p 53 is the sample's own rate (4 steps a semitone, as above); d in 1/20 s, 0 the whole sample, 255 looped. A sample starts at once (no queue).
+
 Three notes wait per voice; see ADVAL.
 
 #### `ENVELOPE`
@@ -160,3 +162,38 @@ SOUND 1,7,25,8
 ```
 
 Pitch as SOUND, rounded to semitones; amplitude 1-64 an instrument, -15 to -1 the voice's instrument at that level, 0 a rest. Up to 28 patterns of 64 rows (1792 rows). ADVAL(-29-v) gives the note voice v plays (49 = middle C), to draw meters while it plays.
+
+
+## Ultimate Audio: samples and MOD music
+
+On the U64 with its 16 MB REU, Ultimate Audio's seven sample channels play sound effects (SOUND on voices 24-30) and ProTracker MOD music in the background.
+
+#### `*SAMPLE`
+
+```
+*SAMPLE LOAD <n> <file> [<rate>]
+*SAMPLE CLEAR      remove them all
+*SAMPLE            list them
+```
+
+Sound samples for Ultimate Audio (U64, 16 MB REU): up to 32, 256K in all, kept in the REU. A file is an 8-bit mono WAV (its rate from the file) or raw signed 8-bit data at rate Hz (8000 when not given), from the Ultimate's drives. SOUND plays them on voices 24-30, also while a MOD plays (on 28-30 then).
+
+```
+*SAMPLE LOAD 1 BOOM.WAV
+SOUND 24,1,53,0
+```
+
+#### `*MODPLAY` (also `*MODSTOP`, `MODSTOP`)
+
+```
+*MODPLAY <file>  play a MOD
+*MODSTOP         stop it
+```
+
+Plays a ProTracker MOD (4 channels, 15 or 31 samples, up to 768K) in the background on Ultimate Audio (U64, 16 MB REU), while the program runs. The MOD player takes the place of the SID sound engine: SOUND on the SID voices is silent until *MODSTOP, which brings it back; samples still play (SOUND 28-30, *SAMPLE). The interrupt runs at the MOD's tempo meanwhile; TIME stays right.
+
+```
+*MODPLAY /SD/MUSIC/SONG.MOD
+```
+
+The player is ModPlayer_16k by Freshness (6510nl), CSDb 131522, ported to MADS.

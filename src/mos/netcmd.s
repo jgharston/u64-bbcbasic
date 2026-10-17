@@ -39,11 +39,27 @@ netvars     = MOSBUF+$F0        ; JSON query results (a query reads at
 ;   Uses:    A, X, Y, fs*, MOSBUF.
 cmd_net:
     jsr uci_need
-    lda #<nw_get
-    ldx #>nw_get
+    ldx #0                      ; GET, POST, PUT, DELETE (HV_* order)
+cn_verb:
+    stx hs_verb
+    lda cn_vlo,x
+    pha
+    lda #>nw_get                ; (the words lie in one page)
+    tax
+    pla
+    jsr s6_word
+    bcc cn_vnext
+    jmp net_verb
+cn_vnext:
+    ldx hs_verb
+    inx
+    cpx #4
+    bcc cn_verb
+    lda #<nw_header
+    ldx #>nw_header
     jsr s6_word
     bcc cn_time
-    jmp net_get
+    jmp net_header
 cn_time:
     lda #<nw_time
     ldx #>nw_time
@@ -94,7 +110,58 @@ cn_ok:
     dta 13, 'Gateway ', 0
     ldx #8
     jsr cn_quad
+    lda #TARGET_NET             ; the MAC address (6 bytes)
+    sta uciHDR
+    lda #NET_GETMAC
+    sta uciHDR+1
+    lda #0
+    sta uciHDR+2
+    lda #3
+    sta uciHLEN
+    lda #0
+    sta fsLEN
+    sta fsLEN+1
+    jsr uci_send
+    lda #<MOSBUF
+    sta fsADDR
+    lda #>MOSBUF
+    sta fsADDR+1
+    lda #6
+    sta fsLEN
+    jsr uci_read_to
+    jsr uci_finish
+    bcs cn_nl                   ; (no MAC: left out)
+    jsr s6_text
+    dta 13, 'MAC     ', 0
+    ldx #0
+cn_mac:
+    lda MOSBUF,x
+    jsr cn_hex
+    inx
+    cpx #6
+    beq cn_nl
+    lda #':'
+    jsr OSWRCH
+    jmp cn_mac
+cn_nl:
     jmp OSNEWL
+; cn_hex: A as two hex digits (X kept)
+cn_hex:
+    pha
+    lsr
+    lsr
+    lsr
+    lsr
+    jsr cnh_d
+    pla
+    and #15
+cnh_d:
+    cmp #10
+    bcc cnh_n
+    adc #'A'-'0'-10-1
+cnh_n:
+    adc #'0'
+    jmp OSWRCH
 ; cn_quad: MOSBUF+X..+3 as a.b.c.d
 cn_quad:
     ldy #4
@@ -114,178 +181,184 @@ cnq_l:
 cnq_rts:
     rts
 
+cn_vlo      dta <nw_get, <nw_post, <nw_put, <nw_delete
 nw_get      dta 'GET', 0
+nw_post     dta 'POST', 0
+nw_put      dta 'PUT', 0
+nw_delete   dta 'DELETE', 0
+nw_header   dta 'HEADER', 0
+    .if >nw_get != >nw_header
+    .error "*NET's words cross a page"
+    .endif
 nw_time     dta 'TIME', 0
 nw_random   dta 'RANDOM', 0
 
 ; ----------------------------------------------------------------------------
-; net_get
-;   Summary: *NET GET <url> <file>: the reply's body to the file.
-;   Function: http_fetch (into the REU buffer), then the file written
-;            through bank 2's rx_ routines, a page at a time.
-;   Uses:    A, X, Y, fs*, MOSBUF.
-net_get:
-    jsr s6_hasreu
-    bne ng_reu
-    brk
-    dta 189, 'Downloads need an REU', 0
-ng_reu:
-    jsr s6_name                 ; the URL (measured like a file name)
+; net_verb
+;   Summary: *NET GET|DELETE <url> [<file>], *NET POST|PUT <url> <body>
+;            [<file>]: an HTTP request (nethttp.s); the body is "text" or
+;            a file's name; the reply's body to the file ("n bytes") or,
+;            without one, to the screen.
+;   Input:   hs_verb; mosPTR/Y after the word.
+;   Uses:    A, X, Y, fs*, MOSBUF, HS.
+net_verb:
+    jsr s6_name                 ; the URL
     lda fsPTR
-    pha
+    sta hs_url
     lda fsPTR+1
-    pha
+    sta hs_url+1
     lda fsLEN
-    pha
-    jsr s6_name                 ; the file (kept on the stack: the
-    jsr s6_end                  ; download fills MOSBUF)
-    pla
-    tax                         ; X = URL length
-    pla
-    sta fsTMP+3                 ; URL high
-    pla
-    sta nt_hdr                  ; URL low (for now)
-    lda fsPTR
-    pha
-    lda fsPTR+1
-    pha
-    lda fsLEN
-    pha
-    lda nt_hdr
-    sta fsPTR
-    lda fsTMP+3
-    sta fsPTR+1
-    stx fsLEN
+    sta hs_ulen
     lda #0
-    sta fsLEN+1
-    jsr http_fetch              ; -> nt_len bytes in the REU buffer
-    pla                         ; the file
-    sta fsLEN
-    pla
-    sta fsPTR+1
-    pla
-    sta fsPTR
-    lda #0
-    sta fsLEN+1
-    farcall rx_create, BANK_FS
-    lda #REU_FONT_BANK          ; whole pages
-    ldy #>REU_NETBUF
-    ldx nt_len+1
-    farcall rx_write, BANK_FS
-    lda nt_len                  ; the rest
-    beq ng_close
-    tax
-    lda nt_len+1
+    sta hs_bkind
+    lda hs_verb                 ; POST, PUT: a body
+    cmp #HV_POST
+    beq nv_body
+    cmp #HV_PUT
+    bne nv_out
+nv_body:
+    jsr s6_skipsp
+    cmp #'"'
+    bne nv_bfile
+    iny                         ; "text": up to the next quote
+    tya
     clc
-    adc #>REU_NETBUF
-    tay
-    lda #REU_FONT_BANK
-    farcall rx_wtail, BANK_FS
-ng_close:
-    farcall rx_close, BANK_FS
-    lda nt_len                  ; "n bytes"
-    sta mosTMP
-    lda nt_len+1
-    sta mosTMP+1
-    jsr s6_dec16
-    jsr s6_text
-    dta ' bytes', 13, 0
+    adc mosPTR
+    sta hs_bptr
+    lda mosPTR+1
+    adc #0
+    sta hs_bptr+1
+    ldx #0
+nv_q:
+    lda (mosPTR),y
+    cmp #13
+    beq nv_qbad
+    iny
+    cmp #'"'
+    beq nv_qend
+    inx
+    bne nv_q
+nv_qbad:
+    brk
+    dta 253, 'Missing "', 0
+nv_qend:
+    stx hs_blen
+    lda #0
+    sta hs_blen+1
+    lda #1
+    bne nv_bk
+nv_bfile:
+    jsr s6_name                 ; a file's name
+    lda fsPTR
+    sta hs_bptr
+    lda fsPTR+1
+    sta hs_bptr+1
+    lda fsLEN
+    sta hs_blen
+    lda #2
+nv_bk:
+    sta hs_bkind
+nv_out:
+    lda #HK_SCREEN              ; the output file, or the screen
+    sta hs_sink
+    jsr s6_skipsp
+    cmp #13
+    beq nv_go
+    jsr s6_name
+    jsr s6_end
+    lda fsPTR
+    sta hs_out
+    lda fsPTR+1
+    sta hs_out+1
+    lda fsLEN
+    sta hs_olen
+    lda #HK_FILE
+    sta hs_sink
+nv_go:
+    jsr http_req
+    lda hs_sink
+    cmp #HK_FILE
+    bne nv_rts
+    jmp hr_count
+nv_rts:
     rts
 
 ; ----------------------------------------------------------------------------
-; http_fetch
-;   Summary: GET the URL at fsPTR/fsLEN (http://host[:port]/path, or
-;            host/path) through the HTTP target; the body into the REU
-;            buffer (REU_NETBUF, at most 16 KB), its length in nt_len.
-;   Function: header create (handle), raw exchange: the body comes as a
-;            stream, read 256 bytes at a time into MOSBUF and copied to
-;            the REU; the header handle is freed. A response line in the
-;            status other than 2xx raises it as an error -- but firmware
-;            3.15a returns no status after a raw exchange (measured), so
-;            an error page comes back like any reply.
-;   Output:  nt_len.  Raises: the firmware's or the server's status.
-;   Uses:    A, X, Y, fs*, MOSBUF.
-http_fetch:
-    jsr hf_create               ; nt_hdr = a GET header for the URL
-hf_hdr:
-    lda #TARGET_HTTP            ; raw exchange: header, no body
-    sta uciHDR
-    lda #HTTP_RAW
-    sta uciHDR+1
-    lda nt_hdr
-    sta uciHDR+2
-    lda #HTTP_NOBODY
-    sta uciHDR+3
-    lda #4
-    sta uciHLEN
-    lda #0
-    sta fsLEN
-    sta fsLEN+1
-    sta nt_len
-    sta nt_len+1
-    jsr uci_send
-hf_page:
-    jsr uci_chkesc              ; (ESCAPE ends a reply that does not)
-    lda #<MOSBUF                ; 256 bytes at a time
-    sta fsADDR
-    lda #>MOSBUF
-    sta fsADDR+1
-    lda #0
-    sta fsLEN
-    lda #1
-    sta fsLEN+1
-    jsr uci_read_to
-    lda fsCNT
-    ora fsCNT+1
-    beq hf_end
-    lda nt_len+1                ; room in the buffer? (none: the command
-    cmp #NETBUF_PAGES           ; aborted, what came is kept)
-    bcc hf_room
-    lda #$04
-    sta UCI_CTRL
-    jmp hf_end
-hf_room:
-    php                         ; (interrupts off while the REU is set up:
-    sei                         ; the sound interrupt uses it too)
-    lda #0                      ; MOSBUF -> the buffer's next page
-    sta REU_ADDR
-    sta REU_LEN+1
-    sta REU_CTRL
-    lda nt_len+1
+; net_header
+;   Summary: *NET HEADER <Name: value>: a line for every following request
+;            (kept in the REU, 832 bytes in all); *NET HEADER alone: none.
+;   Uses:    A, X, Y, mosTMP, mosNUM, MOSBUF.
+net_header:
+    jsr s6_hasreu
+    bne nh_reu
+    brk
+    dta 189, 'HTTP needs an REU', 0
+nh_reu:
+    jsr s6_skipsp
+    cmp #13
+    bne nh_add
+    lda #0                      ; none
+    ldx #<RH_HLEN
+    jsr hr_rput
+    ldx #<[RH_HLEN+1]
+    jmp hr_rput
+nh_add:
+    ldx #0                      ; the line and CR LF -> MOSBUF
+nh_cp:
+    lda (mosPTR),y
+    cmp #13
+    beq nh_end
+    sta MOSBUF,x
+    iny
+    inx
+    cpx #200
+    bcc nh_cp
+nh_long:
+    brk
+    dta 253, 'Too many headers', 0
+nh_end:
+    lda #13
+    sta MOSBUF,x
+    lda #10
+    sta MOSBUF+1,x
+    inx
+    inx
+    stx mosNUM
+    ldx #<RH_HLEN               ; at RH_HDRS + length, if it fits
+    jsr hr_rget
+    sta mosTMP
+    ldx #<[RH_HLEN+1]
+    jsr hr_rget
+    sta mosTMP+1
+    lda mosTMP                  ; new length = length + n
     clc
-    adc #>REU_NETBUF
-    sta REU_ADDR+1
-    lda #REU_FONT_BANK
-    sta REU_BANK
-    lda #<MOSBUF
-    sta REU_C64
-    lda #>MOSBUF
-    sta REU_C64+1
-    lda fsCNT
-    sta REU_LEN
-    lda fsCNT+1                 ; (256: length $0100)
-    sta REU_LEN+1
-    lda #REU_TO_REU
-    sta REU_CMD
-    plp
-    lda nt_len                  ; length += received
+    adc mosNUM
+    sta mosTMP+2
+    lda mosTMP+1
+    adc #0
+    sta mosTMP+3
+    lda mosTMP+2
+    cmp #<RH_HMAX+1
+    lda mosTMP+3
+    sbc #>[RH_HMAX+1]
+    bcs nh_long
+    lda mosTMP                  ; the address
     clc
-    adc fsCNT
-    sta nt_len
-    lda nt_len+1
-    adc fsCNT+1
-    sta nt_len+1
-hf_full:
-    lda fsCNT+1                 ; a whole page: there may be more
-    bne hf_page
-hf_end:
-    jsr uci_finish              ; the status: the response line
-    jsr hf_free
-    jsr hf_status
-    bcc hf_rts
-    jmp uci_error
-hf_rts:
-    rts
+    adc #<RH_HDRS
+    sta mosTMP
+    lda mosTMP+1
+    adc #>RH_HDRS
+    sta mosTMP+1
+    ldx #<MOSBUF
+    ldy #>MOSBUF
+    lda mosNUM
+    jsr hr_dmaout
+    lda mosTMP+2                ; the new length
+    ldx #<RH_HLEN
+    jsr hr_rput
+    lda mosTMP+3
+    ldx #<[RH_HLEN+1]
+    jmp hr_rput
 
 ; hf_create
 ;   Summary: a GET request header for the URL at fsPTR/fsLEN: nt_hdr.
@@ -312,11 +385,11 @@ hc_again:
     sta fsLEN
     lda #0
     sta fsLEN+1
-    lda #TARGET_HTTP            ; header: GET url
+    lda #TARGET_HTTP            ; header: verb (jx_verb), url
     sta uciHDR
     lda #HTTP_HCREATE
     sta uciHDR+1
-    lda #HTTP_GET
+    lda jx_verb
     sta uciHDR+2
     lda #3
     sta uciHLEN
@@ -349,6 +422,8 @@ hc_rts:
 hc_ptr      = netvars           ; 2 (MOSBUF+$F0: not used by the create)
 hc_len      = netvars+2
 hc_try      = netvars+3
+jx_verb     = netvars+4         ; json_exch: the verb (HTTP target code)
+jx_body     = netvars+5         ; and the request body ($FF: none)
 
 ; http_freeall: every header and body handle of the HTTP target freed
 ; (FREE_ALL); the kept JSON reply is gone
@@ -436,6 +511,23 @@ net_init:
     lda #$FF
     sta json_body
     sta json_rhdr
+    jsr s6_hasreu               ; HTTP (nethttp.s): no status, no header
+    beq ni_noreu                ; lines, no socket left open
+    lda #0
+    ldx #<RH_CODE
+    jsr hr_rput
+    ldx #<[RH_CODE+1]
+    jsr hr_rput
+    ldx #<RH_HLEN
+    jsr hr_rput
+    ldx #<[RH_HLEN+1]
+    jsr hr_rput
+    lda #$FF
+    ldx #<RH_SOCK
+    jsr hr_rput
+    ldx #<RH_JBODY              ; (no *JSON NEW body)
+    jsr hr_rput
+ni_noreu:
     lda uci_ok                  ; handles a previous session left: freed
     beq ni_rts
     jmp http_freeall
@@ -454,6 +546,10 @@ cmd_json:
     ldx #>nw_get
     jsr s6_word
     bcs cj_get
+    jsr jb_words                ; NEW, SET, POST (jsonbody.s)?
+    bcc cj_path
+    rts
+cj_path:
     jsr s6_name                 ; the path
     jsr s6_end
     jsr json_query              ; -> jq_type, jq_text (MOSBUF), jq_len
@@ -480,6 +576,11 @@ cj_get:
 ;            "400 NO VALID JSON" when the reply is not JSON).
 ;   Uses:    A, X, Y, fs*.
 json_get:
+    lda #HTTP_GET               ; (json_exch: *JSON POST, jsonbody.s)
+    sta jx_verb
+    lda #HTTP_NOBODY
+    sta jx_body
+json_exch:
     lda fsPTR                   ; (json_free uses fsPTR/fsLEN)
     pha
     lda fsPTR+1
@@ -495,15 +596,16 @@ json_get:
     sta fsPTR+1
     pla
     sta fsPTR
-    jsr hf_create               ; nt_hdr = a GET header for the URL
+    jsr hf_create               ; nt_hdr = a header (jx_verb) for the URL
+    jsr hf_addhdrs              ; with *NET HEADER's lines (jsonbody.s)
 jg_hdr:
-    lda #TARGET_HTTP            ; JSON exchange: header, no body
+    lda #TARGET_HTTP            ; JSON exchange: header, body (or none)
     sta uciHDR
     lda #HTTP_JEXCH
     sta uciHDR+1
     lda nt_hdr
     sta uciHDR+2
-    lda #HTTP_NOBODY
+    lda jx_body
     sta uciHDR+3
     lda #4
     sta uciHLEN

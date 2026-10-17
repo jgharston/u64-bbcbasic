@@ -65,6 +65,7 @@ what this BASIC can and cannot do.
 | `src/mos/sndbank.s`, `sound*.s`, `sndcmd.s`, `songcmd.s`, `font46.s`, `petscii.s` | bank 6: the sound engine images (RAM &0900), sound and song commands, the 4x6 font, the PETSCII mode |
 | `src/mos/netbank.s`, `netcmd.s`, `netchan.s` | bank 7: network (*NET, *JSON, network channels), `ultctl.s`; helpers `bankhelp.s` |
 | `src/mos/toolbank.s` | bank 9: `sedit.s`, `acorn.s`, `dfs.s`, `toolkit.s` |
-| `src/help/help.txt` | *HELP source (banks 10+, docs/HELP_REFERENCE.md) |
+| `src/mos/audbank.s`, `sample.s`, `modplay.s`, `modengine.s` | bank 10: Ultimate Audio (samples, the MOD player, ported from ModPlayer_16k) |
+| `src/help/help.txt` | *HELP source (banks 11+, docs/HELP_REFERENCE.md) |
 | `tools/` | mkcrt, gentables, genhelp, checkcfg, bbctok (tokeniser), u64remote, u64mcp |
 | `tests/e2e/` | end-to-end suite |

@@ -25,9 +25,12 @@ More: *DRIVE, *MOUNT, *MENU, *REBOOT, *SAVEMEM, *CONFIG, *NET, *UPIC, *PALETTE.
 
 ```
 *STATUS     (also *SYS)
+*STATUS SID the SIDs
 ```
 
 Shows the system: MOS and cartridge, the Ultimate's hardware, CPU speed, REU size, BASIC's memory (PAGE, TOP, LOMEM, VARTOP, HIMEM, free bytes), open files, the current directory, the drives, the network address and the clock.
+
+*STATUS SID lists the SIDs the Ultimate has set up: each one's address (a second one for a socket holding two SIDs) and whether it is an UltiSID or a chip in a socket. The U64 lists its UltiSIDs first.
 
 #### `*UVER`
 

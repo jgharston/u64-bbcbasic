@@ -12,6 +12,8 @@
     icl 'bankhelp.s'
     icl 'uci.s'
     icl 'netcmd.s'
+    icl 'nethttp.s'
+    icl 'jsonbody.s'
     icl 'netchan.s'
     icl 'ultctl.s'
     .endl

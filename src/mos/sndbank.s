@@ -40,6 +40,12 @@ SNDB_LEN    = sndb.s_vars - SOUNDRAM
 ;   Input:   A = mode; the shared data (SIDs found, tables) in place.
 ;   Output:  snd_on = 1.  Uses: A, X, Y, mosPTR, mosPTR2, fsCNT.
 snd_load:
+    pha                         ; the engine in RAM stopped first (the
+    lda snd_on                  ; MOD engine puts the timer back)
+    beq sld_off
+    jsr SNDV_STOP
+sld_off:
+    pla
     sta s_mode
     lda #0
     sta snd_on

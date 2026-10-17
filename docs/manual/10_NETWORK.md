@@ -11,26 +11,44 @@ information service) uses all of it.
 
 ```
 *NET                  the address
-*NET GET <url> <file> download
+*NET GET <url> [file] fetch
+*NET POST <url> <body> [file]
+*NET PUT <url> <body> [file]
+*NET DELETE <url> [file]
+*NET HEADER [Name: value]
 *NET TIME [server]    set the clock
 *NET RANDOM           seed RND
 ```
 
-The Ultimate's network. *NET shows its IP address, netmask and gateway. *NET GET fetches a web address over plain http (not https: the Ultimate cannot do encryption) and saves what it returns in a file, also on the RAM disk; up to 16 KB (the Ultimate keeps no more of a reply). Needs firmware 3.15 and an REU.
+The Ultimate's network. *NET shows its IP address, netmask, gateway and MAC address.
+
+*NET GET, POST, PUT and DELETE send an HTTP request over plain http (not https: the Ultimate cannot do encryption). The reply goes to the file (any size, also on the RAM disk) or, without one, to the screen. A body is "text" or the name of a file (up to 64K). *NET HEADER adds a line such as Content-Type: application/json or an API key to every following request; *NET HEADER alone removes them. Needs an REU.
 
 ```
 *NET GET http://example.com/ PAGE
+*NET HEADER Content-Type: text/plain
+*NET POST http://h/api "Hi" R
+```
+
+A reply with status 400 or more raises error 223 (e.g. HTTP 404 Not Found), which ON ERROR can catch; OSBYTE &65 gives the last status code in X and Y (0: none):
+
+```
+A%=&65:S%=USR&C7F4
+S%=(S% AND &FFFF00) DIV 256
 ```
 
 *NET TIME has the Ultimate set its clock from a time server (its own SNTP client, in its time zone setting); the server is optional. *NET RANDOM seeds RND from the drand public randomness beacon, so a program gets a sequence nobody can predict.
 
-Files on the network open as channels: OPENIN "http://..." reads a web reply like a file (BGET#, EOF#, EXT#), and OPENUP "TCP:host:port" or "UDP:host:port" opens a connection: BPUT# sends (a TCP line goes out at its CR or LF), BGET# waits for the next byte (ESCAPE stops it), EXT# is the number of bytes waiting, EOF# is TRUE when the other side has closed. PTR#c=0 sends what is waiting (a UDP datagram). At most two files and connections are open at a time.
+Files on the network open as channels: OPENIN "http://..." reads a web reply like a file (BGET#, EOF#, EXT#; up to 16 KB), and OPENUP "TCP:host:port" or "UDP:host:port" opens a connection: BPUT# sends (a TCP line goes out at its CR or LF), BGET# waits for the next byte (ESCAPE stops it), EXT# is the number of bytes waiting, EOF# is TRUE when the other side has closed. PTR#c=0 sends what is waiting (a UDP datagram). At most two files and connections are open at a time.
 
 #### `*JSON`
 
 ```
 *JSON GET <url>   fetch and keep
 *JSON <path>      show a value
+*JSON NEW         start a body
+*JSON SET <key> <value>
+*JSON POST <url>  send the body
 ```
 
 A JSON reply from a web address (plain http), read and kept by the Ultimate (firmware 3.15). Paths go down the reply with / and pick an array's element with %n (from 0):
@@ -43,5 +61,14 @@ A JSON reply from a web address (plain http), read and kept by the Ultimate (fir
 ```
 
 A string is shown as it is, a whole number in decimal, TRUE or FALSE; an object or array shows nothing (OSWORD &70 gives its count).
+
+*JSON NEW, SET and POST send JSON: the Ultimate builds an object from the keys set, the value being "text", TRUE, FALSE, a number (32 bits, &hex too) or A%-Z%. *JSON POST sends it; the reply (JSON) is kept as after *JSON GET. *NET HEADER's lines go along (as with *JSON GET).
+
+```
+*JSON NEW
+*JSON SET name "BBC"
+*JSON SET score S%
+*JSON POST http://host/scores
+```
 
 Programs use OSWORD &70 with a 9-byte block: +0/+1 the path's address, +2 its length, +3/+4 where the value goes, +5 the room there. Back: +6 the type (0 none, 1 number, 2 TRUE/FALSE, 3 string, 4 object, 5 array), +7 the value's length, +8 an object's or array's count. demos/net/JSONLIB has FNjson(path$), FNjsonnum(path$) and FNjsoncount(path$).

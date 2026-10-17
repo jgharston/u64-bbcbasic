@@ -671,8 +671,9 @@ sgp_some:
 sg_sidchk:
     lda snd_on
     beq sgs_no
-    lda SNDV_IMG
-    beq sgs_no
+    lda SNDV_IMG                ; (1: the SID engine; 2 MOD)
+    cmp #1
+    bne sgs_no
     rts
 sgs_no:
     brk
@@ -687,8 +688,9 @@ sg_stop:
 sg_halt:
     lda snd_on
     beq sgh_rts
-    lda SNDV_IMG
-    beq sgh_rts
+    lda SNDV_IMG                ; (1: the SID engine; 2 MOD)
+    cmp #1
+    bne sgh_rts
     php
     sei
     lda snds.t_on
@@ -785,8 +787,9 @@ sg_tempo:
     jsr sg_hput
     lda snd_on
     beq sgt_rts
-    lda SNDV_IMG
-    beq sgt_rts
+    lda SNDV_IMG                ; (1: the SID engine; 2 MOD)
+    cmp #1
+    bne sgt_rts
     jsr sg_rowlen
     php
     sei
@@ -866,8 +869,9 @@ sgs_tempo:
 sgs_play:
     lda snd_on
     beq sgs_rts
-    lda SNDV_IMG
-    beq sgs_rts
+    lda SNDV_IMG                ; (1: the SID engine; 2 MOD)
+    cmp #1
+    bne sgs_rts
     lda snds.t_on
     beq sgs_rts
     jsr s6_text
@@ -1060,8 +1064,9 @@ sg_adval:
     bcc sga_zero
     lda snd_on
     beq sga_zero
-    lda SNDV_IMG
-    beq sga_zero
+    lda SNDV_IMG                ; (1: the SID engine; 2 MOD)
+    cmp #1
+    bne sga_zero
     txa                         ; v = &E3 - X
     eor #$FF
     sec

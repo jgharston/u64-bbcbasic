@@ -49,20 +49,18 @@ on 2026-10-16.
 
 | Bank | Source | Contents | Ends at (free) |
 |---|---|---|---|
-| 0 | `mos.s` (+ `lineed.s`, ...) | boot, VDU dispatch, keyboard, OSBYTE/OSWORD, OSCLI and the command table, `*HELP` reader, line editor | `$BDEF` (about 0.5K) |
+| 0 | `mos.s` (+ `lineed.s`, ...) | boot, VDU dispatch, keyboard, OSBYTE/OSWORD, OSCLI and the command table, `*HELP` reader, line editor | `$BE48` (about 0.4K) |
 | 1 | `build/basic.rom` | BBC BASIC 3.10, copied to RAM at start-up | (full) |
-| 2 | `bank2.s` | UCI driver, filing system, Ultimate commands (`ucmds.s`), REU, status, batch A, palettes, fonts, SID, REU files, `*LIST`, `*SRWRITE`/`*SRREAD`, RAM disk routing | `$BF6E` (146 bytes) |
+| 2 | `bank2.s` | UCI driver, filing system, Ultimate commands (`ucmds.s`), REU, status, batch A, palettes, fonts, SID, REU files, `*LIST`, `*SRWRITE`/`*SRREAD`, RAM disk routing | `$BF97` (105 bytes) |
 | 3 | `gxbank.s` | graphics: MODE, palettes, Upic Lite setup, teletext engine image, shapes, RND seeding (`rndseed.s`) | `$BFB8` (72 bytes) |
 | 4 | `ulbank.s` | Upic Lite RAM images | `$AFF2` (about 4K) |
 | 5 | `rdbank.s` | the `/REU` RAM disk, snapshots, sprites, GXR, block graphics, the `*` command fast path, `*TABLE` (SQR, RECIP; SIN/COS passed on to bank 8) | `$BF76` (138 bytes) |
-| 6 | `sndbank.s` | sound engine images (copied to `$0900`), SOUND/ENVELOPE, song tracker, speech, the 4x6 font, PETSCII mode, `*SETUP`'s settings text, `*REULOAD`/`*REUSAVE`/`*REU` | `$BFA0` (96 bytes) |
-| 7 | `netbank.s` | network: `*NET`, `*JSON`, network channels, Ultimate machine commands (`ultctl.s`); own UCI driver copy | `$9439` (about 11K, for HTTP) |
+| 6 | `sndbank.s` | sound engine images (copied to `$0900`), SOUND/ENVELOPE, song tracker, speech, the 4x6 font, PETSCII mode, `*SETUP`'s settings text, `*REULOAD`/`*REUSAVE`/`*REU` | `$BFD9` (39 bytes) |
+| 7 | `netbank.s` | network: `*NET`, the HTTP/1.0 client (`nethttp.s`), `*JSON` and its bodies (`jsonbody.s`), network channels, Ultimate machine commands and `*STATUS SID` (`ultctl.s`); own UCI driver copy | `$A1D5` (about 7.7K) |
 | 8 | `upbank.s` | Upic full (`*UPIC`, MODE 110/111), BASIC V graphics commands (`bvcmd.s`), `*MAP` (`cmap.s`), `*TABLE SIN/COS` (`mathtab.s`) | `$BFF1` (14 bytes) |
 | 9 | `toolbank.s` | tools: sprite editor (`sedit.s`), Acorn compatibility (`acorn.s`), DFS commands (`dfs.s`), BASIC toolkit (`toolkit.s`) | `$ABC0` (about 5K) |
-| 10-14 | `build/help.bin` | `*HELP`: index and texts (5 banks, 70K) | |
-
-Planned: Ultimate Audio (sample sounds, `*MODPLAY`) in a bank of its own
-(1.0.0 item 8a).
+| 10 | `audbank.s` | Ultimate Audio: samples (`sample.s`: `*SAMPLE`, SOUND voices 24-30), the MOD player (`modplay.s`: `*MODPLAY`/`*MODSTOP`; the engine image `modengine.s`, ported from ModPlayer_16k, and its tables) | `$A7DE` (about 6K) |
+| 11-15 | `build/help.bin` | `*HELP`: index and texts (5 banks, 73K) | |
 
 ## 3. C64 RAM while BASIC runs
 
@@ -78,8 +76,9 @@ Planned: Ultimate Audio (sample sounds, `*MODPLAY`) in a bank of its own
 | `$0100-$01FF` | 6502 stack |
 | `$0200-$03FF` | BBC vectors and MOS variables (section 5) |
 | `$0400-$07FF` | BBC BASIC workspace (variables A%-Z% at `$0400`, stacks, string buffer `$0600`, input buffer `$0700`) |
+| `$06E0-$06FF` | (inside BASIC's string buffer) the HTTP client's state during a request; speech's header at `$06F0` |
 | `$0800-$08FF` | `MOSBUF`: scratch for `*` commands (UCI replies, RAM images such as `*TABLE`'s; top bytes `$E0+` per command) |
-| `$0900-$1CFF` | sound engine image (`SOUNDRAM`; shared part `$1C60`); with `*SOUND NONE` PAGE can drop to `$0900` |
+| `$0900-$1CFF` | sound engine image (`SOUNDRAM`; shared part `$1C60`): SID, BBC or, while a MOD plays, the MOD engine (to `$1AFF`); with `*SOUND NONE` PAGE can drop to `$0900` |
 | `$1D00` | PAGE (`OSHWM`) |
 | PAGE-HIMEM | the program; below HIMEM, in the graphics modes, the `*` command fast path (3 pages) and with `*SPRITE ON` the sprite multiplexer (5 pages); Upic Lite pictures and MODE 7's buffer (`$7C00`) also come off the top (section 6) |
 | `$8000-$BFFF` | BBC BASIC (RAM copy); the cartridge window during MOS calls |
@@ -163,7 +162,8 @@ graphics modes keep 768 bytes for the fast path.
 | `$003500-$0035FF` | line editor: history head and count |
 | `$003600-$00387F` | `*KEY` texts, keys 0-9 (64 each) |
 | `$003880-$003C7F` | speech: zero page and `&7D00-&7FFF` saved while SAM speaks |
-| `$003C80-$003FFF` | free (896 bytes; planned for HTTP request headers and the last status) |
+| `$003C80-$003CBF` | HTTP (`nethttp.s`): last status code (`$3C80`), header lines' length (`$3C82`), a socket an error left open (`$3C84`), `*JSON NEW`'s body handle (`$3C85`), last status line (`$3C88`, 32) |
+| `$003CC0-$003FFF` | `*NET HEADER` lines (832 bytes, CR LF each) |
 | `$004000-$007FFF` | HTTP reply buffer (16K); also the toolkit's line-target bitmap (transient) |
 | `$008000-$00FFFF` | line editor history (128 lines of 256) |
 | `$010000-$0102FF` | song header, order list, rows per pattern |
@@ -175,8 +175,12 @@ graphics modes keep 768 bytes for the fast path.
 | `$090000-$09FFFF` | Upic full: the picture |
 | `$0A0000-$0AFFFF` | Upic: BASIC's RAM while it shows; also the file scratch bank (`*MAP`, GXR, sprite files: transient) |
 | `$0B0000-$0FFFFF` | `*SNAPSHOT` slots (two per bank); the sprite editor's fill stack uses slot 0 |
-| `$100000-...` | the `/REU` RAM disk (header, data from `$101000`), up to the map bank |
-| last bank - 1 | `*MAP`: the map (header, colours, characters `$1000`, colours `$8800`) |
+| `$100000-$EDFFFF` | the `/REU` RAM disk (header, data from `$101000`) |
+| `$EE0000-$EE01FF` | Ultimate Audio: the sample directory (32 x 8), the free pointer, the channels' last samples, found or not, the engine to return to |
+| `$EE0200-$EE0AFF` | the MOD engine's note and finetune tables (2176 bytes, at start-up) |
+| `$EE0B00-$F1FFFF` | samples (`*SAMPLE LOAD`, about 250K) |
+| `$F20000-$FDFFFF` | the MOD being played (`*MODPLAY`, up to 768K) |
+| `$FE0000` (last bank - 1) | `*MAP`: the map (header, colours, characters `$1000`, colours `$8800`) |
 | last bank | `*SPOOL` output (`$0000-$BCEF`); speech's image of `&7D00-&BFFF` and its header (`$BCF0-$FFFF`) |
 
 The `*REU SAVE` preload image holds all of this, so a power-off keeps the

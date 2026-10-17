@@ -7,7 +7,8 @@
 ; filing system channels (fs.s), marked by bit 1 of ch_open; fs.s hands
 ; them over here (nc_*).
 ;
-; HTTP: the body is fetched at the open into the REU buffer (http_fetch);
+; HTTP: the body is fetched at the open into the REU buffer (http_req,
+;       nethttp.s: the MOS's own HTTP/1.0 client);
 ;       PTR# and EXT# as for a file; rd_chent = $FF.
 ; Sockets: rd_chent = the firmware's socket number; per channel a 256-byte
 ;       receive buffer and a 256-byte send buffer in the REU (bank 0,
@@ -116,7 +117,9 @@ no_tcp:
     sta fsLEN+1
     jsr uci_read_to
     jsr uci_finish
-    bcs no_fail
+    bcc no_sock
+    jmp no_fail
+no_sock:
     ldx nc_ch
     lda MOSBUF                  ; the socket
     sta rd_chent,x
@@ -141,7 +144,19 @@ no_http:
     jsr s6_hasreu
     beq no_fail
     jsr no_measure              ; fsLEN = the URL's length
-    jsr http_fetch              ; (raises on errors)
+    lda fsPTR                   ; a GET into the REU buffer (nethttp.s;
+    sta hs_url                  ; raises on errors, also 400 and more)
+    lda fsPTR+1
+    sta hs_url+1
+    lda fsLEN
+    sta hs_ulen
+    lda #HV_GET
+    sta hs_verb
+    lda #0
+    sta hs_bkind
+    lda #HK_REU
+    sta hs_sink
+    jsr http_req
     ldx nc_ch
     lda #$FF                    ; HTTP: no socket
     sta rd_chent,x
@@ -422,8 +437,8 @@ nc_fill:
     sta uciHDR+1
     lda rd_chent,x
     sta uciHDR+2
-    lda #255                    ; at most 255 (the fill is a byte)
-    sta uciHDR+3
+    lda #254                    ; at most 254: the count (2) and the data
+    sta uciHDR+3                ; fill MOSBUF exactly (255 wrote &0900)
     lda #0
     sta uciHDR+4
     lda #5
@@ -436,9 +451,9 @@ nc_fill:
     sta fsADDR
     lda #>MOSBUF
     sta fsADDR+1
-    lda #<257
+    lda #0
     sta fsLEN
-    lda #>257
+    lda #1
     sta fsLEN+1
     jsr uci_read_to
     jsr uci_finish

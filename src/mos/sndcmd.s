@@ -383,6 +383,8 @@ sw7_amp:
     lda (mosPTR),y              ; C low byte
     ldx s_mode
     beq sw7_sid
+    cpx #2                      ; the MOD engine: only voices 24-30
+    beq sw7_ua
     pha                         ; BBC mode
     and #$F0
     sta fsTMP+1                 ; flush
@@ -403,7 +405,15 @@ sw7_amp:
     jmp sw7_go
 sw7_sid:
     cmp #NV                 ; voice
+    bcc sw7_v
+sw7_ua:
+    cmp #NV                 ; 24-30: Ultimate Audio samples (sample.s)
+    bcc sw7_rts
+    cmp #NV+7
     bcs sw7_rts
+    farcall aud.sa_sound, BANK_AUD
+    rts
+sw7_v:
     tax
     lda fsTMP                   ; F: 1 flush, 2 hold, 4 tie
     and #$10
