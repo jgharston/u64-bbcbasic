@@ -69,6 +69,18 @@ PALETTES = {
     'bbc_mode1': [[(0, 0, 0), (255, 0, 0), (255, 255, 0), (255, 255, 255)][i & 3]
                   for i in range(16)],
     'bbc_mode2': [BBC[i & 7] for i in range(16)],
+    # MODE 7 draws teletext colour n with C64 colour tcol[n] (src/mos/ttx.s)
+    # and sets those 8 to the BBC's pure RGB
+    # SHOW9 (Upic full): *COLOUR 1-13 from its DATA lines, the rest C64
+    'show9': [(0, 0, 0)] + [tuple(c) for c in (
+        (20, 20, 80), (40, 30, 110), (70, 40, 130), (110, 50, 140), (160, 60, 130),
+        (210, 80, 110), (240, 110, 80), (255, 150, 60), (255, 230, 120),
+        (40, 60, 120), (30, 50, 100), (60, 80, 140), (15, 15, 30))] + C64[14:],
+    # Bubble Universe (demos/archbas/BUBBLE.bas): *COLOUR 0-15 from its DATA
+    'bubble': [(0, 0, 0), (255, 0, 0), (0, 255, 0), (255, 255, 0), (0, 0, 255), (255, 0, 255),
+               (0, 255, 255), (255, 255, 255), (255, 128, 0), (128, 0, 255), (0, 128, 255),
+               (255, 0, 128), (128, 255, 0), (0, 255, 128), (128, 128, 128), (64, 64, 64)],
+    'teletext': [dict(zip((0, 2, 5, 7, 6, 4, 3, 1), BBC)).get(i, C64[i]) for i in range(16)],
 }
 
 
@@ -91,3 +103,36 @@ def palette_segments(events, video):
         if t >= pending[0][0] and blank(pix):
             segs.append((round(t, 3), pending.pop(0)[1]))
     return segs
+
+
+def repaired(path, stats=None):
+    """frames() as 272x384 numpy arrays, with REST-read glitches repaired.
+    A REST memory read stalls the CPU (DMA) while the picture is drawn, so
+    from some line on the rest of that frame is the picture shifted by a
+    line or two. Compared with the last good frame: if the changed lines
+    from the first changed one down are (mostly) that frame shifted by 1-2
+    lines, they are replaced by the good frame's lines; everything else
+    passes unchanged. From mandelbrot-upic's frames.py (2026-10-03)."""
+    import numpy as np
+    good = None
+    for t, n, pix in frames(path):
+        f = np.frombuffer(bytes(pix), np.uint8).reshape(H, W)
+        if good is None:
+            good = f
+            yield t, f
+            continue
+        changed = np.nonzero((f != good).any(axis=1))[0]
+        if len(changed) >= 3:
+            r = changed[0]
+            rows = [y for y in changed if 2 <= y < 270 and y > r]
+            shifted = sum(1 for y in rows
+                          if any(np.array_equal(f[y], good[y - k]) for k in (1, -1, 2, -2)))
+            if rows and shifted >= 2 and shifted >= 0.7 * len(rows):
+                out = f.copy()
+                out[r:] = good[r:]
+                if stats is not None:
+                    stats.append((round(t, 2), int(r), len(rows)))
+                yield t, out
+                continue
+        good = f
+        yield t, f

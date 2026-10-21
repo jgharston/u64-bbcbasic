@@ -1,0 +1,21 @@
+{
+ "title": "This is U sixty-four BBC BASIC: the BBC Micro's BASIC, on a Commodore sixty-four with an Ultimate.",
+ "kid": "Xander Mol, who made it, learned to program as a kid: on a Texas Instruments TI ninety-nine four A, and on a ZX Spectrum.",
+ "zx_manual": "The Spectrum's own manual taught him the basics.",
+ "zx_mag": "Then programs came from magazines, typed in line by line: this one, On the Road, from Sinclair User, December nineteen eighty-four. Six pages of code.",
+ "oric": "Later came an Oric Atmos, and its manual taught him more BASIC, one PRINT at a time. Years later he even brought his own board game, Ludo, to the Oric's BASIC.",
+ "c64": "The Spectrum's and the Oric's BASICs were better than the Commodore sixty-four's BASIC version two, where almost everything was POKE and PEEK.",
+ "c128": "On the Commodore one twenty-eight, in nineteen ninety-two, he wrote board games in its BASIC seven: better, with DO and LOOP, but still jumping to line numbers.",
+ "bbc": "The BASIC he envied was on the BBC Micro: procedures, real structure, graphics and sound commands, and an assembler built in. He never had one.",
+ "arch": "Years later he did get BBC BASIC, in its fifth version, on an Acorn Archimedes, where his Arch Bas project brought Eric Schraf's graphics programs to it.",
+ "bubble": "Now the circle closes: the same program, in BBC BASIC, on the Commodore sixty-four.",
+ "startup": "U sixty-four BBC BASIC is a cartridge. The interpreter is the original BBC BASIC three point ten, unchanged, byte for byte. Around it sits a new operating system, written for the C sixty-four and the Ultimate.",
+ "type": "Programs are real BBC BASIC: procedures, local variables, structured loops. What you would type on a BBC Micro runs here.",
+ "rings": "The same rings as on the BBC Micro, in the BBC's colours.",
+ "speed": "And it is fast. A BBC Micro needs about three minutes for a million empty loops. The Ultimate's turbo does it in under six seconds: about thirty times faster.",
+ "editor": "Lines are edited the BBC way: a history with cursor up, and copy editing with control and the cursor keys.",
+ "help": "Help for every keyword and command is built in: star help.",
+ "vscode": "You can also write programs on your PC, in V S Code: format them, run them on the machine with control F5, and debug them there, with breakpoints and variables.",
+ "teaser": "And then the Ultimate: its graphics, twenty-four voices on eight SIDs, sprites, teletext pages from the internet, and a file browser. More in the next videos.",
+ "credits": "U sixty-four BBC BASIC is free and open source. Find it on GitHub. Thanks to Sophie Wilson and Acorn for BBC BASIC, and to Ivo van Poorten and J. G. Harston, whose work made this possible."
+}
