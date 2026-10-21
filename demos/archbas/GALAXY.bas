@@ -2,6 +2,7 @@
 20 REM (github.com/xahmol/ArchBAS), BBC BASIC 3.10 here. Four
 30 REM colours, exact; each star brightens what is there.
 40 MODE M%
+45 ON ERROR IF ERR=17 THEN CHAIN "SCHRAF" ELSE VDU 4:REPORT:PRINT " at line ";ERL:END
 50 *OFF
 60 IF M%=110 THEN W%=1536 ELSE W%=1280
 70 *COLOUR 0,0,0,0

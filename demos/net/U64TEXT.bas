@@ -13,6 +13,9 @@
 130   P%=100:SP%=1:CAR%=FALSE:NC%=0:PN$=""
 140   FW%=-100000:FE%=-100000:FB%=-100000:FI%=-100000
 150   NB%=0:NN%=0:TN%=0:BY%=0
+155   REM (set before any fetch: a failed one then shows "not available",
+156   REM not "No such variable" in FNtemp or FNdeg)
+157   CT=0:CC%=0:CW=0:ILAT=0:ILON=0
 160   PROCwmo
 170   PROCload
 180 ENDPROC

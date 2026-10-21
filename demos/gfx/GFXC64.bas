@@ -2,6 +2,7 @@
 20 REM (colours per character); 103 hires 320x200 (2 colours per 8x8
 30 REM cell) and 104 multicolour 160x200 (4 per 4x8 cell): the VIC-II's
 40 REM colour clash. Graphics are 1280 x 800 units here (200 lines).
+45 ON ERROR IF ERR=17 THEN CHAIN "GFXDEMO" ELSE VDU 4:REPORT:PRINT " at line ";ERL:END
 50 MODE 100
 60 *OFF
 70 FOR I%=0 TO 15

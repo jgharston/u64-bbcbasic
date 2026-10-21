@@ -4,7 +4,9 @@
    40 REM (C) Richard T. Russell, zlib licence (see LICENCE in this folder).
    50 REM Altered for U64 BBC BASIC: BBCSDL's first line (touch IDE)
    60 REM removed; OFF is VDU 23,1,0;0;0;0; *REFRESH and the closing WAIT
-   70 REM loop removed (BBC BASIC 3.10 has neither).
+   70 REM loop removed (BBC BASIC 3.10 has neither). A pause after each
+   75 REM move (W, by the number of discs) and the piles' base and names:
+   76 REM at turbo speed it was solved before a move could be seen.
    80 :
    90 DIM DISC$(13),SIZE(3)
   100 FOR DISC=1 TO 13
@@ -16,17 +18,19 @@
   160 MODE 3
   170 INPUT "Number of discs (1-13): "F
   180 IF F>13 RUN
+  185 W=20:IF F>5 W=8:IF F>8 W=2
+  187 PRINT TAB(0,21)STRING$(79,"=");TAB(13,22)"A";TAB(39,22)"B";TAB(65,22)"C"
   190 FOR N=F TO 1 STEP -1:PROCPUT(N,1):NEXT
   200 PRINT TAB(0,1)"Press SPACE to start":A=GET:PRINT TAB(0,1)STRING$(20," ")
   210 VDU 23,1,0;0;0;0;
   220 PROCHANOI(F,1,2,3)
-  230 PRINTTAB(0,22);
+  230 PRINTTAB(0,23);
   240 VDU 23,1,1;0;0;0;
   250 END
   260 ;
   270 DEF PROCHANOI(A,B,C,D) IF A=0 ENDPROC
   280 PROCHANOI(A-1,B,D,C)
-  290 PROCTAKE(A,B):PROCPUT(A,C)
+  290 PROCTAKE(A,B):PROCPUT(A,C):T=TIME:REPEAT UNTIL TIME>T+W
   300 PROCHANOI(A-1,D,C,B)
   310 ENDPROC
   320 ;

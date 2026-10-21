@@ -1243,6 +1243,35 @@ In 1.0.0, in this order (speed first):
    (2-3 minutes, any key skips a scene), music in turns: SID (8 SIDs,
    the song tracker) in the first half, a MOD on Ultimate Audio in the
    second ("and now: Ultimate Audio" as a scene).
+9a. Demo review (owner, 2026-10-21): fixes (XMAS, Audio, U64TEXT, Schraf,
+   Balls), menus in the Schraf style, RUN/STOP back to the menus, Hanoi
+   visible, Invaders a game, the showcase on Canon and longer; a file
+   browser: *BROWSE in the MOS (owner: in assembler, F1 at the prompt by
+   a default *KEY 1), with drives and folders, opening by type (CHAIN,
+   *SEQ, *MODPLAY, samples, *MOUNT, Upic), file info and *TYPE, delete
+   and rename with a confirmation.
+   Done 2026-10-21 (src/mos/browse.s, bank 9; test_browse). F1 is not a
+   default *KEY 1, which would take COPY away: the line editor opens the
+   browser on F1 only on an empty line with no copy cursor (where COPY
+   has nothing to copy). A program is CHAINed through *KEY slot 9 (no
+   C64 key reaches it). The listing lives in REU bank &0A, read again
+   after a file is opened (a Upic show keeps BASIC's RAM there). A
+   failing command ends the browser with its error: catching it would
+   need a BRKV stub in RAM. Found on the way: PRINT# and INPUT# hung or
+   wrote rubbish on /REU (the RAM disk overwrote OSBPUT's saved X and
+   A); fixed in fs.s, test_ramdisk covers it.
+   Next (owner, 2026-10-21): copy, move, paste, create and delete
+   folders in the browser, recursive through folders. Decisions: marked
+   items (SPACE marks several; C copies, X cuts, P pastes in the folder
+   shown); a folder copied or moved to /REU is refused (/REU has no
+   folders); a name that already exists in the target asks per item
+   Y/N/All/Quit; deleting a folder that is not empty asks first. Plan:
+   one recursive walker (each level's listing read into the REU before
+   descending: the command interface has one directory stream; 8 levels,
+   127-character paths) for copy, move and delete; the firmware's file
+   copy (DOS_COPY) on the Ultimate's drives, a move within a drive as a
+   rename if the firmware allows it, else copy and delete; the browser
+   moves to bank 7 for room.
 10. The release: a GitHub release with a ZIP (both .crt and .cfg, all
    demos tokenised and as source, the manual as PDF, README, licences)
    and the VS Code extension (.vsix); an announcement (Facebook post and

@@ -641,8 +641,14 @@ fb_file:
     lda ch_open,x               ; on the REU RAM disk?
     lsr
     bcc fb_ult
-    jsr rd_chptr
+    lda fsSX                    ; (the RAM disk takes its entry in fsSX:
+    pha                         ; the caller's X kept, as PRINT#/INPUT#
+    jsr rd_chptr                ; loop on it; they hung on /REU)
     farcall rd_fbget, BANK_RD
+    tay
+    pla
+    sta fsSX
+    tya
     bcs fb_eof
     sta fsTMP
     jmp fb_got
@@ -709,10 +715,17 @@ fp_file:
     lda ch_open,x               ; on the REU RAM disk?
     lsr
     bcc fp_ult
-    lda fsTMP
+    lda fsSX                    ; (the caller's X and the byte kept:
+    pha                         ; the RAM disk uses fsSX and fsTMP, and
+    lda fsTMP                   ; BASIC's PRINT# needs A, X back)
+    pha
     sta RD_CBYTE
     jsr rd_chptr
     farcall rd_fbput, BANK_RD
+    pla
+    sta fsTMP
+    pla
+    sta fsSX
     jmp fpu_done
 fp_ult:
     lda #DOS_WRITE

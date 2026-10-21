@@ -2,6 +2,7 @@
 20 REM 288 wide for 48 MHz Ultimates). Text stays on the console; the
 30 REM picture shows with *UPIC SHOW (n: for n centiseconds) and by
 40 REM itself in GET and when the program ends.
+45 ON ERROR IF ERR=17 THEN CHAIN "GFXDEMO" ELSE VDU 4:REPORT:PRINT " at line ";ERL:END
 50 MODE 110
 60 *OFF
 70 PRINT "MODE 110: drawing a 16-colour picture."

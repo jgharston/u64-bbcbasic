@@ -14,6 +14,11 @@
     icl 'dfs.s'
     icl 'toolkit.s'
 
+    .local brw
+    icl 'bankhelp.s'
+    icl 'browse.s'
+    .endl
+
 bank9_end:
     .if bank9_end > $C000
     .error "Bank 9 overflows 16K"

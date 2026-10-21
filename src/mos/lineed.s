@@ -286,7 +286,7 @@ ekc_show:
 
 ek_copy:                        ; COPY: the character under the copy cursor
     lda ed_con
-    beq ekc_none
+    beq ekc_browse
     jsr ed_cread
     beq ekc_none                ; (none there)
     jsr ed_insert
@@ -295,6 +295,27 @@ ek_copy:                        ; COPY: the character under the copy cursor
     jsr ed_mark
 ekc_none:
     jmp le_loop
+ekc_browse:                     ; no copy cursor: on an empty line at
+    lda mosCNT                  ; BASIC's prompt (&0700) F1 opens the
+    bne ekc_none                ; file browser: "*BROWSE" as typed and
+    lda mosPTR2+1               ; RETURN (owner, 2026-10-21)
+    cmp #$07
+    bne ekc_none
+    ldx #0
+ekb_l:
+    txa                         ; (X on the stack: ed_insert uses it and
+    pha                         ; ed_c16)
+    lda ekb_txt,x
+    beq ekb_done
+    jsr ed_insert
+    pla
+    tax
+    inx
+    bne ekb_l
+ekb_done:
+    pla
+    jmp le_return
+ekb_txt     dta '*BROWSE', 0
 
 le_remote:                      ; a remote request: the line typed so far
     jsr ed_cend                 ; goes (taken off the screen), the

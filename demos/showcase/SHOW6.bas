@@ -1,0 +1,25 @@
+10 REM SHOW6: the SID song ends; Ultimate Audio takes over with a MOD
+20 REM (Wild Perspective by Greg Tuby, 1996) and a sample effect
+30 MODE 7
+40 *SONG STOP
+45 *FX 15,1
+47 ON ERROR OSCLI "SONG STOP":OSCLI "MODSTOP":VDU 4:IF ERR=17 END ELSE REPORT:PRINT " at line ";ERL:END
+50 PRINT CHR$141;CHR$129;CHR$157;CHR$131;"     And now..."
+60 PRINT CHR$141;CHR$129;CHR$157;CHR$131;"     And now..."
+70 K%=INKEY(150)
+80 PRINT
+90 PRINT CHR$141;CHR$134;"   ULTIMATE AUDIO"
+100 PRINT CHR$141;CHR$134;"   ULTIMATE AUDIO"
+110 PRINT
+120 PRINT CHR$130;"7 sample channels from the REU:"
+130 PRINT CHR$130;"a ProTracker MOD in the background"
+140 PRINT CHR$130;"and sound effects with SOUND."
+150 *SAMPLE CLEAR
+160 *SAMPLE LOAD 1 ../audio/BOOM.WAV
+170 SOUND 28,1,53,0
+180 *MODPLAY ../audio/wildpersp.mod
+190 PRINT
+200 PRINT CHR$135;"Music: Wild Perspective, Greg Tuby 1996"
+210 K%=INKEY(500)
+220 CHAIN "SHOW7"
+230 END

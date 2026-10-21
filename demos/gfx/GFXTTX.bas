@@ -2,6 +2,7 @@
 20 REM text colours, 145-151 mosaic graphics, 141 double height, 136
 30 REM flashing, 157 new background, 158 hold graphics; the screen
 40 REM memory at &7C00 can be written directly.
+45 ON ERROR IF ERR=17 THEN CHAIN "GFXDEMO" ELSE VDU 4:REPORT:PRINT " at line ";ERL:END
 50 MODE 7
 60 *OFF
 70 PRINT CHR$141;CHR$131;"  U64 BBC BASIC teletext"

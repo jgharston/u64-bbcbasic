@@ -57,6 +57,10 @@ settings are loaded into memory only, not saved to flash.
 - Commands: `*CAT` (`*.`), `*DIR` (`*CD`), `*PWD`, `*DELETE`, `*MKDIR`,
   `*RENAME`, `*LOAD`, `*SAVE`, `*TYPE`, `*UVER`, `*TIME`, `*TURBO`,
   `*STATUS` (memory, REU, drives, network, clock), `*FX`, `*HELP`.
+- A file browser: `*BROWSE`, or <kbd>F1</kbd> on an empty line at the
+  prompt. Folders and drives, RETURN opens by type (CHAINs a program,
+  shows a PETSCII or Upic file, plays a MOD or WAV, mounts a disk image),
+  T types, D deletes, R renames.
 - `*HELP` covers every BASIC keyword, command and topic: `*HELP KEYWORDS`,
   `*HELP COMMANDS`, `*HELP TOPICS`.
 
@@ -91,7 +95,7 @@ SD`, `ULTDRV2 = ...`; default `USB0`). `make deploy` puts the cartridges
 and their `.cfg` files in `/<drive>/idi8b/u64bbcbasic/`, and the demos,
 tokenised as BBC BASIC programs, in its `demos/` folder (`music`, `net`,
 `sound`, `classics`): `*DIR /SD/idi8b/u64bbcbasic/demos/music` and
-`CHAIN "MUSIC"`. A second Ultimate is skipped when it does not answer.
+`CHAIN "MUSIC"`, or <kbd>F1</kbd> and pick it in the browser. A second Ultimate is skipped when it does not answer.
 
 ## Credits and licences
 

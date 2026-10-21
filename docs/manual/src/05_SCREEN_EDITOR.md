@@ -28,7 +28,7 @@ The C64 has two cursor keys: <kbd>CRSR ⇅</kbd> and <kbd>CRSR ⇄</kbd>. With
 | <kbd>CRSR ⇅</kbd> (down) | back towards the newest line, then the line you were typing |
 | <kbd>CTRL</kbd>+<kbd>CRSR ⇄</kbd> / <kbd>CTRL</kbd>+<kbd>SHIFT</kbd>+<kbd>CRSR ⇄</kbd> | copy cursor right / left |
 | <kbd>CTRL</kbd>+<kbd>CRSR ⇅</kbd> / <kbd>CTRL</kbd>+<kbd>SHIFT</kbd>+<kbd>CRSR ⇅</kbd> | copy cursor down / up |
-| <kbd>F1</kbd> | COPY: the character under the copy cursor |
+| <kbd>F1</kbd> | COPY: the character under the copy cursor; on an empty line with no copy cursor, the file browser (`*BROWSE`) |
 | <kbd>RETURN</kbd> | enter the whole line, wherever the cursor is in it |
 | <kbd>RUN/STOP</kbd> | ESCAPE: forget the line |
 
@@ -208,7 +208,8 @@ editing: characters, <kbd>INST/DEL</kbd> for the last one, <kbd>RETURN</kbd>.
   same.
 - **Function keys**: `*KEY` gives F1-F8 a text to type (`*KEY 2 LIST|M`:
   <kbd>F2</kbd> lists the program). <kbd>F1</kbd> is COPY until `*KEY 1`
-  is set.
+  is set; on an empty line at the prompt it opens the file browser
+  (`*BROWSE`, chapter 7).
 - **Key repeat**: the cursor keys, space and <kbd>INST/DEL</kbd> repeat while
   held; CTRL with a cursor key and <kbd>F1</kbd> (COPY) do too, after the
   same short delay: hold <kbd>F1</kbd> to copy the rest of a line.

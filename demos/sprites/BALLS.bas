@@ -4,9 +4,10 @@
 40 REM limit) and the multiplexer shows all 32 without flicker.
 50 *SPRITE ON
 60 MODE 100
+65 ON ERROR PROCend
 70 PROCshape
 80 PROCsetup
-90 PRINT TAB(5,0);"32 sprites on 8: ESCAPE ends"
+90 PRINT TAB(5,0);"32 sprites on 8: RUN/STOP ends"
 100 REPEAT
 110   PROCmove
 120 UNTIL FALSE
@@ -45,3 +46,11 @@
 450 DEF PROCword
 460   A%=&71:X%=B% MOD 256:Y%=B% DIV 256:CALL &C7F1
 470 ENDPROC
+480 REM RUN/STOP (ESCAPE) ends it: the sprites off first (they stay on
+490 REM over the prompt otherwise)
+500 DEF PROCend
+510   *SPRITE OFF
+520   IF ERR<>17 THEN REPORT:PRINT " at line ";ERL
+530   END
+540 ENDPROC
+

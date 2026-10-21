@@ -701,12 +701,27 @@ def test_a_partition(t):
     # reads (1000-byte DMA) during serial-bus transfers break their timing
     if not ult(t):
         return
+    softiec_on(t)
     r = remote(t)
     assert not r.run_lines(["*PARTITION 250 /Temp E2E"])["error"]
     out = r.run_lines(["*PARTITIONS"], timeout=60)["output"]
     assert '"E2E"' in out, out
     assert not r.run_lines(["*CP 250"], timeout=60)["error"]
     assert not r.run_lines(["*CP 0"], timeout=60)["error"]
+
+
+def softiec_on(t):
+    """The SoftIEC drive on (the partitions need it). A setting made over
+    REST is not saved to flash: a power cycle can leave it off."""
+    import urllib.request
+    url = "http://%s/v1/configs/SoftIEC%%20Drive%%20Settings" % t.host
+    with urllib.request.urlopen(url, timeout=20) as f:
+        cfg = json.load(f)["SoftIEC Drive Settings"]
+    if cfg["IEC Drive"] != "Enabled":
+        req = urllib.request.Request(url + "/IEC%20Drive?value=Enabled",
+                                     method="PUT")
+        urllib.request.urlopen(req, timeout=20).read()
+        t.notes.append("SoftIEC was off: switched on for the run")
 
 
 def test_a_machine(t):
@@ -2325,6 +2340,68 @@ LOCK_PROG = """10 ON ERROR PRINT "ERR=";ERR;" ";:REPORT:PRINT:END
 """
 
 
+def test_browse(t):
+    # *BROWSE (F1 on an empty line at the prompt), on /REU: the listing,
+    # R renames, D deletes after Y, RETURN on a program CHAINs it (typed
+    # through *KEY slot 9), Q leaves
+    if t.is_vice:
+        return
+    ult(t)
+    run_line(t, "*DIR /REU", ">")
+    for name in ("BRPROG", "BRDATA", "BRDEL", "BRNEW"):    # (a retry's
+        run_line(t, "*DELETE " + name, ">")             # leftovers)
+    run_line(t, "NEW", ">")
+    run_line(t, '10 PRINT "CHAINED OK"', ">")
+    run_line(t, 'SAVE "BRPROG"', ">")
+    run_line(t, "NEW", ">")
+    run_line(t, "*SAVE BRDATA &4000 +10", ">")
+    run_line(t, "*SAVE BRDEL &4000 +5", ">")
+    screen.type_text(t.bridge, "CLS\r")
+    screen.wait_for(t.bridge, lambda r: r[0].startswith(">") and not r[1].strip())
+
+    def listing(r):
+        return [x.strip() for x in r[3:23]]
+
+    def select(name):
+        rows = screen.read_screen(t.bridge)
+        idx = listing(rows).index(name)
+        screen.type_text(t.bridge, "{UP}" * 20 + "{DOWN}" * idx)
+        time.sleep(1)
+
+    screen.type_text(t.bridge, "{F1}")
+    rows = screen.wait_for(t.bridge, lambda r: "BRDEL" in listing(r)
+                           and "files" in r[0], 20)
+    assert rows[1].strip() == "/REU", rows[1]
+    assert listing(rows)[0] == "../", rows
+    select("BRDATA")
+    screen.type_text(t.bridge, "R")
+    screen.wait_for(t.bridge, lambda r: "New name:" in r[22])
+    screen.type_text(t.bridge, "BRNEW\r")
+    screen.wait_for(t.bridge, lambda r: "brnew" in [x.lower() for x in listing(r)]
+                    and "BRDATA" not in listing(r))
+    select("BRDEL")
+    screen.type_text(t.bridge, "D")
+    screen.wait_for(t.bridge, lambda r: "Delete it?" in r[22])
+    screen.type_text(t.bridge, "Y")
+    screen.wait_for(t.bridge, lambda r: "files" in r[0] and "BRDEL" not in listing(r)
+                    and "BRPROG" in listing(r))
+    select("BRPROG")
+    screen.type_text(t.bridge, "\r")
+    screen.wait_text(t.bridge, "CHAINED OK", 20)
+    screen.wait_for(t.bridge, lambda r: any(x.startswith(">") for x in r))
+    run_line(t, "*DELETE BRPROG", ">")
+    rows = run_line(t, "*CAT", "files")
+    name = [r.split()[0] for r in rows if r.lower().startswith("brnew")]
+    assert name, rows
+    run_line(t, "*DELETE " + name[0], ">")
+    # Q leaves; the prompt is back
+    screen.type_text(t.bridge, "CLS\r{F1}")
+    screen.wait_for(t.bridge, lambda r: "files" in r[0])
+    screen.type_text(t.bridge, "Q")
+    run_line(t, 'PRINT "BACK"', "BACK")
+    ult(t)
+
+
 def test_dfs(t):
     # DFS commands (dfs.s): *SPOOL a PRINT into a file; *EXEC a file with
     # CR LF lines feeding INPUT; *RUN a C64 program file (load address
@@ -2725,6 +2802,12 @@ def test_ramdisk(t):
     run_line(t, 'F%=OPENOUT "/REU/TH":PTR#F%=10:BPUT#F%,9', ">")
     run_line(t, 'PTR#F%=0:PRINT "Z=";EXT#F%;",";BGET#F%:CLOSE#F%', "Z=11,0")
     run_line(t, 'PRINT "N=";OPENIN "/REU/NONE"', "N=0")
+    # PRINT# / INPUT#: BASIC loops on OSBPUT/OSBGET with A and X kept
+    # (they hung on /REU until 2026-10-21)
+    run_line(t, 'F%=OPENOUT "/REU/TP":PRINT#F%,"HELLO",12345,1.5:CLOSE#F%', ">")
+    run_line(t, 'F%=OPENIN "/REU/TP":INPUT#F%,A$,B%,C:CLOSE#F%', ">")
+    run_line(t, 'PRINT A$;"/";B%;"/";C', "HELLO/12345/1.5")
+    run_line(t, "*DELETE /REU/TP", ">")
     for line in ("*DELETE /REU/TF", "*DELETE /REU/TG", "*DELETE /REU/TH"):
         run_line(t, line, ">")
 
@@ -3004,7 +3087,7 @@ GROUPS = {
     "files": [test_fs_uver, test_fs_time, test_fs_dir, test_fs_save_load,
               test_fs_channels, test_fs_type, test_fs_errors,
               test_fs_rename_delete, test_turbo_cmd, test_status,
-              test_reu_storage, test_reu_files, test_randomize, test_ramdisk, test_dfs, test_toolkit],
+              test_reu_storage, test_reu_files, test_randomize, test_ramdisk, test_browse, test_dfs, test_toolkit],
     "ultimate": [test_a_clock, test_a_copy, test_a_mount, test_a_drive,
                  test_a_settime, test_a_partition, test_a_machine,
                  test_a_dirhome],
@@ -3044,8 +3127,11 @@ def recover(t):
     """After a failure or a bridge stall on an Ultimate: end a Upic view
     or a running program and wait for the prompt, so the next test (or
     the retry) does not find BASIC busy (a stall in upic_auto once left
-    the picture showing and failed the rest of its group)."""
-    if not ult(t):
+    the picture showing and failed the rest of its group). The program
+    or the picture is ended through the remote interface first: the
+    screen's prompt cannot be seen meanwhile (a stall in gxr left a
+    graphics mode and aborted the whole run). Never raises."""
+    if t.is_vice:
         return
     try:
         rm = remote(t)
@@ -3056,8 +3142,9 @@ def recover(t):
             elif st == "running":
                 rm.stop()
             else:
-                return
+                break
             time.sleep(1)
+        rm.run_lines(["MODE 100", "*DIR /Temp"], timeout=30)
     except Exception:
         pass
 

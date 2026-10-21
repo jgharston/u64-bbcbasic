@@ -3,6 +3,7 @@
 30 REM The eight Archimedes colours (c 3-31 step 4, tints) exact;
 40 REM a black line below each point hides what lies behind.
 50 MODE M%
+55 ON ERROR IF ERR=17 THEN CHAIN "SCHRAF" ELSE VDU 4:REPORT:PRINT " at line ";ERL:END
 60 *OFF
 70 IF M%=110 THEN W%=1536 ELSE W%=1280
 75 PROCtable

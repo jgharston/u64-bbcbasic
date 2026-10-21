@@ -3,6 +3,7 @@
 30 REM On a 64 MHz U64 MODE 1, 2, 4 and 5 are Upic Lite (256 lines).
 40 REM MODE at the top level: it moves HIMEM, which BASIC refuses
 50 REM inside a PROC or loop ("Bad MODE").
+55 ON ERROR IF ERR=17 THEN CHAIN "GFXDEMO" ELSE VDU 4:REPORT:PRINT " at line ";ERL:END
 60 MODE 1:PROCcard(1)
 70 MODE 2:PROCcard(2)
 80 MODE 4:PROCcard(4)

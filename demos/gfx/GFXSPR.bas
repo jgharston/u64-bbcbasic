@@ -1,6 +1,7 @@
 10 REM GFXSPR: VIC-II sprites (*SPRITE): 32 multiplexed over any
 20 REM VIC-II mode; here MODE 132 (MODE 4 on the VIC-II) with drawing
 30 REM behind them. More: demos/sprites (BALLS, INVADERS).
+35 ON ERROR OSCLI "SPRITE OFF":IF ERR=17 THEN CHAIN "GFXDEMO" ELSE VDU 4:REPORT:PRINT " at line ";ERL:END
 40 MODE 132
 50 REM *SPRITE ON works in a VIC-II mode and, in a program, takes effect
 60 REM at the next MODE (it lowers HIMEM)

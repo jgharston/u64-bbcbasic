@@ -1959,6 +1959,7 @@ ct_A:
     dta 0
 ct_B:
     dta 'BUILD', 0, a(dfs.cmd_build), BANK_TOOLS
+    dta 'BROWSE', 0, a(brw.cmd_browse), BANK_TOOLS
     dta 0
 ct_C:
     dta 'CAT', 0, a(cmd_cat), BANK_FS

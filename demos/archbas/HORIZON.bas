@@ -3,6 +3,7 @@
 30 REM 16 shades of grey, exact; worked out per screen pixel (160 or
 40 REM 384 across, 256 down) rather than per Archimedes pixel.
 50 MODE M%
+55 ON ERROR IF ERR=17 THEN CHAIN "SCHRAF" ELSE VDU 4:REPORT:PRINT " at line ";ERL:END
 60 *OFF
 70 IF M%=110 THEN W%=1536:N%=384 ELSE W%=1280:N%=160
 80 PROCpalette

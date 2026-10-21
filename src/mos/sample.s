@@ -716,16 +716,23 @@ ss_play:
     sta UA_BASE+UA_RATE,x
     lda SS_ENT+6
     sta UA_BASE+UA_RATE+1,x
-    lda #0                      ; loop points: 0 and the length
-    sta UA_BASE+UA_RPA,x
-    sta UA_BASE+UA_RPA+1,x
-    sta UA_BASE+UA_RPA+2,x
+    lda #0                      ; loop points: 0 and the length when
+    sta UA_BASE+UA_RPA,x        ; looped, both 0 for a single play (set,
+    sta UA_BASE+UA_RPA+1,x      ; the channel loops even without control
+    sta UA_BASE+UA_RPA+2,x      ; bit 1: every effect went on for ever;
+    sta UA_BASE+UA_RPB,x        ; as the Heartbeat player does)
+    sta UA_BASE+UA_RPB+1,x
+    sta UA_BASE+UA_RPB+2,x
+    lda SS_CTRL
+    cmp #3
+    bne ss_go
     lda SS_ENT+5
     sta UA_BASE+UA_RPB,x
     lda SS_ENT+4
     sta UA_BASE+UA_RPB+1,x
     lda SS_ENT+3
     sta UA_BASE+UA_RPB+2,x
+ss_go:
     lda #$FF
     sta UA_BASE+UA_IRQ,x
     lda SS_CTRL

@@ -11,7 +11,7 @@ the Ultimate's: `/SD/games/elite`, or relative to the current directory
 
 ## 7.2 Directories and files
 
-@@help *CAT *DIR *PWD *MKDIR *DELETE *RENAME *COPY *TYPE *LOAD *SAVE *INFO *ACCESS *DUMP *RUN *SPOOL *EXEC *BUILD
+@@help *BROWSE *CAT *DIR *PWD *MKDIR *DELETE *RENAME *COPY *TYPE *LOAD *SAVE *INFO *ACCESS *DUMP *RUN *SPOOL *EXEC *BUILD
 
 ## 7.3 Files from programs: channels
 
