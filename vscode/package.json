@@ -212,7 +212,7 @@
   "scripts": {
     "gen": "python3 ../tools/genextdata.py data",
     "compile": "npm run gen && tsc -p .",
-    "test": "npm run compile && node --test out/test/tokenizer.test.js out/test/formatter.test.js",
+    "test": "npm run compile && node --test out/test/tokenizer.test.js out/test/formatter.test.js out/test/remote.test.js",
     "test:device": "npm run compile && node out/test/device.js",
     "package": "npm run compile && vsce package --allow-missing-repository -o ../build/u64-bbcbasic.vsix",
     "test:vscode": "npm run compile && node out/test/runIntegration.js"

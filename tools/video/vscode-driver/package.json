@@ -1,0 +1,11 @@
+{
+  "name": "u64bbc-video-driver",
+  "displayName": "U64 BBC BASIC video driver",
+  "description": "Plays the VS Code scene of the videos (tools/video/v1_vscode.py); does nothing unless U64_VIDEO_EVENTS is set.",
+  "version": "1.0.0",
+  "publisher": "xahmol",
+  "private": true,
+  "engines": { "vscode": "^1.80.0" },
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js"
+}

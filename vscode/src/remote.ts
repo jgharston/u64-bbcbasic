@@ -186,9 +186,13 @@ export class Remote {
         const pending = [...lines];
         let state: State = 'running';
         let shown = '';
-        const emit = () => {
+        // While BASIC runs only whole lines are passed on: cleanOutput ends
+        // every line with a newline, so a line still being printed would
+        // differ from its finished form and the slice would drop characters
+        // ("1 squared is 1" came out as "1 squared" / "s 1"). final: all.
+        const emit = (final = false) => {
             if (!onOutput) { return; }
-            const text = cleanOutput(raw);
+            const text = cleanOutput(final ? raw : raw.slice(0, completeLines(raw)));
             if (text.length > shown.length) { onOutput(text.slice(shown.length)); shown = text; }
         };
         for (;;) {
@@ -198,7 +202,7 @@ export class Remote {
             const st = this.stateOf(mb);
             if (st.state === 'paused' && !pending.length) {
                 raw.push(...await this.drain());
-                emit();
+                emit(true);
                 state = 'paused';
                 break;
             }
@@ -209,13 +213,14 @@ export class Remote {
                 }
                 await sleep(50);
                 raw.push(...await this.drain());
-                emit();
+                emit(true);
                 state = st.state;
                 break;
             }
             if (Date.now() > deadline) { state = 'timeout'; break; }
             await sleep(30);
         }
+        emit(true);
         const st = await this.state();
         const output = cleanOutput(raw);
         const result: RunResult = { ok: state !== 'timeout', state, output, error: null,
@@ -384,6 +389,18 @@ export function cleanOutput(raw: number[]): string {
         else if (b < 127) { out.push(String.fromCharCode(b)); }
     }
     return out.join('').split('\n').filter(l => l.trim() && l !== '>').map(l => l + '\n').join('');
+}
+
+/** The length of raw up to and with its last line end: a CR that is not
+ *  a VDU parameter (cleanOutput's own walk). */
+export function completeLines(raw: number[]): number {
+    let end = 0;
+    for (let i = 0; i < raw.length; i++) {
+        const b = raw[i];
+        if (b === 13) { end = i + 1; }
+        else if (b < 32 && b !== 10) { i += VDU_PARAMS[b]; }
+    }
+    return end;
 }
 
 function lastLine(text: string): string {
