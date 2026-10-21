@@ -1,0 +1,12 @@
+{
+ "title": "Sound and music in U sixty-four BBC BASIC.",
+ "bbc": "SOUND and ENVELOPE work as on a BBC Micro. In BBC mode they even sound like one: here a siren envelope, a falling tone, and noise.",
+ "sid": "In SID mode, SOUND reaches all twenty-four voices of eight SIDs, with instruments: here instrument one, and a chord on three voices.",
+ "sid24": "This demo writes the eight SIDs directly: twenty-four voices, entering one by one.",
+ "build": "The music demo builds each piece from BASIC, note by note, with SOUND commands, while the song tracker records them.",
+ "play": "Then the song tracker plays it in the background, on twenty-four voices, while BASIC draws the bars.",
+ "audio": "On the Ultimate sixty-four, Ultimate Audio plays ProTracker MOD music from the R E U, through a port of Freshness's ModPlayer.",
+ "fx": "Sample sound effects play on the free channels, over the music.",
+ "sam": "And with your own copy of S.A.M., it speaks.",
+ "credits": "U sixty-four BBC BASIC is free and open source. Find it on GitHub. The next video is about files, the Ultimate, and the network."
+}

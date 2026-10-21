@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from frames import PALETTES, frames, to_image  # noqa: E402
+from frames import frames, palette_at, to_image  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 TAKES = os.path.join(ROOT, 'build', 'video', 'takes')
@@ -26,7 +26,7 @@ TW, TH = 1280, 720
 def frame(take, t, palette):
     for ft, n, pix in frames(os.path.join(TAKES, take, 'video.pkts')):
         if ft >= t:
-            return to_image(pix, PALETTES[palette]).crop((0, 8, 384, 264))
+            return to_image(pix, palette_at(palette, ft)).crop((0, 8, 384, 264))
     raise ValueError('no frame at %s' % t)
 
 
@@ -69,6 +69,69 @@ def v1(out):
     im.save(os.path.join(out, 'v1-thumbnail-B.jpg'), quality=92)
 
 
+def framed(pic, title, sub, out, corner='tr', ty=470):
+    """A picture filling the thumbnail, the title over its lower part."""
+    im = pic.resize((TW, round(256 * TW / 384)), Image.NEAREST).crop((0, 70, TW, 70 + TH))
+    d = ImageDraw.Draw(im)
+    text(d, (TW // 2, ty), title, 104, anchor='ma')
+    text(d, (TW // 2, ty + 140), sub, 50, (255, 230, 120), anchor='ma')
+    logo(im, corner)
+    im.save(out, quality=92)
+
+
+def beside(pic, l1, l2, l3, out, col=(255, 220, 60), height=720, dx=340, size2=92):
+    """The picture on the right (height px high, dx px of it beyond the
+    right edge), the title on the black left."""
+    im = Image.new('RGB', (TW, TH), (0, 0, 0))
+    p = pic.resize((round(384 * height / 256), height), Image.NEAREST)
+    im.paste(p, (TW - p.width + dx, (TH - height) // 2))
+    d = ImageDraw.Draw(im)
+    text(d, (50, 210), l1, 110, col)
+    text(d, (50, 350), l2, size2)
+    text(d, (54, 490), l3, 44, (200, 200, 200))
+    logo(im, 'bl')
+    im.save(out, quality=92)
+
+
+def v2(out):
+    framed(frame('show', 152.0, 'cycle:5:0.498:147.95'), 'Graphics', 'BBC BASIC on the C64',
+           os.path.join(out, 'v2-thumbnail-A.jpg'))
+    beside(frame('v2', 31.0, 'bbc_mode2'), 'Graphics', 'BBC modes', 'U64 BBC BASIC on the C64',
+           os.path.join(out, 'v2-thumbnail-B.jpg'))
+
+
+def v3(out):
+    import json
+    ev = json.load(open(os.path.join(TAKES, 'v3', 'events.json')))
+    t = [e['t'] for e in ev if e.get('name') == 'music_play'][0] + 45
+    beside(frame('v3', t, 'c64'), 'Sound', '24 SID voices', 'and Ultimate Audio',
+           os.path.join(out, 'v3-thumbnail-A.jpg'), height=380, dx=-10, size2=80)
+    ta = [e['t'] for e in ev if e.get('name') == 'audio_fx'][0]
+    beside(frame('v3', ta, 'teletext'), 'Music', 'MOD, samples', 'Ultimate Audio from BBC BASIC',
+           os.path.join(out, 'v3-thumbnail-B.jpg'), height=380, dx=-10, size2=80)
+
+
+def v4(out):
+    import json
+    ev = json.load(open(os.path.join(TAKES, 'v4c', 'events.json')))
+    t = [e['t'] for e in ev if e.get('name') == 'u64text'][0] + 60
+    framed(frame('v4c', t, 'teletext'), 'Teletext from the net', 'BBC BASIC on the C64', os.path.join(out, 'v4-thumbnail-A.jpg'),
+           ty=300)
+    ev = json.load(open(os.path.join(TAKES, 'v4', 'events.json')))
+    tb = [e['t'] for e in ev if e.get('name') == 'browse_copy'][0] + 6
+    beside(frame('v4', tb, 'c64'), 'Files and', 'the network', 'U64 BBC BASIC on the Ultimate 64',
+           os.path.join(out, 'v4-thumbnail-B.jpg'))
+
+
+def v5(out):
+    import json
+    ev = json.load(open(os.path.join(TAKES, 'v5', 'events.json')))
+    t = [e['t'] for e in ev if e.get('name') == 'xmastree_end'][0] - 3
+    beside(frame('v5', t, 'xmastree'), 'The demos', 'in BBC BASIC', 'on the Commodore 64 Ultimate',
+           os.path.join(out, 'v5-thumbnail-A.jpg'), dx=420)
+    framed(frame('show', 222.0, 'show9'), 'The demos', 'U64 BBC BASIC showcase', os.path.join(out, 'v5-thumbnail-B.jpg'))
+
+
 if __name__ == '__main__':
     os.makedirs(sys.argv[2], exist_ok=True)
-    {'v1': v1}[sys.argv[1]](sys.argv[2])
+    {'v1': v1, 'v2': v2, 'v3': v3, 'v4': v4, 'v5': v5}[sys.argv[1]](sys.argv[2])

@@ -19,6 +19,8 @@ def main(take, start, end, step, out):
     want = [start + i * step for i in range(int((end - start) / step) + 1)]
     got = []
     for t, n, pix in frames(video):
+        if not want:
+            break
         if t < want[0]:
             continue
         if t > end:

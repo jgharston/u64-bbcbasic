@@ -138,3 +138,24 @@ Thumbnail: the banner screen or a Upic picture, title "BBC BASIC on the C64".
 - Each video: chapters from the edit's timeline, a transcript for the
   subtitles, two thumbnail variants, the description and tags, all
   delivered to Downloads. Links in the README and the release notes.
+
+## Status (2026-10-21)
+
+All five recorded and edited; the owner approved videos 1-3. Per video:
+`tools/video/vN_record.py` (takes), `vN_narration.json` (Alba lines,
+`voices.py`), `vN_edit.py` (videos 2-5 on `editlib.py`), `thumb.py`,
+`youtube_texts.py`; deliverables (video, YouTube text, transcript,
+two thumbnails) go to Downloads.
+- The showcase take (`show_record.py`) serves videos 2 and 5: its
+  palettes per part in `editlib.SHOW_SEGMENTS`, including SHOW1's and
+  SHOW7's colour cycles (`frames.palette_at`; a step of 15 `VDU 19`
+  measured at about 0.5 s on the U64).
+- No REST reads while a Upic full picture shows: once a second during
+  the show gave two suns in SHOW9.
+- The capture's sound: DC offset removed, each segment at -20 dB RMS
+  (Ultimate Audio comes ~12 dB quieter than the SIDs), turned down
+  under the voice.
+- Found while recording: BBC BASIC 3.10 refuses `SAVE` after a colon in
+  immediate mode (the interpreter's, not changed); U64TEXT's news page
+  needs about 50 s over plain HTTP; the debug console's lost characters
+  (fixed in the extension).

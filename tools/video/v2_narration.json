@@ -1,0 +1,16 @@
+{
+ "title": "Graphics in U sixty-four BBC BASIC.",
+ "shapes": "All of the BBC Micro's graphics are there, in the BBC's coordinates, with every shape of the BBC Master and the graphics extension ROM: lines, circles, ellipses, triangles and rectangles, outlined or filled, and pattern fills.",
+ "modes": "Here the same test card in mode one, two, four and five: four, sixteen, two and four colours.",
+ "upiclite": "On a sixty-four megahertz Ultimate, these modes are drawn as U-pic Lite: two hundred and fifty-six lines with square pixels, as on a BBC. This is Eric Schraf's Bubble Universe, which came here by way of Arch Bas on the Archimedes.",
+ "c64": "The Commodore's own modes are there as well: the text screen, hires and multicolour, with the VIC-II's colour rules.",
+ "ttx": "Mode seven is teletext, with its mosaic graphics and double height.",
+ "race": "The star graphics commands are fast: hundreds of filled circles and triangles in eight seconds, from BASIC.",
+ "upicfull": "Mode one ten is U-pic full: three hundred and eighty-four by two hundred and fifty-six, every pixel its own colour, kept in the R E U.",
+ "tables": "Fast integer tables make a rotating cube, spirographs and a plasma possible in plain BASIC. The plasma moves by changing the palette only.",
+ "sprites": "Thirty-two sprites, multiplexed, from BASIC. Enough for a game.",
+ "sedit": "With a sprite editor built in: here a shape in multicolour, drawn, filled and flipped.",
+ "map": "CharPad maps load and scroll with one command. This landscape was made for this video.",
+ "petscii": "And for PETSCII art: a full PETSCII mode, with the C sixty-four's graphics keys.",
+ "credits": "U sixty-four BBC BASIC is free and open source. Find it on GitHub. The next video is about sound and music."
+}

@@ -1,0 +1,13 @@
+{
+ "title": "Files, the Ultimate, and the network.",
+ "files": "Files live on the Ultimate's drives: star DIR, star CAT, SAVE and LOAD work as on a BBC with a disc drive.",
+ "browse": "F1 on an empty line opens a file browser on the Ultimate's folders.",
+ "copy": "It copies, moves and deletes, folders included: here a folder is copied into another, and deleted again, with everything in it.",
+ "mod": "Return opens a file by its type: a program runs, a MOD plays.",
+ "reu": "The R E U becomes a fifteen megabyte RAM disk, called slash R E U.",
+ "mount": "Disk images mount on the Ultimate's drives with one command, and star status shows the whole system.",
+ "clock": "The Ultimate's clock is set from the internet with star NET TIME.",
+ "netget": "BASIC talks to the internet: here an HTTP request, straight to the screen.",
+ "u64text": "And here, a Ceefax-style service in mode seven, written in BBC BASIC: the weather, the blog, a post, where the space station is, and the news.",
+ "credits": "U sixty-four BBC BASIC is free and open source. Find it on GitHub. The last video shows the demos."
+}

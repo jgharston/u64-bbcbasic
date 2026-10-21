@@ -69,6 +69,8 @@ PALETTES = {
     'bbc_mode1': [[(0, 0, 0), (255, 0, 0), (255, 255, 0), (255, 255, 255)][i & 3]
                   for i in range(16)],
     'bbc_mode2': [BBC[i & 7] for i in range(16)],
+    # 2-colour modes (0, 4, 6 in Upic Lite): entry i = pal[i AND 1]
+    'bbc_mode0': [[(0, 0, 0), (255, 255, 255)][i & 1] for i in range(16)],
     # MODE 7 draws teletext colour n with C64 colour tcol[n] (src/mos/ttx.s)
     # and sets those 8 to the BBC's pure RGB
     # SHOW9 (Upic full): *COLOUR 1-13 from its DATA lines, the rest C64
@@ -80,6 +82,14 @@ PALETTES = {
     'bubble': [(0, 0, 0), (255, 0, 0), (0, 255, 0), (255, 255, 0), (0, 0, 255), (255, 0, 255),
                (0, 255, 255), (255, 255, 255), (255, 128, 0), (128, 0, 255), (0, 128, 255),
                (255, 0, 128), (128, 255, 0), (0, 255, 128), (128, 128, 128), (64, 64, 64)],
+    # the Schraf programs (demos/archbas) and sine: their own *COLOUR /
+    # VDU 19 over the MODE's BBC colours
+    'field': [BBC[i & 7] for i in range(16)],
+    'hat': [BBC[i & 7] for i in range(16)],
+    'horizon': [(i * 16, i * 16, i * 16) for i in range(16)],
+    'galaxy': [(0, 0, 0), (255, 0, 0), (255, 255, 0), (255, 255, 255)] + [BBC[i & 7] for i in range(4, 16)],
+    'xmastree': [BBC[i & 7] for i in range(16)],
+    'sine': [(0, 0, 0), (255, 255, 0), (255, 255, 0), (255, 255, 255)] * 4,
     'teletext': [dict(zip((0, 2, 5, 7, 6, 4, 3, 1), BBC)).get(i, C64[i]) for i in range(16)],
 }
 
@@ -136,3 +146,45 @@ def repaired(path, stats=None):
                 continue
         good = f
         yield t, f
+
+
+def _rainbow(h):
+    """FNr of SHOW1/SHOW7: a triangle wave of the hue (0-254)."""
+    h %= 255
+    return h * 3 if h < 85 else (170 - h) * 3 if h < 170 else 0
+
+
+def palette_at(name, t):
+    """The 16 RGB colours of a palette name at take time t. Besides the
+    fixed PALETTES: 'cycle:STEP:PERIOD:START', the showcase's colour
+    cycles (SHOW1 STEP 6, SHOW7 STEP 5): from START on, colour L (1-15)
+    is hue (L*17 + STEP*k) MOD 255 in step k, a step every PERIOD s
+    (measured on the U64: 15 VDU 19 calls take about 0.5 s)."""
+    if not name.startswith('cycle:'):
+        return PALETTES[name]
+    _, step, period, start = name.split(':')
+    k = max(0, int((t - float(start)) / float(period)))
+    p = int(step) * k
+    out = [(0, 0, 0)]
+    for L in range(1, 16):
+        h = (L * 17 + p) % 255
+        out.append((_rainbow(h), _rainbow(h + 85), _rainbow(h + 170)))
+    return out
+
+
+def _schraf_palettes():
+    """FIELD: colours 1-4 from DATA; HAT: 1-8 from PROCpalette's formula;
+    XMASTREE: 1-12 from DATA (demos/archbas)."""
+    for i, c in enumerate([(204, 0, 0), (221, 85, 17), (238, 170, 34), (255, 255, 51)]):
+        PALETTES['field'][i + 1] = c
+    for L in range(8):
+        T = L & 3
+        PALETTES['hat'][L + 1] = ((12 + T) * 17, ((L & 3) * 4 + T) * 17, ((L // 4) * 4 + T) * 17)
+    xmas = [(220, 220, 110), (120, 220, 210), (130, 100, 0), (30, 120, 40), (200, 220, 200),
+            (220, 200, 100), (250, 100, 100), (150, 100, 250), (80, 150, 255),
+            (80, 250, 255), (200, 150, 255), (250, 180, 255)]
+    for i, c in enumerate(xmas):
+        PALETTES['xmastree'][i + 1] = c
+
+
+_schraf_palettes()
