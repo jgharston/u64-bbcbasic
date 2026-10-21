@@ -130,6 +130,11 @@ def fit(path, zoom_room=1.0):
     """The image fitted into the picture area: pixel screens (small) at an
     integer scale, nearest neighbour; photos and scans smoothly."""
     im = Image.open(path).convert('RGB')
+    if os.path.basename(path).startswith('c128-'):
+        # VDC 80 columns: 640 x 200 pixels fill a 4:3 screen, so the
+        # lines are 2.4 times as high as the pixels are wide (5 across,
+        # 12 down, nearest neighbour; then scaled down smoothly)
+        im = im.resize((im.width * 5, im.height * 12), Image.NEAREST)
     s = min(W / im.width, PH / im.height)
     if im.width <= 900 and int(s) >= 2:
         s = int(s)
