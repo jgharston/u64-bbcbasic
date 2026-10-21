@@ -77,7 +77,7 @@ Thumbnail: the banner screen or a Upic picture, title "BBC BASIC on the C64".
 | 9 | 3D cube, spirograph, plasma (SHOW5, SHOW8, SHOW7) | "Fast integer tables make rotating shapes and plasma possible in plain BASIC." | |
 | 10 | Sprites: BALLS (32 multiplexed), then Invaders being played | "Thirty-two sprites, multiplexed, from BASIC. Enough for a game." | play scripted |
 | 11 | The sprite editor `*SEDIT` | "With a sprite editor built in." | |
-| 12 | A CharPad map scrolling (`*MAP`) | "CharPad maps load and scroll with one command." | needs a CharPad file we may show (CharPad's own examples: check licence) |
+| 12 | A CharPad map scrolling (`*MAP`) | "CharPad maps load and scroll with one command." | decided: our own map, made for the video (no licence question) |
 | 13 | PETSCII mode: the idi8b logo, typing with the graphics keys | "And for PETSCII art: a full PETSCII mode." | |
 | 14 | Closing card | | |
 
@@ -92,7 +92,7 @@ Thumbnail: the banner screen or a Upic picture, title "BBC BASIC on the C64".
 | 5 | The Entertainer or Ode to Joy, playing | | music, no narration |
 | 6 | Ultimate Audio: the AUDIO demo's sample effects | "On the Ultimate sixty-four, Ultimate Audio plays samples..." | sample credits on screen (CREDITS.md) |
 | 7 | A MOD playing (4ev or Wild Perspective) | "...and ProTracker MOD music, through a port of Freshness's ModPlayer." | credits of the MOD on screen |
-| 8 | Speech: `*SAY` | "And with your own copy of S.A.M., it speaks." | only if you want SAM in the video |
+| 8 | Speech: `*SAY` | "And with your own copy of S.A.M., it speaks." | decided: shown, captioned "S.A.M. is not included: it needs your own copy" |
 | 9 | Closing card, credits for the music | | |
 
 ## Video 4: files, the Ultimate and the network (about 5 min)

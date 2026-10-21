@@ -27,6 +27,7 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from frames import PALETTES, palette_segments, repaired  # noqa: E402
+from written import written  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 V = os.path.join(ROOT, 'build', 'video')
@@ -469,6 +470,5 @@ with open(OUT + '.chapters.txt', 'w') as f:
         f.write('%d:%02d %s\n' % (int(t) // 60, int(t) % 60, name))
 with open(OUT + '.transcript.txt', 'w') as f:
     for t, key in sorted(voice_at):
-        f.write(NARRATION[key].replace('U sixty-four', 'U64').replace('C sixty-four', 'C64')
-                .replace('V S Code', 'VS Code').replace('Arch Bas', 'ArchBAS') + '\n')
+        f.write(written(NARRATION[key]) + '\n')
 print('written', OUT, round(out_time[0], 1), 's')
