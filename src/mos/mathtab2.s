@@ -1,8 +1,8 @@
 ; ----------------------------------------------------------------------------
 ;
-; U64 BBC BASIC -- *TABLE SQR and *TABLE RECIP (bank 5; 1.0.0 item 6)
+; U64 BBC BASIC -- *TABLE SQR and *TABLE RECIP (bank 5)
 ;
-; As *TABLE SIN (mathtab.s, bank 8; owner's choice of 2026-10-16): 32-bit
+; As *TABLE SIN (mathtab.s, bank 8): 32-bit
 ; values times 65536, read as T%!(4*I%):
 ;   *TABLE SQR addr [n]    entry i = SQR(i) * 65536, rounded
 ;   *TABLE RECIP addr [n]  entry i = 65536 / i, rounded (entry 0:

@@ -493,7 +493,7 @@ hs_bad:
     rts
 
 ; ----------------------------------------------------------------------------
-; JSON (owner, 2026-10-09): a reply parsed by the firmware is kept as a
+; JSON: a reply parsed by the firmware is kept as a
 ; body handle (json_body); values are queried by path ("main/temp",
 ; "list%2/title", "%0" for an array's first element).
 
@@ -1040,8 +1040,7 @@ nt_fend
 ; net_random
 ;   Summary: *NET RANDOM: seed BASIC's RND from the internet: the drand
 ;            beacon's latest randomness (http://api.drand.sh/public/latest,
-;            JSON), its first 40 bits into RND's seed (&0D-&11) (PLAN.md
-;            section 21).
+;            JSON), its first 40 bits into RND's seed (&0D-&11).
 ;   Function: json_get, json_query "randomness" (64 hex digits), the kept
 ;            JSON reply freed again.
 ;   Uses:    A, X, Y, fs*, MOSBUF.

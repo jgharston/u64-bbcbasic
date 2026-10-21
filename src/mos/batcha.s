@@ -448,7 +448,7 @@ dh_target:
 
 ; ----------------------------------------------------------------------------
 ; SoftIEC partitions (firmware 3.15+). The SoftIEC drive only reaches
-; files through partitions; without one it serves /Temp (owner note).
+; files through partitions; without one it serves /Temp.
 
 ; find_softiec
 ;   Summary: device number of the SoftIEC drive in softiec_dev.

@@ -3,7 +3,7 @@
 ; U64 BBC BASIC -- BASIC V graphics as * commands, bank 8
 ;
 ; The Archimedes' graphics statements as MOS commands, for writing new
-; programs (owner, 2026-10-14; the interpreter stays BASIC 3.10): each
+; programs (the interpreter stays BASIC 3.10): each
 ; becomes the BBC's VDU sequence, so it works in every graphics mode.
 ;   *RECTANGLE [FILL] x,y,w[,h]  *CIRCLE [FILL] x,y,r  *LINE x1,y1,x2,y2
 ;   *ELLIPSE [FILL] x,y,a,b      *POINT x,y            *COLOUR n,r,g,b
@@ -11,7 +11,7 @@
 ; An argument is a number (decimal, &hex, negative) or one of BASIC's
 ; resident integer variables A%-Z%, read from &0404 + 4 n (no
 ; expressions). *GCOL c TINT t chooses the logical colour whose palette
-; RGB is nearest to the Archimedes 256-colour one (docs/PLAN.md 26).
+; RGB is nearest to the Archimedes 256-colour one.
 ;
 ; ----------------------------------------------------------------------------
 

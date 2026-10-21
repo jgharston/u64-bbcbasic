@@ -2,8 +2,8 @@
 ;
 ; U64 BBC BASIC -- the REU RAM disk (bank 5)
 ;
-; A flat directory of files kept in the REU from $100000 to its end
-; (PLAN.md section 23, item 2), reached as the directory /REU
+; A flat directory of files kept in the REU from $100000 to its end,
+; reached as the directory /REU
 ; (fs.s, ucmds.s route names there). Survives a reset, not switching
 ; off; recognised at start-up by its header, else made empty.
 ;

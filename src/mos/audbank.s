@@ -1,7 +1,7 @@
 ; ----------------------------------------------------------------------------
 ;
-; U64 BBC BASIC -- bank 10: Ultimate Audio (1.0.0 item 8a): samples
-; (*SAMPLE, SOUND voices 24-30) and, next, the MOD engine (*MODPLAY)
+; U64 BBC BASIC -- bank 10: Ultimate Audio: samples (*SAMPLE, SOUND
+; voices 24-30) and the MOD engine (*MODPLAY)
 ;
 ; Everything inside .local aud, with its own copy of the bank helpers
 ; (bankhelp.s). The REU area: docs/ARCHITECTURE.md 7.

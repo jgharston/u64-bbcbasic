@@ -2360,7 +2360,7 @@ def test_browse(t):
     screen.wait_for(t.bridge, lambda r: r[0].startswith(">") and not r[1].strip())
 
     def listing(r):
-        return [x.strip() for x in r[3:23]]
+        return [x.strip() for x in r[2:22]]
 
     def select(name):
         rows = screen.read_screen(t.bridge)
@@ -2371,7 +2371,7 @@ def test_browse(t):
     screen.type_text(t.bridge, "{F1}")
     rows = screen.wait_for(t.bridge, lambda r: "BRDEL" in listing(r)
                            and "files" in r[0], 20)
-    assert rows[1].strip() == "/REU", rows[1]
+    assert rows[1].strip() == "/REU/", rows[1]
     assert listing(rows)[0] == "../", rows
     select("BRDATA")
     screen.type_text(t.bridge, "R")
@@ -2381,7 +2381,7 @@ def test_browse(t):
                     and "BRDATA" not in listing(r))
     select("BRDEL")
     screen.type_text(t.bridge, "D")
-    screen.wait_for(t.bridge, lambda r: "Delete it?" in r[22])
+    screen.wait_for(t.bridge, lambda r: "Delete BRDEL?" in r[22])
     screen.type_text(t.bridge, "Y")
     screen.wait_for(t.bridge, lambda r: "files" in r[0] and "BRDEL" not in listing(r)
                     and "BRPROG" in listing(r))
@@ -2399,6 +2399,40 @@ def test_browse(t):
     screen.wait_for(t.bridge, lambda r: "files" in r[0])
     screen.type_text(t.bridge, "Q")
     run_line(t, 'PRINT "BACK"', "BACK")
+    # copy a folder into another (V pastes), then delete it recursively
+    # (both questions), on /Temp: C, cursor right into BRB, V; D Y Y
+    ult(t)
+    for line in ("*MKDIR BRA", "*MKDIR BRA/SUB", "*SAVE BRA/SUB/F &4000 +10",
+                 "*MKDIR BRB"):
+        run_line(t, line, ">")
+    screen.type_text(t.bridge, "CLS\r")
+    screen.wait_for(t.bridge, lambda r: r[0].startswith(">") and not r[1].strip())
+    screen.type_text(t.bridge, "{F1}")
+    screen.wait_for(t.bridge, lambda r: "BRB/" in listing(r))
+    select("BRA/")
+    screen.type_text(t.bridge, "C")
+    screen.wait_for(t.bridge, lambda r: "to paste" in r[22])
+    select("BRB/")
+    screen.type_text(t.bridge, "{RIGHT}")
+    screen.wait_for(t.bridge, lambda r: r[1].strip().endswith("BRB/"))
+    screen.type_text(t.bridge, "V")
+    screen.wait_for(t.bridge, lambda r: "BRA/" in listing(r), 30)
+    screen.type_text(t.bridge, "{LEFT}")
+    screen.wait_for(t.bridge, lambda r: r[1].strip() == "/Temp/")
+    select("BRB/")
+    screen.type_text(t.bridge, "D")
+    screen.wait_for(t.bridge, lambda r: "Delete" in r[22])
+    screen.type_text(t.bridge, "Y")
+    screen.wait_for(t.bridge, lambda r: "Not empty" in r[22])
+    screen.type_text(t.bridge, "Y")
+    screen.wait_for(t.bridge, lambda r: "files" in r[0] and "BRB/" not in listing(r), 30)
+    screen.type_text(t.bridge, "Q")
+    run_line(t, "*DIR BRA/SUB", ">")
+    rows = run_line(t, "*CAT", "F")
+    assert any(r.split()[:1] == ["F"] for r in rows[1:]), rows
+    run_line(t, "*DIR /Temp", ">")
+    for line in ("*DELETE BRA/SUB/F", "*DELETE BRA/SUB", "*DELETE BRA"):
+        run_line(t, line, ">")
     ult(t)
 
 
@@ -2687,6 +2721,9 @@ def test_samples(t):
     if not ult(t):
         run_line(t, "*SAMPLE", "Audio needs")
         return
+    if getattr(t, "kind", "") == "ef":          # EasyFlash blocks Ultimate
+        run_line(t, "*SAMPLE LOAD 1 X", "No Ultimate Audio")    # Audio (README)
+        return
     sys.path.insert(0, os.path.dirname(__file__))
     import audio_assets
     with ftplib.FTP(t.host, timeout=20) as ftp:
@@ -2718,6 +2755,9 @@ def test_modplay(t):
     if not ult(t):
         run_line(t, "*MODPLAY X", "Audio needs")
         return
+    if getattr(t, "kind", "") == "ef":          # EasyFlash blocks Ultimate
+        run_line(t, "*MODPLAY X", "No Ultimate Audio")    # Audio (README)
+        return
     sys.path.insert(0, os.path.dirname(__file__))
     import audio_assets
     with ftplib.FTP(t.host, timeout=20) as ftp:
@@ -2738,6 +2778,15 @@ def test_modplay(t):
         time.sleep(4)
         t2 = int(rm.run_lines(["PRINT TIME"])["output"].split()[-1])
         assert 360 <= t2 - t1 <= 460, (t1, t2)    # 4 s (+ the REST calls)
+        # a Upic full show pauses the music (upmute.s) and comes back
+        # (the viewer once mapped bank 8 back under its bank-7 caller)
+        out = rm.run_lines(["MODE 110", "*UPIC SHOW 100", "PRINT 6*7"],
+                           timeout=60)
+        assert "42" in out["output"] and not out["error"], out
+        d1 = rm.read(div, 1)[0]
+        time.sleep(0.5)
+        assert rm.read(div, 1)[0] != d1             # the MOD goes on
+        rm.run_lines(["MODE 100"], timeout=30)
     finally:
         rm.run_lines(["*MODSTOP"], timeout=30)
     out = rm.run_lines(["*SOUND"])["output"]

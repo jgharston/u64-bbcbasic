@@ -1982,9 +1982,7 @@ egc_x:
     .if GXUL = 0
 ; e_rows6
 ;   Summary: the 6 glyph rows to draw in a 6-line cell, per glyph.
-;   Function: one baseline for all (owner, 2026-10-16: descenders sat a
-;            line higher, the old choice dropped row 0 for them, row 7 for
-;            the rest): row 7 (the descenders' row) is always the last;
+;   Function: one baseline for all: row 7 (the descenders' row) is always the last;
 ;            of rows 0-6 two go: leading blank rows first, then a row
 ;            equal to the next (C64 glyphs repeat their stems), then rows
 ;            1 and 3.

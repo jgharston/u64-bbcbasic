@@ -14,7 +14,7 @@
 ;
 ; ----------------------------------------------------------------------------
 
-UPIC_BANK   = $09               ; REU &90000: the picture (owner, 2026-10-14)
+UPIC_BANK   = $09               ; REU &90000: the picture
 UPIC_SWAP   = $0A               ; REU &A0000: BASIC's RAM while it shows
 UP_REND     = $0400             ; while showing: the renderer (2440 bytes),
 UP_NYB      = $0E00             ; the nybble table,
@@ -150,9 +150,9 @@ done:
     sta $D020
     lda od011
     sta $D011
-    lda #CPU_ROMS               ; bank 8 back (curbank is still BANK_UP)
-    sta $01
-    lda #BANK_UP
+    lda #CPU_ROMS               ; the caller's bank back (curbank: bank 7's
+    sta $01                     ; upmute.s calls the viewer; RAM is back)
+    lda curbank
     sta CART_BANK
     lda #CART_MODE16
     sta CART_CTRL
@@ -327,9 +327,10 @@ upn_speed:
 ;   Summary: show the picture until a key is pressed (*UPIC SHOW).
 ;   Function: &0400-&0FFF to the swap bank, the renderer for the
 ;            machine's speed to &0400, the nybble table, the viewer; the
-;            picture's palette; the viewer runs (interrupts off
-;            throughout); then &0400-&0FFF back, the mode's palette, and
-;            TIME on by the frames shown (2 centiseconds each).
+;            picture's palette; the music muted (upmute.s); the viewer
+;            runs (interrupts off throughout); then the music back,
+;            &0400-&0FFF back, the mode's palette, and TIME on by the
+;            frames shown (2 centiseconds each).
 ;   Output:  none.  Uses: A, X, Y, fs*, mosPTR, mosPTR2.
 up_show:
     lda mosNUM+1                ; the limit: centiseconds / 2 = frames
@@ -426,7 +427,7 @@ ups_nyb:
     sta upv.limit+1
     lda up_norel
     sta upv.norel
-    jsr upv.run
+    farcall upm.ups_run, BANK_NET  ; (the viewer, the music paused)
     lda upv.phase               ; ended by a key (1) or the time (0)
     cmp #2
     lda #0
@@ -455,21 +456,12 @@ ups_nyb:
     inc mostime+4
 ups_pal:
     plp
-    lda eng_kind                ; the mode's palette back: Upic Lite and
-    cmp #1                      ; teletext their own, the VIC-II modes and
-    beq ups_ul                  ; Upic full's console the C64's
-    cmp #2
-    bne ups_c64
-ups_ul:
-    farcall ul_setpal, BANK_FS
-    rts
-ups_c64:
-    farcall pal_apply, BANK_FS
+    farcall upm.ups_pal, BANK_NET  ; the mode's palette back (upmute.s)
     rts
 
 ; ----------------------------------------------------------------------------
 ; up_auto
-;   Summary: the automatic show of MODE 110/111 (owner: when a program
+;   Summary: the automatic show of MODE 110/111 (when a program
 ;            ends, in GET and in a long INKEY), if the picture changed.
 ;   Function: only with eng_kind 3, auto on, the picture changed since
 ;            the last show (UP_DIRTY = 1), a 48/64 MHz Ultimate. A = 0:

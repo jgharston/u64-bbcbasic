@@ -1,7 +1,6 @@
 ; ----------------------------------------------------------------------------
 ;
-; U64 BBC BASIC -- RND seeded from real entropy (bank 3; PLAN.md section 21,
-; 1.0.0 item 5)
+; U64 BBC BASIC -- RND seeded from real entropy (bank 3)
 ;
 ; BBC BASIC's RND is a 33-bit shift register with its seed at &0D-&11; at
 ; its start BASIC sets the fixed seed "ARW" only when the seed is zero. The

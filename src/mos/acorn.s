@@ -6,8 +6,8 @@
 ; the BBC's internal key number, INKEY(-256) gives &FF (BBC B, OS 1.2);
 ; ADVAL(0-4) reads the joysticks, paddles or a 1351 mouse in the control
 ; ports (*ADVAL picks which), ADVAL(-1) the keys waiting; the OSBYTEs
-; *FX 4, 11, 12, 19, 163, 200 and 220. Decisions: docs/PLAN.md (Acorn
-; compatibility, 2026-10-14); docs/DESIGN_ACORN.md.
+; *FX 4, 11, 12, 19, 163, 200 and 220. Design:
+; docs/DESIGN_ACORN.md.
 ;
 ; ----------------------------------------------------------------------------
 

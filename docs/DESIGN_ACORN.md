@@ -1,9 +1,9 @@
 # Acorn compatibility (design notes)
 
-The owner's decisions (2026-10-14) are in `docs/PLAN.md` ("Acorn
-compatibility decisions"). This file describes how they are built.
+How the Acorn compatibility features are built: keys, analogue
+channels, *FX, the DFS commands, the BASIC toolkit, speech.
 
-## 1. Keys, analogue channels, *FX (`src/mos/acorn.s`, bank 7)
+## 1. Keys, analogue channels, *FX (`src/mos/acorn.s`, bank 9)
 
 ### State
 
@@ -74,7 +74,7 @@ BBC programs that `CALL &FFF4` (or other `&FFxx` entries) don't work.
 The C64's KERNAL ROM sits there; the MOS entries are at `&C7xx` (see
 *HELP MOS).
 
-## 2. DFS commands (`src/mos/dfs.s`, bank 7; `*ACCESS` in bank 2)
+## 2. DFS commands (`src/mos/dfs.s`, bank 9; `*ACCESS` in bank 2)
 
 ### State
 
@@ -133,7 +133,7 @@ again then).
   a C64 program file: its first two bytes are the load address. Both
   load only into &0400-&7FFF.
 
-## 3. The BASIC toolkit (`src/mos/toolkit.s`, bank 7)
+## 3. The BASIC toolkit (`src/mos/toolkit.s`, bank 9)
 
 The commands follow Beebug's Toolkit Plus manual (scanned at 8bs.com,
 "Beebug Toolkit Plus").
@@ -173,7 +173,7 @@ The commands follow Beebug's Toolkit Plus manual (scanned at 8bs.com,
 ## 4. Speech: *SPEECH, *SAY, *SPEAK (`src/mos/speech.s`, bank 6)
 
 SAM (Software Automatic Mouth, Don't Ask Software, 1982) is not part of
-the project (owner, 2026-10-14). `*SPEECH LOAD` reads the user's copy of
+the project. `*SPEECH LOAD` reads the user's copy of
 the C64 package into the REU. Tested with the package from CSDb (release
 234771, "S.A.M."):
 

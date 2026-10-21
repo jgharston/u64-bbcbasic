@@ -2,16 +2,15 @@
 ;
 ; U64 BBC BASIC -- *TABLE: integer maths tables for programs (bank 8)
 ;
-; DESIGN_GRAPHICS.md section 4, option (a), decided 2026-10-07 (PLAN 19),
-; built 2026-10-16 for the Schraf demos: BBC BASIC's SIN takes about
+; docs/DESIGN_GRAPHICS.md section 2: BBC BASIC's SIN takes about
 ; 775 us at 64 MHz, a table read about 30 us. The interpreter stays
 ; unchanged; a program asks for a table in its own memory:
 ;   DIM S% 4095:*TABLE SIN S%
 ;   S%!(4*(A% AND 1023)) = SIN(A% * PI / 512) * 65536, rounded
 ; 1024 steps a full turn, 32-bit values (65536 = 1). COS the same, a
 ; quarter turn on. *TABLE SIN S% 256 (or 512) makes a smaller table, a
-; full turn in 256 steps (1K: BASIC has under 5K in MODE 2 on Upic Lite,
-; 2026-10-16); COS is then S%!(4*((A%+64) AND 255)). The cartridge holds a quarter wave (genmath.py, 514
+; full turn in 256 steps (1K: BASIC has under 5K in MODE 2 on Upic
+; Lite); COS is then S%!(4*((A%+64) AND 255)). The cartridge holds a quarter wave (genmath.py, 514
 ; bytes); the rest follows by symmetry.
 ;
 ; ----------------------------------------------------------------------------

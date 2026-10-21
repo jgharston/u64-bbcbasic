@@ -49,7 +49,7 @@ pal_ulb4:
 ; bk_mode (VDU 22, from the core's vdu_mode)
 ;   Summary: VDU 22,n (MODE n).
 ;   Function: looks n up in mode_nums (MODE 0 and 3: 80 columns with
-;            the 4x6 font, owner 2026-10-15)
+;            the 4x6 font)
 ;            (an unknown number uses n AND 7, as the BBC Model B does),
 ;            switches the cursor on (as the BBC: a program's VDU 23,1,0
 ;            ends with the mode), sets the vmode_* variables and the
@@ -208,7 +208,6 @@ vm_nottx:
     ; text mode: VIC text, font back, clear; the KERNAL cursor blinks
     ; only while input is awaited (the line editor, GET), as on a C64: a
     ; blink as a program moves the cursor (TAB) stayed as a reverse cell
-    ; (2026-10-16, PLAN 27 item 2)
     lda #$1B
     sta $D011
     lda #$C8

@@ -612,7 +612,7 @@ ban_done:
     rts
 
 banner_text:
-    dta 'U64 BBC BASIC 0.1.0', 13, 13, 'BASIC 3.10 (C)1983 Acorn', 13, 0
+    dta 'U64 BBC BASIC 1.0.0', 13, 13, 'BASIC 3.10 (C)1983 Acorn', 13, 0
 
 speed_texts:
     dta a(speed_none), a(speed_enbit), a(speed_max)
@@ -1948,8 +1948,8 @@ cli_badnum:
 
 ; Command table: upper-case name, 0, handler address, handler bank, in
 ; groups by first letter (cmd_index), each group ending with 0
-; (2026-10-16: the lookup scanned every entry before, up to 25 ms at
-; 1 MHz for a command near the end). Abbreviations match the first entry
+; (scanning every entry would take up to 25 ms at 1 MHz for a command
+; near the end). Abbreviations match the first entry
 ; of their letter's group in this order. genhelp.py checks the grouping.
 cmd_table:
 ct_A:
@@ -1959,7 +1959,7 @@ ct_A:
     dta 0
 ct_B:
     dta 'BUILD', 0, a(dfs.cmd_build), BANK_TOOLS
-    dta 'BROWSE', 0, a(brw.cmd_browse), BANK_TOOLS
+    dta 'BROWSE', 0, a(brw.cmd_browse), BANK_NET
     dta 0
 ct_C:
     dta 'CAT', 0, a(cmd_cat), BANK_FS
@@ -2564,7 +2564,7 @@ hf_none:
 ;   Function: lines are shown as they are; a line starting with byte 1
 ;            is a paragraph (genhelp.py), word-wrapped to the text width
 ;            less one (39 on the 40-column screen, 79 in 80 columns, the
-;            text window's in the bitmap modes; owner, 2026-10-16). SPACE
+;            text window's in the bitmap modes). SPACE
 ;            (any key) shows the next page; ESCAPE stops and is
 ;            acknowledged. Text bytes are read through bank_peek.
 ;   Uses:    A, X, Y, mosPTR, mosARGS (bank, line count, width), mosCNT

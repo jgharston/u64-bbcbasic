@@ -2,7 +2,7 @@
 ;
 ; U64 BBC BASIC -- the PETSCII mode: *PETSCII, *ASCII, *SEQ (bank 6)
 ;
-; Owner's decisions of 2026-10-16 (PLAN.md): in the full PETSCII mode
+; In the full PETSCII mode
 ; OSWRCH sends bytes to the KERNAL as on a C64 (core.s wr_pet): colour,
 ; reverse, cursor and case codes act, PETSCII wins over BBC's VDU codes;
 ; CR starts a new line, LF does nothing, VDU 22 (MODE) and 23 stay BBC's,

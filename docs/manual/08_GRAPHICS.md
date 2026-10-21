@@ -312,7 +312,7 @@ Upic Lite cannot show VIC-II sprites: use MODE 128+n there. Needs an REU.
 *UPIC AUTO ON|OFF automatic shows
 ```
 
-Upic (Aleksi Eeben): 384 x 256 pixels in 16 colours, every pixel its own colour, drawn by the CPU at 48 or 64 MHz. The picture is kept in the REU (&90000) and shown on request: SHOW moves BASIC's memory aside, shows the picture until a key is pressed, and puts everything back (the program goes on where it was; TIME counts on). On a 48 MHz Ultimate 3 of every 4 pixels show.
+Upic (Aleksi Eeben): 384 x 256 pixels in 16 colours, every pixel its own colour, drawn by the CPU at 48 or 64 MHz. The picture is kept in the REU (&90000) and shown on request: SHOW moves BASIC's memory aside, shows the picture until a key is pressed, and puts everything back (the program goes on where it was; TIME counts on). Music pauses meanwhile: the CPU spends every cycle on the picture, so the SIDs are muted and a MOD stands still, then both go on. On a 48 MHz Ultimate 3 of every 4 pixels show.
 
 LOAD reads Upic v1.3 files (as Upic Paint and the Upic Image Converter save them, with their palette) or a bare 49152-byte picture; SAVE writes v1.3. CLEAR starts a new picture in colour c with the C64 palette.
 

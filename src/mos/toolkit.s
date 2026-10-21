@@ -3,11 +3,11 @@
 ; U64 BBC BASIC -- BASIC toolkit: *SEARCH, *FIND, *REPLACE, *XREF,
 ; *VARLIST, *CRUNCH, *PACK (bank 9)
 ;
-; In the style of Beebug's Toolkit Plus (owner, 2026-10-14; its manual
-; scanned at 8bs.com, "Beebug Toolkit Plus"): *SEARCH s1[,s2] with the
+; In the style of Beebug's Toolkit Plus (its manual scanned
+; at 8bs.com, "Beebug Toolkit Plus"): *SEARCH s1[,s2] with the
 ; Parameters prompt, *XREF with its letters, *CRUNCH with letters that
 ; switch functions off. *FIND, *REPLACE, *VARLIST and *PACK are short
-; forms. Variable names are never contracted (owner's decision).
+; forms. Variable names are never contracted.
 ; docs/DESIGN_ACORN.md 3.
 ;
 ; The program is at PAGE: CR, then lines (number high, low, length from

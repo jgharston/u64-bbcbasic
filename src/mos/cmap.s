@@ -3,7 +3,7 @@
 ; U64 BBC BASIC -- CharPad maps and fonts: *MAP, *FONT LOAD of CTM files
 ; (bank 8)
 ;
-; CharPad's CTM project files (owner, 2026-10-15; formats from CharPad
+; CharPad's CTM project files (formats from CharPad
 ; C64 3.69 Pro's help, "File Format - CTM (V6)" to "(V9)"): the character
 ; set becomes the font (*FONT LOAD, *MAP LOAD); *MAP LOAD also keeps the
 ; map in the REU, tiles expanded to characters, with each cell's colour
@@ -20,7 +20,7 @@
 ;   &0200  the saved page &0700 while a map loads
 ;   &1000  the characters, a row of width bytes per map row, no gaps
 ;   &8800  their colours, the same way
-; at most 30720 cells, up to 65535 wide or high (owner, 2026-10-16).
+; at most 30720 cells, up to 65535 wide or high.
 ;
 ; ----------------------------------------------------------------------------
 
@@ -515,8 +515,8 @@ cmdr_s:
     bne cmdr_row
     rts
 
-; cm_beam: wait until the copy can stay ahead of the beam (2026-10-16:
-; scrolling tore): the VIC-II's raster in the bottom border, the vertical
+; cm_beam: wait until the copy can stay ahead of the beam (else
+; scrolling tears): the VIC-II's raster in the bottom border, the vertical
 ; blank or the top border's first lines (0-31, 251-311) is fine, as the
 ; rows go top first at about 6 lines each and the beam needs 8 a row from
 ; line 51; in between, wait for line 251. The copy then never shows half
@@ -565,8 +565,8 @@ cml_room:
     jmp cm_unblank
 
 ; cm_blank / cm_unblank: the text screen off / on (VIC-II $D011 bit 4)
-; while *MAP LOAD changes the font (2026-10-16: the screen's spaces showed
-; as the new set's character 32 during the load); not in the bitmap
+; while *MAP LOAD changes the font (the screen's spaces would show as the
+; new set's character 32 during the load); not in the bitmap
 ; modes.  Uses: A.
 cm_blank:
     lda vtype

@@ -8,7 +8,7 @@
 ; so copying it to page P takes copy-1's byte - $10 + P; every other byte
 ; goes as it is. Three pages below HIMEM (below the sprite multiplexer when
 ; it is there): BASIC's HIMEM follows (OSBYTE &84 / &85, mos.s).
-; PLAN.md 27 item 1 (owner, 2026-10-16).
+; docs/DESIGN_GRAPHICS.md section 11.
 ;
 ; ----------------------------------------------------------------------------
 

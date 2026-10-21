@@ -199,7 +199,7 @@ def main():
         if method == "initialize":
             reply(rid, {"protocolVersion": msg["params"].get("protocolVersion", "2025-06-18"),
                         "capabilities": {"tools": {}},
-                        "serverInfo": {"name": "u64bbc", "version": "0.1.0"},
+                        "serverInfo": {"name": "u64bbc", "version": "1.0.0"},
                         "instructions": "BBC BASIC 3.10 on an Ultimate 64. Use "
                                         "bbc_help LIMITS and bbc_help KEYWORDS first; "
                                         "bbc_check before bbc_run."})

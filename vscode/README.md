@@ -23,6 +23,12 @@ cartridge, over the network.
   the breakpoint on the NEXT/UNTIL line.
 - **Syntax highlighting**, keyword **completion** and **hover help**: the
   same reference as `*HELP` on the machine.
+- **Format Document** (Shift+Alt+F, or `editor.formatOnSave`): indents
+  by block nesting, 2 spaces per level after the line number (FOR/NEXT,
+  REPEAT/UNTIL, DEF PROC/ENDPROC, DEF FN up to its `=` line). The
+  indentation is dropped when a program is sent (it costs memory on the
+  machine, where `LISTO 7` indents loops); the setting
+  `u64bbc.keepIndentation` sends it as written.
 
 ## Setup
 
@@ -33,7 +39,8 @@ cartridge, over the network.
    Ultimate has a network password).
 3. Open a `.bas` file and press Ctrl+F5.
 
-Programs are plain text with line numbers, as typed on a BBC Micro:
+Programs are plain text with line numbers, as typed on a BBC Micro,
+indented or not:
 
 ```
 10 FOR I%=1 TO 10

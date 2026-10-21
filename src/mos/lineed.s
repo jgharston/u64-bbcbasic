@@ -9,7 +9,7 @@
 ; MODE 7 behave alike. Lines up to the caller's maximum (238 at BASIC's
 ; prompt, as on a BBC Micro).
 ;
-; Keys (owner, 2026-10-10; docs/PLAN.md section 25):
+; Keys:
 ;   LEFT / RIGHT        move in the line
 ;   CLR/HOME            start of the line; SHIFT+CLR/HOME its end
 ;   DEL / INST          delete left / insert a space
@@ -298,7 +298,7 @@ ekc_none:
 ekc_browse:                     ; no copy cursor: on an empty line at
     lda mosCNT                  ; BASIC's prompt (&0700) F1 opens the
     bne ekc_none                ; file browser: "*BROWSE" as typed and
-    lda mosPTR2+1               ; RETURN (owner, 2026-10-21)
+    lda mosPTR2+1               ; RETURN
     cmp #$07
     bne ekc_none
     ldx #0

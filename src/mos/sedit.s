@@ -2,7 +2,7 @@
 ;
 ; U64 BBC BASIC -- the sprite editor (*SEDIT), bank 9
 ;
-; One editor for both kinds of sprite (owner, 2026-10-14): *SEDIT n edits
+; One editor for both kinds of sprite: *SEDIT n edits
 ; GXR sprite n (gxr.s), *SEDIT VIC s the VIC-II shape s (sprite.s). The
 ; sprite is edited in a buffer in the REU (GXR_SCR, a row every 256 bytes,
 ; one byte a pixel; a VIC shape as its 24 x 21 bits) on the text screen

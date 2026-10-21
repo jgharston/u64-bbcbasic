@@ -37,7 +37,7 @@ cmd_status:
 sw_sid      dta 'SID', 0
 cs_all:
     jsr st_text
-    dta 13, 'U64 BBC BASIC 0.1.0, BASIC 3.10', 13
+    dta 13, 'U64 BBC BASIC 1.0.0, BASIC 3.10', 13
     .if .def CART_TMB
     dta 'Cartridge  TwoMegabyter', 13, 0
     .else
@@ -290,7 +290,7 @@ st_drives:
     lda fsCNT                   ; entries actually received: (bytes-1)/3.
     sec                         ; Firmware 3.15a counts the SoftIEC and
     sbc #1                      ; printer entries but does not send them
-    ldx #0                      ; (fixed upstream 2026-10-02, #941): never
+    ldx #0                      ; (fixed upstream, #941): never
 sd_div3:                        ; trust the count beyond the data
     cmp #3
     bcc sd_avail

@@ -1,11 +1,11 @@
 ; ----------------------------------------------------------------------------
 ;
-; U64 BBC BASIC -- the MOD engine image (RAM &0900, 1.0.0 item 8a, step 2):
+; U64 BBC BASIC -- the MOD engine image (RAM &0900):
 ; a ProTracker MOD on Ultimate Audio channels 0-3
 ;
 ; Ported to MADS from ModPlayer_16k by Freshness (6510nl), CSDb release
 ; 131522 (https://csdb.dk/release/?id=131522, KickAssembler source, 2014;
-; no licence statement; port and credit: owner, 2026-10-17). Taken over,
+; no licence statement; ported with credit). Taken over,
 ; translated mechanically (tools: a KickAssembler-to-MADS script; the
 ; macros and anonymous labels expanded): the play routine (module.asm:
 ; playmodule, loaddivision, nextdivision, setpattern), buffer.asm,
@@ -21,7 +21,7 @@
 ;   - the note and finetune tables (Tools/notelookupgls.bin,
 ;     finetune.bin) are in the REU (getnote, getrate fetch a byte each);
 ;   - the timer for PAL and NTSC at run time (KERNAL's &02A6); the MOS
-;     interrupt runs at the tick rate while a MOD plays (owner: as the
+;     interrupt runs at the tick rate while a MOD plays (as the
 ;     source), and keeps TIME right (mi_time);
 ;   - no screen, keyboard, REU detection, new-module detection.
 ; The jump tables and the channel buffers are page-aligned as in the

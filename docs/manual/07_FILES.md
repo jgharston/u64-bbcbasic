@@ -49,9 +49,13 @@ Names up to 16 characters, no directories. The disk survives a reset, not switch
 *BROWSE      (F1 on an empty line)
 ```
 
-A file browser for the current directory: cursor up and down move, left and right go a page, RETURN opens, T types the file, D deletes it and R renames it (both ask first), Q or ESCAPE leaves. At the prompt F1 on an empty line opens it (F1 is COPY once a copy cursor is out).
+A file browser for the current folder, with the keys of UBoot64-v2's: cursor up and down move, P and U a page down and up, T and E the top and the end; cursor right (or RETURN) enters a folder, cursor left (or DEL) goes one folder up, / (or the up arrow) to the root, which lists the drives and /REU. Q or ESCAPE leaves. At the prompt F1 on an empty line opens it (F1 is COPY once a copy cursor is out).
 
-RETURN on a folder enters it (".." goes back; the root lists the drives and /REU); on a name without a full stop CHAINs it as a BASIC program; .SEQ shows it (*SEQ), .MOD plays it (*MODPLAY), .WAV plays it as sample 32, .D64 .D71 .D81 .G64 mounts it (*MOUNT), .UPIC loads and shows it, .VPL loads it as the palette; other files are typed. Names with a space cannot be opened; a command that fails ends the browser with its message.
+RETURN on a file: a name without a full stop is CHAINed as a BASIC program; .SEQ is shown (*SEQ), .MOD played (*MODPLAY), .WAV played as sample 32, .D64 .D71 .D81 .G64 mounted (*MOUNT), .UPIC loaded and shown, .VPL loaded as the palette; other files are typed. L lists (types) a file.
+
+SPACE marks entries (a * in front). C copies and X cuts the marked ones (or the selected one), V pastes them into the folder shown: folders with everything in them. A name already there asks: Y replaces (a folder is merged), N skips, A replaces all, Q stops. A move on one drive is a rename; otherwise a copy, then the source deleted. /REU has no folders: only files go there.
+
+D deletes the marked entries (or the selected one) after a question; a folder that is not empty asks again (Y/N/A/Q) and goes with everything in it. R renames, N makes a new folder. On the Ultimate's drives names with spaces work everywhere, but opening a file goes through a * command, where a name ends at a space. RUN/STOP stops a copy or delete; errors are shown and the browser goes on. Folders are followed 8 levels deep.
 
 #### `*CAT` (also `*.`)
 

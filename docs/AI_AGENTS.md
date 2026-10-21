@@ -3,8 +3,8 @@
 An AI coding agent (Claude Code or any MCP client) can write BBC BASIC,
 run it on a real Ultimate 64 / C64 Ultimate, read the output and errors,
 answer INPUT, stop a runaway program, and look up the dialect, all
-without a person at the keyboard. The same hook serves the planned VS
-Code extension (docs/REMOTE_DEV.md).
+without a person at the keyboard. The same hook serves the VS Code
+extension in `vscode/` (docs/REMOTE_DEV.md).
 
 ## Setup
 
@@ -33,6 +33,7 @@ Code extension (docs/REMOTE_DEV.md).
 | `bbc_debug` | run under the debugger with breakpoints (BASIC line numbers); pauses with `state: "paused"`, `line` |
 | `bbc_step` / `bbc_continue` | while paused: one line / to the next breakpoint or the end |
 | `bbc_vars` | variables (resident integers, reals, integers, strings; arrays by name) and the current line |
+| `bbc_endshow` | end a Upic full picture that is showing (`state: "showing"`) |
 
 Results are JSON:
 
@@ -60,13 +61,20 @@ tools/u64remote.py stop | screen | list | status
 Read `bbc_help LIMITS` first. Short version:
 
 - **BBC BASIC 3.10** (1983): no `WHILE`, `CASE`, multi-line `IF`/
-  `ENDIF` or `LOCAL` arrays (those are BASIC V). Use `REPEAT`/`UNTIL`,
-  single-line `IF ... THEN ... ELSE`, `PROC`/`FN`, `GOSUB`.
+  `ENDIF`, `LOCAL` arrays or array parameters (those are BASIC V). Use
+  `REPEAT`/`UNTIL`, single-line `IF ... THEN ... ELSE`, `PROC`/`FN`.
 - Keywords must be **upper case**; lower case words are variables.
 - Integer variables end in `%` and are fast; `A%`-`Z%` and `@%` survive
   `RUN`.
-- Text screen only for now: 40 columns, 25 rows. No graphics or sound
-  yet (`MODE`, `PLOT`, `SOUND` do nothing useful).
+- The BBC's screen modes, graphics (`PLOT`, `MOVE`, `DRAW`, `GCOL`) and
+  the fast `*` graphics commands work, as do `SOUND` and `ENVELOPE`
+  (`bbc_help MODE`, `bbc_help PLOT`, `bbc_help SOUND`). `bbc_screen`
+  reads the text screen only: in a graphics mode check results with
+  `POINT` or printed values.
+- `*` commands take numbers or `A%`-`Z%`, not expressions: build the
+  command with `OSCLI` (`OSCLI "CIRCLE "+STR$X%+","+STR$Y%+",50"`).
+- `MODE` inside a `PROC` or `FN` that moves `HIMEM` is "Bad MODE": set
+  the mode at the top of the program.
 - Files live on the Ultimate's storage (`*DIR /Temp` is a RAM disk);
   two files can be open at once.
 - `TIME` counts centiseconds in real time; the CPU runs at 48-64 MHz,

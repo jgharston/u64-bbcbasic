@@ -7,6 +7,6 @@ messages are in chapter 6 (6.5).
 
 #### `LIMITS`
 
-Things that differ from a BBC Micro in this version:
+What this BASIC can and cannot do, compared with a BBC Micro:
 
-Typed lines: 238 characters (78 with *EDIT C64); programs sent from a PC (see REMOTE) may have lines up to 251 characters. Graphics: points, lines, triangles, rectangles, parallelograms, circles, ellipses, pattern fills, flood fill, arcs, segments, sectors. Sound: SOUND and ENVELOPE as on a BBC Micro. LOAD and SAVE work between PAGE (&1D00, or &900 with *SOUND NONE) and &7FFF. Two files open at a time. *EXEC and *SPOOL are not there yet.
+Typed lines: 238 characters (78 with *EDIT C64); programs sent from a PC (see REMOTE) may have lines up to 251 characters. Memory: PAGE &1D00 (&900 with *SOUND NONE), HIMEM &8000 in most modes (less in Upic Lite MODE 1 and 2: see MODE); LOAD and SAVE work between PAGE and &7FFF. Files: two open at a time; OSGBPB is not there (BGET# and BPUT# are). Graphics: points, lines, triangles, rectangles, parallelograms, circles, ellipses, pattern fills, flood fill, arcs, segments, sectors, as on a BBC Micro with the GXR, plus the fast * graphics commands. Sound: SOUND and ENVELOPE as on a BBC Micro, plus instruments on 24 SID voices, Ultimate Audio samples and MOD music. * commands take numbers or the variables A% to Z%, not expressions (use OSCLI with STR$ for those). BBC BASIC 3.10 itself has no array parameters for PROC and FN, and MODE is refused inside a PROC or FN when it would move HIMEM. Not there: the BBC's hardware at &FE00 and BBC machine code (see BBC).

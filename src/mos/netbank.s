@@ -18,6 +18,15 @@
     icl 'ultctl.s'
     .endl
 
+    .local brw                  ; the file browser (its own helper copies)
+    icl 'bankhelp.s'
+    icl 'browse.s'
+    .endl
+
+    .local upm                  ; Upic: the music paused (upic.s)
+    icl 'upmute.s'
+    .endl
+
 bank7_end:
     .if bank7_end > $C000
     .error "Bank 7 overflows 16K"

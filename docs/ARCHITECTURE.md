@@ -2,8 +2,7 @@
 
 How the cartridge is put together: the layers, what lives in which
 cartridge bank, the C64 RAM map, zero page and pages 2-3, HIMEM per mode,
-and the REU map. Figures are those of 2026-10-16 (after the 1.0.0 items
-1-6 and the move of the tools to bank 9). The history of decisions is in
+and the REU map, as of version 1.0.0. The decisions behind it are in
 `PLAN.md`; graphics details in `DESIGN_GRAPHICS.md`, sound in
 `DESIGN_SOUND.md`, network in `DESIGN_NETWORK.md`.
 
@@ -44,22 +43,22 @@ Rules that follow from this design:
 ## 2. Cartridge banks
 
 TwoMegabyter (CRT type 87, the normal build) and EasyFlash (VICE,
-fallback) share the layout. Banks are 16K at `$8000`; free space as built
-on 2026-10-16.
+fallback) share the layout. Banks are 16K at `$8000`; free space as in
+the 1.0.0 build.
 
 | Bank | Source | Contents | Ends at (free) |
 |---|---|---|---|
-| 0 | `mos.s` (+ `lineed.s`, ...) | boot, VDU dispatch, keyboard, OSBYTE/OSWORD, OSCLI and the command table, `*HELP` reader, line editor | `$BE48` (about 0.4K) |
+| 0 | `mos.s` (+ `lineed.s`, ...) | boot, VDU dispatch, keyboard, OSBYTE/OSWORD, OSCLI and the command table, `*HELP` reader, line editor | `$BE79` (391 bytes) |
 | 1 | `build/basic.rom` | BBC BASIC 3.10, copied to RAM at start-up | (full) |
-| 2 | `bank2.s` | UCI driver, filing system, Ultimate commands (`ucmds.s`), REU, status, batch A, palettes, fonts, SID, REU files, `*LIST`, `*SRWRITE`/`*SRREAD`, RAM disk routing | `$BF97` (105 bytes) |
+| 2 | `bank2.s` | UCI driver, filing system, Ultimate commands (`ucmds.s`), REU, status, drive and storage commands, palettes, fonts, SID, REU files, `*LIST`, `*SRWRITE`/`*SRREAD`, RAM disk routing | `$BFAE` (82 bytes) |
 | 3 | `gxbank.s` | graphics: MODE, palettes, Upic Lite setup, teletext engine image, shapes, RND seeding (`rndseed.s`) | `$BFB8` (72 bytes) |
-| 4 | `ulbank.s` | Upic Lite RAM images | `$AFF2` (about 4K) |
-| 5 | `rdbank.s` | the `/REU` RAM disk, snapshots, sprites, GXR, block graphics, the `*` command fast path, `*TABLE` (SQR, RECIP; SIN/COS passed on to bank 8) | `$BF76` (138 bytes) |
+| 4 | `ulbank.s` | Upic Lite RAM images | `$AFF2` (about 4.0K) |
+| 5 | `rdbank.s` | the `/REU` RAM disk, snapshots, sprites, GXR, block graphics, the `*` command fast path, `*TABLE` (SQR, RECIP; SIN/COS passed on to bank 8) | `$BF7E` (130 bytes) |
 | 6 | `sndbank.s` | sound engine images (copied to `$0900`), SOUND/ENVELOPE, song tracker, speech, the 4x6 font, PETSCII mode, `*SETUP`'s settings text, `*REULOAD`/`*REUSAVE`/`*REU` | `$BFD9` (39 bytes) |
-| 7 | `netbank.s` | network: `*NET`, the HTTP/1.0 client (`nethttp.s`), `*JSON` and its bodies (`jsonbody.s`), network channels, Ultimate machine commands and `*STATUS SID` (`ultctl.s`); own UCI driver copy | `$A1D5` (about 7.7K) |
-| 8 | `upbank.s` | Upic full (`*UPIC`, MODE 110/111), BASIC V graphics commands (`bvcmd.s`), `*MAP` (`cmap.s`), `*TABLE SIN/COS` (`mathtab.s`) | `$BFF1` (14 bytes) |
-| 9 | `toolbank.s` | tools: sprite editor (`sedit.s`), Acorn compatibility (`acorn.s`), DFS commands (`dfs.s`), BASIC toolkit (`toolkit.s`), file browser (`browse.s`) | `$B7D4` (about 2K) |
-| 10 | `audbank.s` | Ultimate Audio: samples (`sample.s`: `*SAMPLE`, SOUND voices 24-30), the MOD player (`modplay.s`: `*MODPLAY`/`*MODSTOP`; the engine image `modengine.s`, ported from ModPlayer_16k, and its tables) | `$A7DE` (about 6K) |
+| 7 | `netbank.s` | network: `*NET`, the HTTP/1.0 client (`nethttp.s`), `*JSON` and its bodies (`jsonbody.s`), network channels, Ultimate machine commands and `*STATUS SID` (`ultctl.s`); own UCI driver copy; the file browser `*BROWSE` (`browse.s`); the music's pause during a Upic show and the palette after it (`upmute.s`, called from bank 8) | `$BA9B` (about 1.3K) |
+| 8 | `upbank.s` | Upic full (`*UPIC`, MODE 110/111), BASIC V graphics commands (`bvcmd.s`), `*MAP` (`cmap.s`), `*TABLE SIN/COS` (`mathtab.s`) | `$BFE3` (29 bytes) |
+| 9 | `toolbank.s` | tools: sprite editor (`sedit.s`), Acorn compatibility (`acorn.s`), DFS commands (`dfs.s`), BASIC toolkit (`toolkit.s`) | `$ABC0` (about 5.1K) |
+| 10 | `audbank.s` | Ultimate Audio: samples (`sample.s`: `*SAMPLE`, SOUND voices 24-30), the MOD player (`modplay.s`: `*MODPLAY`/`*MODSTOP`; the engine image `modengine.s`, ported from ModPlayer_16k, and its tables) | `$A7EE` (about 6.0K) |
 | 11-15 | `build/help.bin` | `*HELP`: index and texts (5 banks, 73K) | |
 
 ## 3. C64 RAM while BASIC runs
@@ -77,7 +76,8 @@ on 2026-10-16.
 | `$0200-$03FF` | BBC vectors and MOS variables (section 5) |
 | `$0400-$07FF` | BBC BASIC workspace (variables A%-Z% at `$0400`, stacks, string buffer `$0600`, input buffer `$0700`) |
 | `$06E0-$06FF` | (inside BASIC's string buffer) the HTTP client's state during a request; speech's header at `$06F0` |
-| `$0600-$06DF` | (BASIC's string buffer, free while a command runs) `*BROWSE`: the command it builds at `$0600`, its variables at `$0680` |
+| `$0600-$06DF` | (BASIC's string buffer, free while a command runs) `*BROWSE`: the command it builds at `$0600`, its variables at `$0680`, OSWORD block `$06C0`, the BRKV stub that catches errors `$06C8` |
+| `$0700-$07FF` | (BASIC's input buffer) `*BROWSE`: the source path `$0700` and the folder shown `$0780`; filled with CR on leaving (BASIC looks for the end of the `*BROWSE` line there) |
 | `$0800-$08FF` | `MOSBUF`: scratch for `*` commands (UCI replies, RAM images such as `*TABLE`'s; top bytes `$E0+` per command) |
 | `$0900-$1CFF` | sound engine image (`SOUNDRAM`; shared part `$1C60`): SID, BBC or, while a MOD plays, the MOD engine (to `$1AFF`); with `*SOUND NONE` PAGE can drop to `$0900` |
 | `$1D00` | PAGE (`OSHWM`) |
@@ -135,7 +135,7 @@ into the REU (section 7) or into `MOSBUF` for the length of one command.
 
 ## 6. HIMEM per mode
 
-From OSBYTE &85 (2026-10-16); with `*SPRITE ON` in parentheses. The
+From OSBYTE &85; with `*SPRITE ON` in parentheses. The
 graphics modes keep 768 bytes for the fast path.
 
 | Mode(s) | HIMEM |
@@ -165,7 +165,7 @@ graphics modes keep 768 bytes for the fast path.
 | `$003880-$003C7F` | speech: zero page and `&7D00-&7FFF` saved while SAM speaks |
 | `$003C80-$003CBF` | HTTP (`nethttp.s`): last status code (`$3C80`), header lines' length (`$3C82`), a socket an error left open (`$3C84`), `*JSON NEW`'s body handle (`$3C85`), last status line (`$3C88`, 32) |
 | `$003CC0-$003FFF` | `*NET HEADER` lines (832 bytes, CR LF each) |
-| `$004000-$007FFF` | HTTP reply buffer (16K); also the toolkit's line-target bitmap (transient) |
+| `$004000-$007FFF` | HTTP reply buffer (16K); also the toolkit's line-target bitmap and `*BROWSE`'s clipboard (`$4000` header, `$4100` up to 240 entries; transient) |
 | `$008000-$00FFFF` | line editor history (128 lines of 256) |
 | `$010000-$0102FF` | song header, order list, rows per pattern |
 | `$011000-$01xxxx` | sprite shapes |

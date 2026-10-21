@@ -1,5 +1,5 @@
 10 REM SID24: all 24 voices of 8 SIDs (UltiSID 8SID layout, see u64bbc.cfg)
-20 REM Writes the SID registers directly until SID mode SOUND exists.
+20 REM Writes the SID registers directly: the 8SID layout itself, no SOUND.
 30 DIM S%(7),N%(23)
 40 PROCinit
 50 PROCcascade
@@ -59,7 +59,7 @@
 780 ENDPROC
 790 :
 800 DEF FNwave(S%)
-810   =&10*2^(S% MOD 3)
+810 =&10*2^(S% MOD 3)
 820 :
 900 DATA &D400,&D420,&D480,&D4A0,&D500,&D520,&D580,&D5A0
 910 DATA 0,7,12,16,19,23,24,26,28,31,35,36

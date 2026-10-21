@@ -30,8 +30,7 @@ long run piles up no state and a failure cannot spill into the next group.
 Without `--split` all chosen tests run after one start.
 
 The Ultimate's REST interface sometimes stops answering for 30 s and more
-(seen on the U64 from 2026-10-15, also when idle, while ping keeps
-answering). A test that fails only on such a bridge timeout waits 30 s and
+(also when idle, while ping keeps answering). A test that fails only on such a bridge timeout waits 30 s and
 runs once more; the run notes it ("bridge timeout, retried").
 
 ## How a test works

@@ -1,15 +1,11 @@
 # Remote development: VS Code ↔ U64 BBC BASIC
 
-Design, 2026-10-04; phases 1 and 2 implemented and tested the same day
-(MOS mailbox, `tools/u64remote.py`, `tools/bbctok.py`, plus the MCP
-server `tools/u64mcp.py` for AI agents, see docs/AI_AGENTS.md). Decisions (2026-10-04): the extension lives in this
-repository (`vscode/`); build order MOS hook + CLI tool first, then the
-extension, then debugging; programs go to PAGE by DMA followed by a MOS
-"set TOP" request.
-
-Goal: write BBC BASIC in VS Code on a PC and run, test and debug it on the
-Ultimate 64 / C64 Ultimate: send a program, run it, see its output, stop
-it, set breakpoints, step, and inspect variables.
+Write BBC BASIC on a PC and run, test and debug it on the Ultimate 64 /
+C64 Ultimate: send a program, run it, see its output, stop it, set
+breakpoints, step, and inspect variables. Three clients share one
+protocol: the VS Code extension (`vscode/`), the command-line tool
+`tools/u64remote.py` (with the tokeniser `tools/bbctok.py`) and the MCP
+server `tools/u64mcp.py` for AI agents (docs/AI_AGENTS.md).
 
 ## 1. Principles
 
@@ -18,11 +14,9 @@ it, set breakpoints, step, and inspect variables.
   design already provides.
 - **Host-driven over the Ultimate's REST API.** The PC reads and writes
   C64 memory (DMA) and presses keys; the MOS only needs a small mailbox.
-  No cable, no network code on the C64 for the first transport.
-- **Same protocol for every transport**, so a TCP transport (Ultimate II+,
-  later the C128) can be added without changing the extension's logic.
+  No cable and no network code on the C64.
 
-## 2. What the Ultimate's DMA can reach (measured 2026-10-04)
+## 2. What the Ultimate's DMA can reach (measured)
 
 REST memory access uses the standard C64 map, not the CPU's current one.
 It sees plain RAM `$0000-$7FFF` and `$C000-$CFFF`. At `$8000-$BFFF` it
@@ -36,8 +30,8 @@ the KERNAL ROM. So:
   access: the host retries (as the E2E client does).
 - every REST access is a DMA that stops the C64's CPU while it runs.
   During serial-bus transfers (`*STATUS`'s drive scan, `*CP`,
-  `*PARTITIONS`) the KERNAL's IEC timing breaks: measured 2026-10-07,
-  `*CP` took 0-4 cs without polling and 11 s or more (or hung the test)
+  `*PARTITIONS`) the KERNAL's IEC timing breaks: measured, `*CP` took
+  0-4 cs without polling and 11 s or more (or hung the test)
   with 238-byte mailbox and 1000-byte screen reads during it. Hosts
   therefore poll only the mailbox header (20 bytes) and read the output
   ring only when it holds new bytes, and only those (`u64remote.py`,
@@ -60,12 +54,17 @@ OSWRCH does not return: the MOS waits in a loop for the host's "continue",
 "step" or "stop". Meanwhile the host reads variables by DMA. The cost is
 one TRACE sequence per line, and only while debugging.
 
-**ESCAPE** stops a running program at any time (the host sets ESCFLG, as
-the E2E suite already does).
+**ESCAPE** stops a running program at any time (the host sets ESCFLG).
+
+**Limitation (BBC BASIC's TRACE):** the line after a FOR or REPEAT is
+traced only on the first pass, because NEXT and UNTIL jump back into the
+middle of the loop line. Breakpoints on later loop passes go on the
+NEXT/UNTIL line or after it. Lines reached in sequence or by GOTO/GOSUB
+are always traced.
 
 ## 4. Mailbox (resident page, `$C6E0-$C7CD`, 238 bytes)
 
-Implemented (protocol version 1); the layout is in `src/mos/defs.s`:
+Protocol version 1; the layout is in `src/mos/defs.s`:
 
 | Offset | Size | Meaning |
 |---|---|---|
@@ -75,8 +74,8 @@ Implemented (protocol version 1); the layout is in `src/mos/defs.s`:
 | 6 | 1 | C64 → host: last request handled |
 | 7 | 1 | request: 1 line, 3 output capture on/off, 4 program at PAGE |
 | 8 | 1 | status: 0 idle, 1 waiting for a line, 2 running |
-| 9 | 2 | current line number (debug, phase 4) |
-| 11 | 1 | debug flags (phase 4) |
+| 9 | 2 | current line number (debugging) |
+| 11 | 1 | debug flags |
 | 12 | 1 | output ring write index (C64) |
 | 13 | 1 | output ring read index (host) |
 | 14 | 1 | output capture on |
@@ -86,7 +85,7 @@ Implemented (protocol version 1); the layout is in `src/mos/defs.s`:
 | 18 | 1 | number of the last error |
 | 19 | 1 | error counter (the host compares before/after) |
 | 20 | 74 | line text / request data |
-| 94 | 16 | breakpoints (phase 4) |
+| 94 | 16 | breakpoints |
 | 110 | 128 | output ring |
 
 Requests are posted by writing the data first and the sequence number
@@ -107,45 +106,47 @@ A host switches capture off whenever it stops reading: `u64remote.py`
 on every exit (also Ctrl+C and termination), the MCP server after every
 call, by writing byte 14 directly (the MOS takes `REQ_CAPTURE` only at
 the prompt; the byte works while a program runs too). Otherwise output
-on the machine halts for that second the next time the ring fills
-(2026-10-14). The capture's REST reads also show as lines on screen in
+on the machine halts for that second the next time the ring fills. The
+capture's REST reads also show as lines on screen in
 the Upic modes: none while recording a video.
 
 ## 5. Operations (extension side)
 
 | Action | How |
 |---|---|
-| Send program | Tokenise on the PC (BBC BASIC tokeniser in TypeScript, checked against the interpreter's token table), write it to PAGE (`&1D00`) by DMA, then post the line `END`. END runs at the prompt and recomputes TOP, as in Ivo van Poorten's Atari port. Alternatively: upload to `/Temp` by FTP and post `CHAIN "/Temp/prog"`. |
+| Send program | Tokenise on the PC (the BBC BASIC tokeniser in TypeScript and Python, byte for byte what the interpreter stores), write it to PAGE by DMA, then post the program request: the MOS answers the prompt with `LOAD "$REMOTE"` (or `CHAIN`), so BASIC's own LOAD checks it and sets TOP. |
 | Run | post `RUN` (with output capture on) |
 | Stop | set ESCFLG (`$FF` = `$80`) |
 | Immediate line / REPL | post the line; output via the ring |
 | Breakpoints | write the table; post `TRACE ON` and debug flags; RUN |
 | Step / continue | debug control request |
 | Variables | read `&0400-&047F` (resident integers @%, A%-Z%) and the variable chains from VARPTR (`&0480`) through the heap; decode BBC 5-byte floats, integers and strings on the PC |
-| Call stack | BASIC's own stack below HIMEM (PROC/FN frames, GOSUB and FOR stacks at `&0500-&05FF`) |
 | Screen | read `$C000` (as tests/e2e/screen.py does) |
 | Files | FTP to the Ultimate, or `*` commands as posted lines |
 
 ## 6. The VS Code extension
 
 - **Language:** syntax highlighting, keyword completion and hover help
-  from `src/help/help.txt` (the same text as `*HELP`), line numbering,
-  RENUMBER and tokenise as commands.
-- **Devices:** the Ultimates from settings (IP addresses, password);
-  status bar shows the connected machine and its firmware.
-- **Run:** "Run on U64" (F5 without debugging): send, RUN, output panel
-  (ring buffer) and an optional screen mirror.
-- **Debug:** a Debug Adapter (DAP): line breakpoints, continue, step,
-  pause (the host sets the single-step flag; the MOS stops at the next
-  traced line), variables view, watches of variables and array elements
-  (read from memory: BASIC cannot evaluate expressions while it is paused
-  inside OSWRCH), call stack from BASIC's stacks. Stop = ESCAPE.
-- **Test:** run a program and compare its captured output with a
-  golden file: the same approach as tests/e2e, usable for the user's own
-  programs.
+  from `src/help/help.txt` (the same text as `*HELP`); "Check Program"
+  tokenises offline (line numbers, line lengths); "Format Document"
+  indents by block nesting (`vscode/src/formatter.ts`), and sending a
+  program drops the indentation again unless `u64bbc.keepIndentation`
+  (the same rule as `tools/bbctok.py`).
+- **Machine:** the Ultimate from the settings (`u64bbc.host`,
+  `u64bbc.password`); "Select Machine", "Refresh Machine Status".
+- **Run:** "Run on U64" (Ctrl+F5): send, RUN, output panel (the ring);
+  run-time errors on the source line (Problems panel); INPUT answered
+  from VS Code; "Send Program", "Stop", "Type a Line", "Get Program from
+  the Machine", "Show the Screen".
+- **Debug (F5):** a Debug Adapter (DAP): line breakpoints, continue,
+  step, pause (the host sets the single-step flag; the MOS stops at the
+  next traced line), a Variables view (resident integers and the
+  program's variables, read from memory: BASIC cannot evaluate
+  expressions while it is paused inside OSWRCH), the current line as the
+  one stack frame. Stop = ESCAPE.
 - **Implementation:** TypeScript, talking to the Ultimate's REST API
-  directly (no Python, no MCP needed at run time). c64bridge stays the
-  tool for the project's own E2E tests and for Claude.
+  directly (no Python, no MCP needed at run time). c64bridge is the
+  tool for the project's own E2E tests.
 
 ## 6a. AI coding agents
 
@@ -154,56 +155,13 @@ Everything the extension does is also offered to AI coding agents:
 fixed exit codes, and `tools/u64mcp.py` is an MCP server (stdio) with the
 tools `bbc_run`, `bbc_load`, `bbc_exec`, `bbc_input`, `bbc_stop`,
 `bbc_status`, `bbc_screen`, `bbc_list`, plus `bbc_check` (tokenise
-offline) and `bbc_help` (the *HELP reference offline). Errors come back
+offline) and `bbc_help` (the *HELP reference offline), and for
+debugging `bbc_debug`, `bbc_step`, `bbc_continue`, `bbc_vars` (the same
+results as the Debug Adapter) and `bbc_endshow`. Errors come back
 structured (number, message, line), so an agent can fix and retry
 without reading the screen. Registered for Claude Code in `.mcp.json`.
-The debugger phase adds `bbc_break`, `bbc_step`, `bbc_vars` with the
-same results as the Debug Adapter.
 
-## 7. Transport B (later): TCP through the UCI network target
-
-For machines without a REST API at hand (Ultimate II+ in a C64 or C128),
-the MOS connects as a TCP client to the extension (`*REMOTE host:port`,
-UCI network target, firmware 3.15+) and exchanges the same mailbox
-records over the socket. The released firmware has no TCP listener for
-the C64 side, so the C64 connects out.
-
-## 8. Phases
-
-1. MOS: mailbox, prompt hook (posted lines), output ring. E2E tests via
-   c64bridge (post a line, read the ring). **Done.**
-2. PC side: tokeniser plus "send and run" as a Python tool
-   (`tools/u64remote.py`), proving the protocol from the command line;
-   MCP server for AI agents. **Done.**
-3. VS Code extension: language features, run, output panel. **Done**
-   (`vscode/`, `make vscode`): highlighting, completion and hover help
-   from `*HELP`, run/send/stop/type line/INPUT/get program/screen,
-   run-time errors in the Problems panel. Tested offline (TypeScript
-   tokeniser = Python tokeniser), against the machine (protocol) and
-   inside VS Code with @vscode/test-electron (`make vscode-test`).
-4. MOS: TRACE hook with breakpoints and stepping; extension: Debug
-   Adapter with variables and call stack. **Done** (without call stack):
-   `dbg_filter`/`dbg_line` in `src/mos/mos.s`, `debug`/`continue`/`step`/
-   `vars` in `tools/u64remote.py`, `bbc_debug`/`bbc_continue`/
-   `bbc_step`/`bbc_vars` for agents, F5 debugging in VS Code
-   (`vscode/src/debugAdapter.ts`). Tested in E2E (`remote_debug`) and
-   inside VS Code.
-
-   **Limitation (BBC BASIC's TRACE):** the line after a FOR or REPEAT
-   is traced only on the first pass, because NEXT and UNTIL jump back
-   into the middle of the loop line. Breakpoints on later loop passes go
-   on the NEXT/UNTIL line or after it. Lines reached in sequence or by
-   GOTO/GOSUB are always traced.
-5. TCP transport.
-
-## 9. Open questions
-
-- Where the extension lives: this repository (`vscode/`) or its own.
-- Tokeniser for the extension: port `tools/bbctok.py` (itself a port of
-  the interpreter's MATCH routine, verified byte-for-byte by the E2E test
-  `remote_tokeniser`) to TypeScript, or run the Python one.
-
-## Upic full shows (2026-10-14)
+## 7. Upic shows
 
 While `*UPIC SHOW` shows a picture, BASIC's RAM &0400-&CFFF, the mailbox
 included, is in the REU. The MOS sets `$0334` = `$55` meanwhile (before
@@ -218,4 +176,4 @@ The same holds for Upic Lite (MODE 0-2, 4-6 on 64 MHz machines): its
 picture is drawn by the CPU too, so every memory read of a host (status
 polls, `run` waiting at GET) shows as a disturbed raster line in the
 frame. A stray line seen in a frame grab of a Upic Lite screen is that,
-not drawing (checked 2026-10-14: none in frames taken without polling).
+not drawing (none in frames taken without polling).

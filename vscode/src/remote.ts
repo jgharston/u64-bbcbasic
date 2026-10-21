@@ -232,8 +232,8 @@ export class Remote {
     }
 
     async sendProgram(text: string, run: boolean, timeout = 30000,
-                      onOutput?: (text: string) => void): Promise<RunResult> {
-        const { image } = tokeniseProgram(text);
+                      onOutput?: (text: string) => void, keepIndent = false): Promise<RunResult> {
+        const { image } = tokeniseProgram(text, keepIndent);
         const [page, himem] = await this.pageHimem();
         if (page + image.length > himem - 1024) {
             throw new RemoteError(`program too big (${image.length} bytes)`);

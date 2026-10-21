@@ -2,7 +2,7 @@
 ;
 ; U64 BBC BASIC -- MOS definitions shared by every bank
 ;
-; Memory map and design: docs/PLAN.md section 4, docs/ARCHITECTURE.md.
+; Memory map and design: docs/ARCHITECTURE.md.
 ;
 ; ----------------------------------------------------------------------------
 
@@ -40,7 +40,7 @@ BANK_HELP   = 11                ; first help bank: index + texts (tools/genhelp.
 BANK_RAM    = $FF               ; cartridge off: BASIC runs from its RAM
                                 ; copy at $8000-$BFFF. The Ultimate 64 runs
                                 ; cartridge ROM fetches at 1 MHz, RAM at
-                                ; turbo speed (measured, docs/PLAN.md)
+                                ; turbo speed (measured)
 CPU_ROMS    = $37               ; $01: BASIC, KERNAL, I/O (cartridge visible)
 CPU_RAMBAS  = $36               ; $01: RAM at $A000-$BFFF, KERNAL, I/O
 
@@ -316,7 +316,7 @@ snd_8sid    = $03FD             ; the 8SID layout was loaded (*SID SETUP):
 errbuf      = $02A7
 ERRMAX      = 56                ; number, message (54), terminator
 ; The rest of $02A7-$02FF (cleared by RAMTAS at the cold start): MOS
-; variables moved out of the full resident area (2026-10-10).
+; variables (the resident area is full).
 osfblk      = errbuf+ERRMAX     ; 18: OSFILE block for *LOAD/*SAVE
 ch_ptr      = osfblk+18         ; 8: per channel: PTR#, 32 bits
 reu_tmp     = ch_ptr+8          ; REU byte transfers

@@ -49,7 +49,7 @@ what this BASIC can and cannot do.
   instead of GOSUB. Source files are indented (2 spaces per level, after
   the line number; no `10 :` colons), kept consistent by the VS Code
   extension's formatter; the extension strips the indentation on upload,
-  and on the machine `LISTO 7` indents loops (PLAN.md section 20).
+  and on the machine `LISTO 7` indents loops (docs/PLAN.md section 2).
 - Commit per tested step on a branch; don't push without being asked.
 
 ## Layout
@@ -63,7 +63,7 @@ what this BASIC can and cannot do.
 | `src/mos/uci.s`, `fs.s`, `ucmds.s` | bank 2: UCI driver, filing system, Ultimate commands |
 | `src/mos/reudisk.s`, `rdglue.s` | bank 5: the /REU RAM disk; its routing (bank 2) |
 | `src/mos/sndbank.s`, `sound*.s`, `sndcmd.s`, `songcmd.s`, `font46.s`, `petscii.s` | bank 6: the sound engine images (RAM &0900), sound and song commands, the 4x6 font, the PETSCII mode |
-| `src/mos/netbank.s`, `netcmd.s`, `netchan.s` | bank 7: network (*NET, *JSON, network channels), `ultctl.s`; helpers `bankhelp.s` |
+| `src/mos/netbank.s`, `netcmd.s`, `netchan.s` | bank 7: network (*NET, *JSON, network channels), `ultctl.s`, the file browser `browse.s` (*BROWSE), `upmute.s` (music paused during a Upic show); helpers `bankhelp.s` |
 | `src/mos/toolbank.s` | bank 9: `sedit.s`, `acorn.s`, `dfs.s`, `toolkit.s` |
 | `src/mos/audbank.s`, `sample.s`, `modplay.s`, `modengine.s` | bank 10: Ultimate Audio (samples, the MOD player, ported from ModPlayer_16k) |
 | `src/help/help.txt` | *HELP source (banks 11+, docs/HELP_REFERENCE.md) |

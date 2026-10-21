@@ -138,7 +138,7 @@ ss_setup:
     rts
 
 ; sid_auto: at start-up (the Ultimate found): fewer than 8 SIDs and a
-; command interface: sid_setup, errors ignored (owner, 2026-10-09)
+; command interface: sid_setup, errors ignored
 sid_auto:
     lda uci_ok
     beq sau_rts

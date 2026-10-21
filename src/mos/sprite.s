@@ -1227,8 +1227,8 @@ spl_mosbuf:
 ; ----------------------------------------------------------------------------
 ; sp_shapecol
 ;   Summary: *SPRITE n SHAPE s: a shape loaded from a SpritePad file also
-;            gives the sprite its colour and multicolour (owner,
-;            2026-10-16); *SPRITE n COLOUR afterwards overrides.
+;            gives the sprite its colour and multicolour; *SPRITE n
+;            COLOUR afterwards overrides.
 ;   Function: the shape's marker (REU_SPDMARK + s); if set, its byte 63
 ;            (MYXVCCCC): CCCC -> the C64 colour, M -> flag bit 4.
 ;   Input:   A = shape s, fsSX = sprite n.  Output: the tables.

@@ -5,7 +5,7 @@
 ; and the start-up check of the Ultimate's settings (bank 7, inside
 ; .local net: its own UCI driver, so payloads come from this bank)
 ;
-; Owner's decisions of 2026-10-16 (PLAN.md 27 item 3): *REBOOT asks first
+; *REBOOT asks first
 ; (unless *REBOOT Y); when the settings do not suit the MOS (REU not 16 MB,
 ; or a U64 without its turbo registers), the start-up applies the built-in
 ; ones itself (src/cfg/u64bbc.cfg, the same as the .cfg the build ships):

@@ -7,6 +7,7 @@
 // E2E test remote_tokeniser checks the Python against the interpreter.
 
 import * as tokenTable from '../data/tokens.json';
+import { stripIndent } from './formatter';
 
 export interface Token { keyword: string; token: number; flags: number; }
 
@@ -148,14 +149,18 @@ export class TokeniseError extends Error {
 
 export interface ProgramLine { number: number; sourceLine: number; }
 
-/** Program text -> image as stored at PAGE (CR ... CR &FF). */
-export function tokeniseProgram(text: string): { image: Uint8Array; lines: ProgramLine[] } {
+/** Program text -> image as stored at PAGE (CR ... CR &FF). The source's
+ * indentation (spaces after the line number beyond one) is dropped unless
+ * keepIndent: it costs memory, and LISTO 7 indents on the machine
+ * (as tools/bbctok.py's tokenise_program). */
+export function tokeniseProgram(text: string, keepIndent = false): { image: Uint8Array; lines: ProgramLine[] } {
     const image: number[] = [CR];
     const lines: ProgramLine[] = [];
     let last = -1;
     const src = text.split(/\r?\n/);
     for (let n = 0; n < src.length; n++) {
-        const raw = src[n].replace(/\s+$/, '');
+        let raw = src[n].replace(/\s+$/, '');
+        if (!keepIndent) { raw = stripIndent(raw); }
         if (!raw.trim()) { continue; }
         const tok = tokeniseLine(raw);
         let k = 0;

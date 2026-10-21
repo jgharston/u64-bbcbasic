@@ -1,13 +1,12 @@
 ; ----------------------------------------------------------------------------
 ;
-; U64 BBC BASIC -- *MODPLAY and *MODSTOP (bank 10, inside .local aud;
-; 1.0.0 item 8a, step 2)
+; U64 BBC BASIC -- *MODPLAY and *MODSTOP (bank 10, inside .local aud)
 ;
 ; A ProTracker MOD in the background on Ultimate Audio channels 0-3. The
 ; engine (modengine.s, ported from ModPlayer_16k by Freshness/6510nl,
 ; CSDb release 131522) is a third sound engine image: *MODPLAY puts it in
 ; the place of the SID or BBC engine (&0900-&1C5F), *MODSTOP brings that
-; engine back (owner, 2026-10-17). The module goes to the REU at
+; engine back. The module goes to the REU at
 ; &F20000 (up to 768K); its header is read there into the image's tables
 ; (ModPlayer_16k's detectmod and setmodstructures, rewritten to read the
 ; REU; a 15-sample module's patterns at 600, where the original has 604).

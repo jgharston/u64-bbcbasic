@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import { Remote, RunResult, RemoteError } from './remote';
 import { tokeniseProgram, TokeniseError } from './tokenizer';
+import { formatProgram } from './formatter';
 import { lookup, keywords, commands } from './help';
 import { BasicDebugSession } from './debugAdapter';
 
@@ -120,7 +121,8 @@ async function sendDocument(run: boolean) {
         output.show(true);
         output.appendLine(`--- ${run ? 'RUN' : 'LOAD'} ${vscode.workspace.asRelativePath(doc.uri)} on ${config().get('host')}`);
         setStatus(run ? 'running' : 'sending');
-        const r = await remote().sendProgram(text, run, timeout(), t => output.append(t));
+        const r = await remote().sendProgram(text, run, timeout(), t => output.append(t),
+                                             config().get<boolean>('keepIndentation', false));
         output.appendLine(`[${r.programBytes} bytes, ${r.elapsed.toFixed(2)} s, ${r.state}]`);
         await report(r, doc);
     });
@@ -275,6 +277,15 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         output, status, diagnostics,
         vscode.languages.registerHoverProvider(LANG, hoverProvider()),
+        vscode.languages.registerDocumentFormattingEditProvider(LANG, {
+            provideDocumentFormattingEdits(doc) {
+                const text = doc.getText();
+                const formatted = formatProgram(text);
+                if (formatted === text) { return []; }
+                const all = new vscode.Range(doc.positionAt(0), doc.positionAt(text.length));
+                return [vscode.TextEdit.replace(all, formatted)];
+            },
+        }),
         vscode.languages.registerCompletionItemProvider(LANG, completionProvider()),
         vscode.workspace.onDidSaveTextDocument(doc => { if (doc.languageId === LANG) { checkDocument(doc); } }),
         vscode.workspace.onDidChangeTextDocument(e => diagnostics.delete(e.document.uri)),

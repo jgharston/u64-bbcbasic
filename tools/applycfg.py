@@ -5,7 +5,7 @@ Sets every item of every [store] (PUT /v1/configs/{category}/{item}
 ?value=...), as the firmware does when a cartridge with a .cfg of the
 same name is started from its file browser; a cartridge uploaded through
 the REST API (deploy, the E2E tests) gets no .cfg, so this puts the
-settings in place. Not saved to flash. Owner's rule (2026-10-14): after
+settings in place. Not saved to flash. Rule: after
 the U64 has been lent out, apply the full cfg before using it again.
 
 Usage: applycfg.py FILE.cfg HOST [HOST ...]

@@ -1,9 +1,9 @@
 ; ----------------------------------------------------------------------------
 ;
 ; U64 BBC BASIC -- Ultimate Audio samples: *SAMPLE and SOUND on voices
-; 24-30 (bank 10, inside .local aud; 1.0.0 item 8a, step 1)
+; 24-30 (bank 10, inside .local aud)
 ;
-; Owner's decisions (2026-10-17, PLAN.md 27 item 8a): samples in the REU
+; Samples in the REU
 ; below *MAP's bank (16 MB REU: &EE0000-&F1FFFF); 8-bit mono WAV (rate
 ; from the header, unsigned data made signed on load) and raw signed
 ; 8-bit files; SOUND 24+c, A, P, D plays on Ultimate Audio channel c
@@ -17,7 +17,7 @@
 ; ultimate-uci-oscar64's ultimate_audio_lib.c writes them (after
 ; ModPlayer_16k by Freshness/6510nl, CSDb release 131522): +0 control
 ; (1 start, 2 loop between the loop points, 4 the channel's interrupt:
-; measured 2026-10-17, not the library's "restart"; 0 stop), +1 volume
+; measured, not the library's "restart"; 0 stop), +1 volume
 ; (0-63), +2 pan, +4 start (&01, then the REU address high, middle,
 ; low), +9 length (3), +14 rate (2: 6.25 MHz / Hz), +17 / +21 loop
 ; start and end (relative to the start), +31 interrupt acknowledge.
@@ -577,7 +577,7 @@ slw_w       dta 'WAVE'
 ;            Audio channel c plays a sample (see the top). Looped: control
 ;            3 with the loop points 0 and the length (relative, as
 ;            ModPlayer_16k's); control bit 2 enables Ultimate Audio's
-;            interrupt (measured 2026-10-17: unacknowledged it hangs the
+;            interrupt (measured: unacknowledged it hangs the
 ;            machine; only ad_detect uses it, with interrupts off).
 ;   Uses:    A, X, Y, mosTMP, mosNUM, mosARGS, MOSBUF.
 SS          = $06E0             ; state (as SL)

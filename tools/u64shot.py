@@ -61,7 +61,7 @@ def grab_frames(host, port, count, interval, timeout=10.0):
     """count complete frames, at least interval seconds apart, from one
     stream session (starting and stopping the stream in quick succession
     has left an Ultimate's network task hanging). The U64-II's stream
-    stops by itself after about a second (2026-10-07), so count *
+    stops by itself after about a second, so count *
     interval must stay under that."""
     source = socket.gethostbyname(host)
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

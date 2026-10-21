@@ -1,7 +1,7 @@
 ; ----------------------------------------------------------------------------
 ;
 ; U64 BBC BASIC -- JSON request bodies: *JSON NEW, *JSON SET, *JSON POST
-; (bank 7, inside .local net; 1.0.0 item 7, owner 2026-10-16)
+; (bank 7, inside .local net)
 ;
 ; The firmware's HTTP target builds the JSON: a body handle of type JSON
 ; object (BODY_CREATE &21, format 2), keys added with ADD_INT &23 (4

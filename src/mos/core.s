@@ -885,8 +885,7 @@ fr_rom:
 ; font_to_reu
 ;   Summary: at start-up: the text font to REU_VICFONT (for MODE changes);
 ;            the ASCII-order REU_FONT follows from it in bank 2
-;            (fo_mkascii, called after this by the cold start; 2026-10-16:
-;            the loop that did it here gave its room to *PETSCII).
+;            (fo_mkascii, called after this by the cold start).
 ;   Function: runs here, in RAM, with $01 = $35: the font at FONT is RAM
 ;            under the KERNAL, and I/O is needed for the REU.
 ;   Input:   reu_banks.  Uses: A, X, Y, vm_t.

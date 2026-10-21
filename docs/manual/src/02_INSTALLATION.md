@@ -44,7 +44,7 @@ Select `u64bbc-tmb.crt` in the Ultimate's file browser and run it. The
 machine starts in the C64 text screen at BBC BASIC's prompt:
 
 ```
-U64 BBC BASIC 0.1.0
+U64 BBC BASIC 1.0.0
 BASIC 3.10 (C)1983 Acorn
 CPU turbo (maximum)
 >

@@ -1,18 +1,32 @@
-# u64-bbcbasic
+# U64 BBC BASIC
 
 BBC BASIC 3.10 for the Ultimate 64 and C64 Ultimate, as a cartridge, with a
 BBC-style MOS (machine operating system) on top of the C64 KERNAL, and
 `*` commands for the Ultimate's features.
 
-**Status: in development (0.1.0).** BBC BASIC programs run at the
-device's maximum turbo speed: the BBC's screen modes and graphics (Upic
-Lite pictures with square pixels on 64 MHz machines, teletext MODE 7),
-sound on up to 8 SIDs with instruments and a song player, Ultimate Audio
-sample effects and ProTracker MOD music in the background, files on the
-Ultimate's drives and an REU RAM disk, network channels, HTTP requests
-(GET, POST, PUT, DELETE, headers, status codes) and JSON, a line editor
-with history and BBC copy editing, and a built-in help system (`*HELP`). The **user manual** is [docs/manual](docs/manual/README.md);
-[docs/PLAN.md](docs/PLAN.md) has the plan and roadmap.
+![U64 BBC BASIC](screenshots/social-preview.png)
+
+**Version 1.0.0.** The interpreter is the original BBC BASIC 3.10,
+unchanged, running at the Ultimate's turbo speed. Around it:
+
+- **Screen and graphics:** the BBC's screen modes, teletext MODE 7, Upic
+  Lite (square pixels at 64 MHz) and Upic full pictures (384 x 256, every
+  pixel its own colour), C64 bitmap modes, sprites and a sprite editor,
+  fast `*` graphics commands, PETSCII mode.
+- **Sound:** `SOUND` and `ENVELOPE` on up to 8 SIDs (24 voices) with
+  instruments and a song player; Ultimate Audio sample effects and
+  ProTracker MOD music in the background.
+- **Files:** the Ultimate's drives, an REU RAM disk (`/REU`), DFS-style
+  commands, disk images, and a file browser (`*BROWSE`, or F1 at the
+  prompt).
+- **Network:** network channels, HTTP requests (GET, POST, PUT, DELETE,
+  headers, status codes) and JSON.
+- **The Ultimate:** drives, clock, settings, turbo, the REU as storage.
+- **Editing:** a line editor with history and BBC copy editing, and a
+  built-in help system (`*HELP`) covering every keyword and command.
+
+The **user manual** is [docs/manual](docs/manual/README.md); the changes
+per version are in [CHANGELOG.md](CHANGELOG.md).
 
 **Compatibility.** The aim is that BBC BASIC *programs* run: the
 language, and the behaviour of the VDU, graphics, sound and file
@@ -33,7 +47,8 @@ on the Command Interface, the REU, the Ultimate Audio mapping and the U64
 turbo registers, and sets up 8 UltiSIDs for sound (as Heartbeat
 Soundtracker does: UltiSID 1 at `$D400`, UltiSID 2 at `$D420`, each split
 four ways; SIDs in the sockets keep their addresses and play along). The
-settings are loaded into memory only, not saved to flash.
+settings are loaded into memory only, not saved to flash. A 16 MB REU is
+expected.
 
 ## Using it
 
@@ -51,18 +66,38 @@ settings are loaded into memory only, not saved to flash.
 - MOS entry points: `OSWRCH` = &C7EE, `OSBYTE` = &C7F4, `OSWORD` = &C7F1,
   `OSCLI` = &C7F7, … (BBC low bytes, page &C7). The RAM vectors are at
   &0200, as on the BBC.
-- Files on the Ultimate (see `*HELP FILES`): `LOAD`, `SAVE`, `CHAIN`, two
-  open channels (`OPENIN`, `OPENOUT`, `OPENUP`, `BGET#`, `BPUT#`, `PRINT#`,
-  `INPUT#`, `PTR#`, `EXT#`, `EOF#`).
-- Commands: `*CAT` (`*.`), `*DIR` (`*CD`), `*PWD`, `*DELETE`, `*MKDIR`,
-  `*RENAME`, `*LOAD`, `*SAVE`, `*TYPE`, `*UVER`, `*TIME`, `*TURBO`,
-  `*STATUS` (memory, REU, drives, network, clock), `*FX`, `*HELP`.
-- A file browser: `*BROWSE`, or <kbd>F1</kbd> on an empty line at the
-  prompt. Folders and drives, RETURN opens by type (CHAINs a program,
-  shows a PETSCII or Upic file, plays a MOD or WAV, mounts a disk image),
-  T types, D deletes, R renames.
+- Files (see `*HELP FILES`): `LOAD`, `SAVE`, `CHAIN`, two open channels
+  (`OPENIN`, `OPENOUT`, `OPENUP`, `BGET#`, `BPUT#`, `PRINT#`, `INPUT#`,
+  `PTR#`, `EXT#`, `EOF#`), on the Ultimate's drives and on `/REU`.
+- The file browser (`*BROWSE`, or <kbd>F1</kbd> on an empty line at the
+  prompt) has the keys of UBoot64-v2's: cursor keys to move, enter and
+  leave folders, P/U page, T/E top/end, `/` the root; RETURN opens by
+  type (CHAINs a program, shows a PETSCII or Upic file, plays a MOD or
+  WAV, mounts a disk image); SPACE marks, C/X/V copy, cut and paste
+  (folders too), D deletes, R renames, N makes a folder, L lists a file.
 - `*HELP` covers every BASIC keyword, command and topic: `*HELP KEYWORDS`,
-  `*HELP COMMANDS`, `*HELP TOPICS`.
+  `*HELP COMMANDS`, `*HELP TOPICS`; `*HELP LIMITS` lists what this BASIC
+  can and cannot do.
+
+## Demos
+
+Installed with the cartridges (`make deploy`), tokenised, in `demos/`:
+
+| Folder | Start | Contents |
+|---|---|---|
+| `showcase` | `SHOW` | a timed show of graphics and music, SID first, then a MOD on Ultimate Audio |
+| `gfx` | `GFXDEMO` | a tour of the screen modes: BBC, C64, teletext, Upic, sprites |
+| `archbas` | `SCHRAF`, `XMAS` | Eric Schraf's graphics programs; a Christmas tree |
+| `sprites` | `BALLS`, `INVADERS` | multiplexed sprites; a small game (keys or joystick) |
+| `music` | `MUSIC` | the song player with classical pieces on the SIDs |
+| `sound` | `SID24` | 24 SID voices |
+| `audio` | `AUDIO` | Ultimate Audio sample effects and MOD music |
+| `net` | `U64TEXT` | a Ceefax-style service in MODE 7 over HTTP and JSON: weather, blog, news, the ISS |
+| `petscii` | `PETSCII` | the PETSCII mode, with the idi8b logo |
+| `classics` | `HANOI`, `ANIMAL`, … | classic BBC BASIC programs |
+
+`*DIR /SD/idi8b/u64bbcbasic/demos/showcase` and `CHAIN "SHOW"`, or
+<kbd>F1</kbd> and pick a program in the browser.
 
 ## Programming from a PC or an AI agent
 
@@ -92,10 +127,13 @@ make deploy         # install on the Ultimate (below)
 Put the Ultimates' IP addresses in `.env` (`ULTIP1 = ...`, `ULTIP2 = ...`)
 for `make deploy` and the tests, and the drive to install on (`ULTDRV1 =
 SD`, `ULTDRV2 = ...`; default `USB0`). `make deploy` puts the cartridges
-and their `.cfg` files in `/<drive>/idi8b/u64bbcbasic/`, and the demos,
-tokenised as BBC BASIC programs, in its `demos/` folder (`music`, `net`,
-`sound`, `classics`): `*DIR /SD/idi8b/u64bbcbasic/demos/music` and
-`CHAIN "MUSIC"`, or <kbd>F1</kbd> and pick it in the browser. A second Ultimate is skipped when it does not answer.
+and their `.cfg` files in `/<drive>/idi8b/u64bbcbasic/` and the demos in
+its `demos/` folder. A second Ultimate is skipped when it does not
+answer.
+
+The design is described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+(banks, memory maps) and the `docs/DESIGN_*.md` documents; the decisions
+and what comes next in [docs/PLAN.md](docs/PLAN.md).
 
 ## Credits and licences
 
@@ -113,8 +151,9 @@ tokenised as BBC BASIC programs, in its `demos/` folder (`music`, `net`,
   (`src/mos/modengine.s`; its tables in `src/mos/modtables/`).
 - Upic: Aleksi Eeben's renderer, the 48 MHz path by Christian Gleissner
   (through ultimate-uci-oscar64's Upic module).
-- Demos: Eric Schraf's graphics programs (`demos/archbas`); music and
-  sound effects in `demos/audio` and the showcase: see
+- Demos: Eric Schraf's graphics programs (`demos/archbas`); the classics'
+  own licences in `demos/classics`; music and sound effects in
+  `demos/audio` and the showcase: see
   [demos/audio/CREDITS.md](demos/audio/CREDITS.md).
 - MOS, tools and tests: Xander Mol, GPL-3.0 (see `LICENSE`). The BBC BASIC
   interpreter itself is not covered by this licence: see

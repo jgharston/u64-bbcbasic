@@ -11,11 +11,23 @@
 100 PROCsun
 110 PROCsea
 120 PROChills
-130 PRINT "...and showing it."
-140 *UPIC SHOW 2000
+130 PROCtell
+140 *UPIC SHOW 600
 150 CHAIN "SHOW10"
 160 END
 170 :
+180 REM Why the music pauses: the viewer races the beam with every cycle
+185 DEF PROCtell
+186   LOCAL T%
+187   PRINT '"Done. Upic full: 384 x 256 pixels,"
+188   PRINT "each one its own colour."
+189   PRINT '"To show it, the CPU spends every cycle"
+190   PRINT "racing the beam: no time is left for"
+191   PRINT "the music, so it pauses while the"
+192   PRINT "picture is up, and then goes on."
+193   T%=TIME+900:REPEAT UNTIL TIME>T% OR INKEY(0)<>-1
+194 ENDPROC
+195 :
 200 REM 1-8 sky from deep blue to orange, 9 sun, 10-12 sea, 13 hills
 210 DEF PROCpalette
 220   LOCAL L%,R%,G%,B%

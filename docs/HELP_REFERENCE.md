@@ -6,7 +6,7 @@ text is in the cartridge: `*HELP <subject>`.
 ## HELP
 
 ```
-U64 BBC BASIC 0.1.0: BBC BASIC 3.10 for
+U64 BBC BASIC 1.0.0: BBC BASIC 3.10 for
 the Ultimate 64 and C64 Ultimate.
 
   *HELP <keyword>   e.g. *HELP PRINT
@@ -606,21 +606,35 @@ speed is 1 MHz.
 ## LIMITS
 
 ```
-Things that differ from a BBC Micro in
-this version:
+What this BASIC can and cannot do,
+compared with a BBC Micro:
 
 Typed lines: 238 characters (78 with
 *EDIT C64); programs sent from a PC
 (see REMOTE) may have lines up to 251
-characters. Graphics: points, lines,
+characters. Memory: PAGE &1D00 (&900
+with *SOUND NONE), HIMEM &8000 in most
+modes (less in Upic Lite MODE 1 and 2:
+see MODE); LOAD and SAVE work between
+PAGE and &7FFF. Files: two open at a
+time; OSGBPB is not there (BGET# and
+BPUT# are). Graphics: points, lines,
 triangles, rectangles, parallelograms,
 circles, ellipses, pattern fills, flood
-fill, arcs, segments, sectors. Sound:
-SOUND and ENVELOPE as on a BBC Micro.
-LOAD and SAVE work between PAGE (&1D00,
-or &900 with *SOUND NONE) and &7FFF.
-Two files open at a time. *EXEC and
-*SPOOL are not there yet.
+fill, arcs, segments, sectors, as on a
+BBC Micro with the GXR, plus the fast *
+graphics commands. Sound: SOUND and
+ENVELOPE as on a BBC Micro, plus
+instruments on 24 SID voices, Ultimate
+Audio samples and MOD music. * commands
+take numbers or the variables A% to Z%,
+not expressions (use OSCLI with STR$
+for those). BBC BASIC 3.10 itself has
+no array parameters for PROC and FN,
+and MODE is refused inside a PROC or FN
+when it would move HIMEM. Not there:
+the BBC's hardware at &FE00 and BBC
+machine code (see BBC).
 ```
 
 ## REMOTE
@@ -693,27 +707,51 @@ Also: `BROWSE`
 ```
   *BROWSE      (F1 on an empty line)
 
-A file browser for the current
-directory: cursor up and down move,
-left and right go a page, RETURN opens,
-T types the file, D deletes it and R
-renames it (both ask first), Q or
-ESCAPE leaves. At the prompt F1 on an
-empty line opens it (F1 is COPY once a
-copy cursor is out).
+A file browser for the current folder,
+with the keys of UBoot64-v2's: cursor
+up and down move, P and U a page down
+and up, T and E the top and the end;
+cursor right (or RETURN) enters a
+folder, cursor left (or DEL) goes one
+folder up, / (or the up arrow) to the
+root, which lists the drives and /REU.
+Q or ESCAPE leaves. At the prompt F1 on
+an empty line opens it (F1 is COPY once
+a copy cursor is out).
 
-RETURN on a folder enters it (".." goes
-back; the root lists the drives and
-/REU); on a name without a full stop
-CHAINs it as a BASIC program; .SEQ
-shows it (*SEQ), .MOD plays it
-(*MODPLAY), .WAV plays it as sample 32,
-.D64 .D71 .D81 .G64 mounts it (*MOUNT),
-.UPIC loads and shows it, .VPL loads it
-as the palette; other files are typed.
-Names with a space cannot be opened; a
-command that fails ends the browser
-with its message.
+RETURN on a file: a name without a full
+stop is CHAINed as a BASIC program;
+.SEQ is shown (*SEQ), .MOD played
+(*MODPLAY), .WAV played as sample 32,
+.D64 .D71 .D81 .G64 mounted (*MOUNT),
+.UPIC loaded and shown, .VPL loaded as
+the palette; other files are typed. L
+lists (types) a file.
+
+SPACE marks entries (a * in front). C
+copies and X cuts the marked ones (or
+the selected one), V pastes them into
+the folder shown: folders with
+everything in them. A name already
+there asks: Y replaces (a folder is
+merged), N skips, A replaces all, Q
+stops. A move on one drive is a rename;
+otherwise a copy, then the source
+deleted. /REU has no folders: only
+files go there.
+
+D deletes the marked entries (or the
+selected one) after a question; a
+folder that is not empty asks again
+(Y/N/A/Q) and goes with everything in
+it. R renames, N makes a new folder. On
+the Ultimate's drives names with spaces
+work everywhere, but opening a file
+goes through a * command, where a name
+ends at a space. RUN/STOP stops a copy
+or delete; errors are shown and the
+browser goes on. Folders are followed 8
+levels deep.
 ```
 
 ## *CAT
@@ -2061,9 +2099,12 @@ MHz. The picture is kept in the REU
 moves BASIC's memory aside, shows the
 picture until a key is pressed, and
 puts everything back (the program goes
-on where it was; TIME counts on). On a
-48 MHz Ultimate 3 of every 4 pixels
-show.
+on where it was; TIME counts on). Music
+pauses meanwhile: the CPU spends every
+cycle on the picture, so the SIDs are
+muted and a MOD stands still, then both
+go on. On a 48 MHz Ultimate 3 of every
+4 pixels show.
 
 LOAD reads Upic v1.3 files (as Upic
 Paint and the Upic Image Converter save

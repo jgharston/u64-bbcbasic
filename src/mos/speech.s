@@ -4,7 +4,7 @@
 ; (bank 6)
 ;
 ; SAM (Software Automatic Mouth, Don't Ask Software 1982) is not part of
-; this project (owner, 2026-10-14): *SPEECH LOAD reads the user's copy of
+; this project: *SPEECH LOAD reads the user's copy of
 ; the C64 package's files into the REU, SAM itself (".sam 1", loaded at
 ; &9500-&BFFF) and Reciter (".sam 2", &7D00-&947F, English to phonemes).
 ; Its interface, from the program and groepaz's disassembly of the C64

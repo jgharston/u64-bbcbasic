@@ -24,5 +24,3 @@ keyword and command) are the machine's own `*HELP` texts, put in by
 | [14. Developing from a PC](14_REMOTE.md) | VS Code, `u64remote.py`, the MCP server, the debugger |
 | [15. Limits](15_ERRORS.md) | what this BASIC can and cannot do |
 
-Tutorials (learning to program with the example programs) are planned as
-a separate set, `docs/tutorial/`.

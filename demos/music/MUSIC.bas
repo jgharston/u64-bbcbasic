@@ -65,7 +65,7 @@
 695 :
 700 REM The file name is the first word of a menu line, the title the rest
 710 DEF FNword(A$)
-720   =LEFT$(A$,INSTR(A$+" "," ")-1)
+720 =LEFT$(A$,INSTR(A$+" "," ")-1)
 730 :
 740 DEF FNtitle(A$)
 750   A$=MID$(A$,INSTR(A$+" "," "))
@@ -282,7 +282,7 @@
 4336 REM Column of voice V%: left half SIDs 0, 2, 4, 6, right half 1, 3,
 4337 REM 5, 7; three voices side by side, a space between SIDs
 4338 DEF FNcol(V%)
-4339   =3+((V% DIV 3) MOD 2)*18+((V% DIV 3) DIV 2)*4+V% MOD 3
+4339 =3+((V% DIV 3) MOD 2)*18+((V% DIV 3) DIV 2)*4+V% MOD 3
 4340 :
 4400 DEF FNempty
 4410   LOCAL V%,E%

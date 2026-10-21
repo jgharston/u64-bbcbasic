@@ -1,11 +1,11 @@
 ; ----------------------------------------------------------------------------
 ;
 ; U64 BBC BASIC -- an HTTP/1.0 client over the network target's TCP socket
-; (bank 7, inside .local net; 1.0.0 item 7)
+; (bank 7, inside .local net)
 ;
 ; Firmware 3.15a's HTTP target gives no status code for raw requests and
-; only for valid JSON replies otherwise (measured 2026-10-17, PLAN.md 27
-; item 7), so the owner chose: the MOS speaks HTTP/1.0 itself. Used by
+; only for valid JSON replies otherwise (measured; docs/DESIGN_NETWORK.md
+; 4 and 6), so the MOS speaks HTTP/1.0 itself. Used by
 ; *NET GET/POST/PUT/DELETE and OPENIN "http://" (*JSON keeps the
 ; firmware's JSON parser).
 ;

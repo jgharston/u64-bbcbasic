@@ -3,7 +3,7 @@
 ; U64 BBC BASIC -- REU files and the REU preload image (batch B, bank 6):
 ; *REULOAD, *REUSAVE, *REU SAVE|LOAD
 ;
-; Owner's decisions of 2026-10-16 (PLAN.md 27 item 4): *REULOAD/*REUSAVE
+; *REULOAD/*REUSAVE
 ; in the program area only (&40000-&8FFFF, as *SRWRITE/*SRREAD; *REULOAD
 ; at &40000 when no address is given); the Ultimate's REU preload image
 ; (control &08/&09) as *REU SAVE / *REU LOAD, for keeping the /REU RAM

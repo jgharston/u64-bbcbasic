@@ -5,7 +5,7 @@
 ; The RAM disk itself is bank 5 (reudisk.s); here: which names belong to
 ; it (/REU/name, or a name without a path while /REU is the current
 ; directory), and the parts of OSFILE, *DIR, *PWD, *CAT, *DELETE,
-; *RENAME, *TYPE and *COPY that go there (PLAN.md section 23).
+; *RENAME, *TYPE and *COPY that go there.
 ;
 ; ----------------------------------------------------------------------------
 

@@ -687,7 +687,7 @@ gcg_id:
     lda vmode_cw                ; the 4x6 font: rows 0-5
     cmp #4
     beq gcg_rts
-    lda #0                      ; e_rows6's choice (gfx.s, 2026-10-16):
+    lda #0                      ; e_rows6's choice (gfx.s):
     sta GC_A                    ; row 7 last; of rows 0-6 two out:
     tax                         ; leading blank rows, then a row equal to
     tay                         ; the next, then rows 1 and 3

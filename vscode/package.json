@@ -2,7 +2,7 @@
   "name": "u64-bbcbasic",
   "displayName": "U64 BBC BASIC",
   "description": "Write BBC BASIC on your PC and run it on an Ultimate 64 / C64 Ultimate running the U64 BBC BASIC cartridge.",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "xahmol",
   "license": "GPL-3.0-only",
   "repository": {
@@ -148,6 +148,11 @@
           "type": "boolean",
           "default": true,
           "description": "Ask for the answer when a program waits for INPUT."
+        },
+        "u64bbc.keepIndentation": {
+          "type": "boolean",
+          "default": false,
+          "description": "Send programs with their indentation (spaces after the line number). Off: the indentation is dropped on the way, as it costs memory on the machine; LISTO 7 indents loops there."
         }
       }
     },
@@ -207,7 +212,7 @@
   "scripts": {
     "gen": "python3 ../tools/genextdata.py data",
     "compile": "npm run gen && tsc -p .",
-    "test": "npm run compile && node --test out/test/tokenizer.test.js",
+    "test": "npm run compile && node --test out/test/tokenizer.test.js out/test/formatter.test.js",
     "test:device": "npm run compile && node out/test/device.js",
     "package": "npm run compile && vsce package --allow-missing-repository -o ../build/u64-bbcbasic.vsix",
     "test:vscode": "npm run compile && node out/test/runIntegration.js"

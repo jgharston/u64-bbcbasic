@@ -1,7 +1,5 @@
 # Design: the song tracker
 
-Status: decided 2026-10-09 (owner); built 2026-10-09 (section 7).
-
 ## 1. Why, and why our own
 
 The BASIC music player of DESIGN_MUSICDEMO.md fed 24 voices from BASIC
@@ -10,9 +8,8 @@ queues ran dry (audible pauses between the Canon's sections) and the
 player then had no time to draw (bars missing). Music moves into the
 interrupt: a tracker that plays songs kept in the REU.
 
-Heartbeat Soundtracker's own player (Aleksi Eeben; source supplied by the
-owner) was considered and dropped (owner, 2026-10-09). It needs 16K of
-RAM while a song is loaded:
+Heartbeat Soundtracker's own player (Aleksi Eeben) was considered and
+not used. It needs 16K of RAM while a song is loaded:
 
 | Heartbeat part | Size | Our need |
 |---|---|---|
@@ -22,13 +19,13 @@ RAM while a song is loaded:
 | code (7 sample channels, modulations, 11 commands, visualiser, NTSC) | 4K | the modulations are sound step (b2) |
 
 and its own 195 Hz CIA interrupt, which Upic Lite's frame interrupt
-switches off. Decided instead: **our own simpler tracker inside the SID
+switches off. Instead: **our own simpler tracker inside the SID
 sound engine**: patterns and instruments in the REU, one row fetched per
 step by DMA, about 1K of code, no extra RAM, played from the engine's
 interrupt path, so in **every screen mode** (also Upic Lite). Songs are
 **built from BASIC** (section 5); the music demo records its pieces that
-way and plays them (owner: the demo should show the song being built
-from BASIC commands, not just play a finished song). Heartbeat songs do
+way and plays them (the demo shows the song being built from BASIC
+commands, not just a finished song played). Heartbeat songs do
 not play.
 
 ## 2. Song in the REU
@@ -97,9 +94,8 @@ Patterns fill up in order (a new pattern when a cursor passes row 64,
 added to the order list). `ENVELOPE` writes nothing; instruments are
 `*INSTRUMENT` (they belong to the song when it is saved).
 
-The music demo: arrange.py writes the note files (as now, plus
-`#INSTRUMENT` lines: each piece defines its own instruments, owner: more
-variety); MUSIC reads a file, defines the instruments with OSCLI, records
+The music demo: arrange.py writes the note files (with `#INSTRUMENT`
+lines: each piece defines its own instruments, for variety); MUSIC reads a file, defines the instruments with OSCLI, records
 every note with SOUND (no real-time pressure: a piece takes a second or
 two to build, shown on screen), then `*SONG PLAY` and draws the voice
 meters from `ADVAL(-29-v)` while it plays.
@@ -119,7 +115,7 @@ meters from `ADVAL(-29-v)` while it plays.
 3. Recording (section 5), `ADVAL(-29-v)`.
 4. The demo on it; arrange.py with per-piece instruments.
 
-## 7. As built (2026-10-09)
+## 7. As built
 
 - Patterns at `$020000` + n * `$1200` in REU banks 2 and 3: at most 28
   patterns (1792 rows), so the song stays clear of programs' data
@@ -134,7 +130,7 @@ meters from `ADVAL(-29-v)` while it plays.
   are released (or it goes on at the loop point).
 - Cells: note 1-96 (49 = middle C), 254 = the note goes on (a tie), 255
   = key off; instrument 0 = the voice's own; effect `&1v` = sustain level
-  v. Other effects are not used yet.
+  v. Other effects are not used.
 - Recording (`sg_record`, from OSWORD 7 while `*SONG RECORD` is on in SID
   mode): the cell at the voice's cursor, the cursor moves on by the
   duration in rows, a key off goes after the note; `*SONG RECORD OFF`
@@ -144,5 +140,5 @@ meters from `ADVAL(-29-v)` while it plays.
   (the image had no room for a note table).
 - `*SONG SAVE/LOAD`: 3 pages of header, order list and row counts, then
   the patterns up to the highest one the order list uses.
-- Not yet: other effects (slides, tempo changes), `*SONG PLAY` from a
-  pattern number, an OSBYTE for the position.
+- Not supported: other effects (slides, tempo changes), `*SONG PLAY`
+  from a pattern number, an OSBYTE for the position.

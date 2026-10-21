@@ -2,7 +2,7 @@
 ;
 ; U64 BBC BASIC -- *LIST: the program, indented by its structure (bank 2)
 ;
-; PLAN.md section 20: BASIC's LISTO indents FOR/NEXT and REPEAT/UNTIL,
+; BASIC's LISTO indents FOR/NEXT and REPEAT/UNTIL,
 ; not procedure bodies; *LIST indents those too, without changing the
 ; interpreter. The keywords come from build/gen/list_tokens.s
 ; (tools/genlist.py, the interpreter's own token table).

@@ -1,150 +1,85 @@
-# Design: music demo (24 voices, instruments)
+# Design: the music demo (24 voices, instruments)
 
-Status: decided 2026-10-09 (section 6). Section 8: the player as it is now
-(songs). The BASIC player (sections 3, 7)
-is replaced by the song tracker (DESIGN_TRACKER.md): the demo builds
-each piece from BASIC with SOUND in record mode, then plays it. Roadmap: PLAN.md
-section 24. Depends on sound step (b2) (sweeps, vibrato, tables: the
-instruments only sound full with it).
-
-## 1. Goal
-
-Show off U64 BBC BASIC's sound: all 24 voices of the 8 UltiSIDs, the 16
-default instruments, stereo (UltiSID 1 left, 2 right), in music people
-know; and show that it is plain, readable BBC BASIC (structured, no
-POKE/PEEK), the way BBC Micro music programs were written.
+`demos/music/MUSIC.bas` shows off U64 BBC BASIC's sound: all 24 voices
+of the 8 UltiSIDs, the instruments, stereo (UltiSID 1 left, 2 right), in
+music people know; and it shows that this is plain, readable BBC BASIC
+(structured, no POKE/PEEK), the way BBC Micro music programs were
+written. It builds each piece from BASIC with `SOUND` on the song
+tracker (DESIGN_TRACKER.md), then plays it in the background.
 
 All music is public domain; the arrangements are written for this
 project and licensed with it (GPL-3.0, as the rest of `demos/` that is
 ours).
 
-## 2. Programme
+## 1. Programme
 
-A menu program (`MUSIC`) and one program per piece, `CHAIN`ed (each
-piece has the full 26.75K for its notes; the menu comes back after each,
-or plays them all in order). Running order builds up, from a few voices
-to all 24:
+A menu with eight pieces, one at a time or all in order. They build up
+from a few voices to all 24:
 
-| # | Piece | Style | Voices | Instruments | Shows |
-|---|---|---|---|---|---|
-| 1 | *Greensleeves* (trad., 16th c.) | folk | 4 | FLUTE melody, PLUCK broken chords, BASS | a quiet start, vibrato, BBC-like simplicity |
-| 2 | *Scarborough Fair* (trad.) | folk | 6 | BELL (ring modulation) melody, ARP, PAD | wave/arpeggio tables, filter sweep |
-| 3 | *The Entertainer* (Joplin, 1902) | ragtime ("pop") | 8 | PIANO right hand, PLUCK + BASS left hand, then a modern beat (KICK, SNARE, HIHAT) | drums from tables, swing, stereo split of the hands |
-| 4 | *Eine kleine Nachtmusik*, 1st theme (Mozart, 1787) | classical | 10 | STRINGS in four parts, PLUCK bass | string section, sync of chords |
-| 5 | *Canon in D* (Pachelbel) | classical | 3 -> 24 | BASS ostinato, then a new voice every two bars: STRINGS, FLUTE, BELL, PAD, ORGAN... until all 24 play | the big build-up: every voice, left and right |
-| 6 | *Toccata in D minor*, opening (Bach) | classical | 18 | ORGAN in full chords over 6 SIDs, BRASS doubling | the wall of sound, filter |
-| 7 | *Ode to Joy* (Beethoven) - finale | classical | 24 | melody passed through LEAD, BRASS, FLUTE, SYNC; full orchestra on the last verse | everything at once |
-| (8) | *Maple Leaf Rag* (Joplin, 1899) | ragtime | 8 | as 3 | an encore |
+| # | Piece | Style | Voices |
+|---|---|---|---|
+| 1 | *Greensleeves* (trad., 16th c.) | folk | 4 |
+| 2 | *Scarborough Fair* (trad.) | folk | 6 |
+| 3 | *The Entertainer* (Joplin, 1902) | ragtime | 8 |
+| 4 | *Eine kleine Nachtmusik*, 1st theme (Mozart, 1787) | classical | 10 |
+| 5 | *Canon in D* (Pachelbel) | classical | 3 -> 24: a new voice every two bars until all 24 play |
+| 6 | *Toccata in D minor*, opening (Bach) | classical | 18 |
+| 7 | *Ode to Joy* (Beethoven) | classical | 24 |
+| 8 | *Maple Leaf Rag* (Joplin, 1899) | ragtime | 8 |
 
-## 3. How the notes are played
+## 2. Note files
 
-Option A (proposed): **plain BASIC with SOUND**, as BBC music programs
-did. Each piece is DATA in a compact note text, one line per bar per
-voice group, read by a small player PROC:
+The pieces are text files, `demos/music/*.mml`, one per piece, written by
+`arrange.py` (from public-domain MIDI editions; the Mutopia download
+addresses are in its docstring, the files go to `build/mutopia`). A file
+has header lines, then blocks (one per bar, a blank line between
+blocks) with a line `v: notes` per voice.
 
-```
-1000 DATA "V0 I8 O5 L8 E G A2 B8 C B A F#4 D8 E F# G4 E E D# E F# D# B"
-```
+- Header: `#TITLE`, `#COMPOSER`, `#TEMPO bpm`, `#VOICES n`,
+  `#INSTRUMENT n parts` (as `*INSTRUMENT`: each piece defines its own
+  instruments).
+- Notes in the usual MML conventions: `C D E F G A B` (`#`/`+` sharp,
+  `-` flat), `R` rest, a length after the note (1, 2, 4, 8, 16, 32; `.`
+  dotted), `&` tie to the next note, `O4` octave (`<` `>` down/up), `L8`
+  default length, `I5` instrument, `V12` loudness.
 
-- The player reads a line, turns each note into `SOUND &v,i,p,d`
-  (instrument, BBC pitch, duration in 1/20 s), and waits only when a
-  voice's queue is full (`ADVAL(-5-v)`), so 24 voices stay in time. Chord
-  starts use the sync digit (`SOUND &2xx`).
-- Shows that the machine needs no special music commands: a BBC
-  programmer recognises every line. Works today (after b2 for the full
-  instrument sound).
+## 3. Building and playing
 
-Option B: **a MOS sequencer `*PLAY`**: note strings handed to the MOS,
-played from the interrupt in the background, so a program can draw at
-the same time. More capable, but a new feature (notation, a sequencer in
-the sound engine, RAM it does not have yet).
-
-The note text for A follows the usual MML conventions, so B can take the
-same text later: `C D E F G A B` (`#`/`+` sharp, `-` flat), `R` rest,
-`O4` octave (`<` `>` down/up), `L8` default length (1, 2, 4, 8, 16, 32;
-`.` dotted), `T120` tempo, `I5` instrument, `V12` loudness, `&` tie,
-`V0`-`V23` the voice the next notes go to.
-
-## 4. Screen
-
-BBC look, MODE 7 teletext (it does not lower HIMEM below &7C00 and
-draws fast): the title in double height, the piece and composer, and a
-**voice meter**: 24 coloured bars (one per voice, grouped by SID, left
-half UltiSID 1, right half UltiSID 2), driven by the player itself (it
-knows which voice it gave a note and how long), no PEEK. A line of the
-note text scrolls along the bottom while it plays.
-
-## 5. Files
-
-`demos/music/MUSIC.bas`, the player and menu (indented, structured; the
-formatter strips the indentation on upload, PLAN.md section 20), the
-pieces as `demos/music/*.mml` note files (section 7), a README with the
-pieces,
-their sources (public-domain editions used for reference) and the
-licence. `*FX` and `*SOUND SID` set at the start; `*SID` shows the SIDs
-before the menu.
-
-## 6. Decisions (owner, 2026-10-09)
-
-1. Both: option A now (BASIC with SOUND), in the MML-like notation of
-   section 3, so a later `*PLAY` (option B) plays the same text.
-2. The programme of section 2 as proposed.
-3. The screen: graphics, Upic Lite MODE 2 (160 x 256, 16 colours);
-   changed to MODE 5 (section 7).
-
-## 7. Consequence of MODE 2: notes from files
-
-Upic Lite MODE 2 keeps its picture below HIMEM (`&3000`), so a program
-has `&1900-&2FFF`, about 5.9K. That holds the player and the screen code,
-not the notes of a 24-voice piece. So the notes are **text files**
-(`demos/music/*.mml`, one per piece), read line by line while the piece
-plays (`OPENIN`, `BGET#`), not DATA: a piece can be as long as it needs,
-the pieces need no `CHAIN` of their own (one program plays them all),
-and `*PLAY` can later take the same files.
-
-Even so the player itself (about 4-6K, plus 2-3K of arrays, strings and
-BASIC's stack) does not fit MODE 2's 5.9K, the same squeeze as on a disc
-BBC. Decided (owner): **MODE 5** on Upic Lite: the same 160 x 256
-picture with 4 colours and HIMEM &5800 (16K). The 24 voice bars are
-grouped by SID, UltiSID 1's SIDs left in cyan, UltiSID 2's right in
-magenta (as heard in stereo), the title in white.
-
-## 8. The demo on the tracker (2026-10-09)
-
-`MUSIC` no longer plays in real time. For each piece it reads the note
-file and builds a song from BASIC: `#TEMPO` gives `*SONG NEW tempo 8`
-(8 rows per beat: a 32nd note is one row) and `*SONG RECORD`, each note
-is a `SOUND` (duration in rows) that goes into the song, `#INSTRUMENT`
-lines define the piece's own instruments with `*INSTRUMENT`; then `*SONG
-PLAY` and the bar chart from `ADVAL(-29-v)` while it plays. The screen
+For each piece MUSIC reads the note file and builds a song from BASIC:
+`#TEMPO` gives `*SONG NEW tempo 8` (8 rows per beat: a 32nd note is one
+row) and `*SONG RECORD`; each note is a `SOUND` (duration in rows) that
+goes into the song at its voice's place; `#INSTRUMENT` lines define the
+piece's instruments with `*INSTRUMENT`. Then `*SONG PLAY`. The screen
 shows the commands as they go by. Building takes 10-30 seconds (the
-Canon, 24 voices: 28 s); playback has no gaps, in every screen mode.
+Canon, 24 voices: about 28 s); playback runs in the interrupt, without
+gaps, in every screen mode.
+
+The screen is MODE 100 (the C64 text screen; MODE is set at the top of
+the program, as BASIC refuses it inside a PROC). While a piece plays, a
+bar chart shows one bar per voice, as high as the note it plays
+(`ADVAL(-29-v)`, 49 = middle C), in eighths of a row (characters made
+with VDU 23, as PETSCII's partial blocks). UltiSID 1's SIDs (0, 2, 4, 6)
+are on the left in cyan (the left speaker), UltiSID 2's on the right.
+
+## 4. Instruments and arrangement
 
 Instruments 17-30 (`arrange.py` CUSTOM: violin, cello, harpsichord,
-choir, ragtime piano, banjo, clarinet, trumpet, church organ,
-glockenspiel, slide lead, tuba, string bass, swelling strings) use the
-engine's modulation; each piece maps some of its parts onto them
-(`PIECE_INSTR`). `arrange.py --instruments` applies that to the existing
-`.mml` files without the MIDI sources. Loudness `V` now goes with the
-instrument (SOUND amplitude instrument + 256 * level).
+choir, ragtime piano, banjo, clarinet, trumpet, organ, glockenspiel,
+slide lead, tuba, string bass, swelling strings) use the engine's
+modulation; each piece maps some of its parts onto them (`PIECE_INSTR`;
+`arrange.py --instruments` applies that to the `.mml` files without the
+MIDI sources). Loudness `V` goes with the instrument (SOUND amplitude
+instrument + 256 * level).
 
-Endings (owner: the songs stopped at unnatural places): the pieces from
-MIDI files were cut after a fixed number of bars. Now each ends on a
-cadence, its last bar the downbeat's chord held (`Piece(hold_end=True)`):
-The Entertainer at bar 36 (the A strain's C), Nachtmusik at bar 18
-(back in G, 18 bars instead of 28), the Toccata at bar 30 (its D minor end before the fugue; first bar 12,
-owner: longer);
-Maple Leaf Rag gets a bar of its A-flat chord after bar 32. The
-Mutopia download addresses are in `arrange.py`'s docstring (the files
-go to `build/mutopia`). The CHURCH organ (an octave arpeggio every
-interrupt: a buzz) became ORGAN with a slow pulse sweep and slight
-vibrato.
-
-Listening notes (owner, 2026-10-09): BELL and SYNC sounded off key in the
-Canon and Ode to Joy (they depend on the neighbouring voice: GLOCK and
-LEAD instead); the ARP arpeggio in Scarborough Fair was irritating
-(harpsichord instead, CHOIR's pulse sweep slower); the drums were first
-clumsy (a beat on every eighth), then too soft: now KICK2, SNARE2, HAT2
-(the default drums with decays 7, 6, 3; a SID envelope always peaks at
-full volume, so a drum's loudness is its decay) in a rag's boom-chick:
-kick on 1 and 3, snare on 2 and 4, hi-hat on the off-beat eighths.
+- Endings: each piece ends on a cadence, its last bar the downbeat's
+  chord held (`Piece(hold_end=True)`): The Entertainer at bar 36 (the A
+  strain's C), Nachtmusik at bar 18 (back in G), the Toccata at bar 30
+  (its D minor end before the fugue; first bar 12); Maple Leaf Rag gets
+  a bar of its A-flat chord after bar 32.
+- Voices that depend on their neighbour (ring modulation, sync) sound off
+  key in full chords: the pieces use GLOCK and LEAD instead. The organ
+  has a slow pulse sweep and slight vibrato.
+- Drums: KICK2, SNARE2, HAT2 (decays 7, 6, 3; a SID envelope always
+  peaks at full volume, so a drum's loudness is its decay) in a rag's
+  boom-chick: kick on 1 and 3, snare on 2 and 4, hi-hat on the off-beat
+  eighths.

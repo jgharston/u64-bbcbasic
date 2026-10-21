@@ -28,7 +28,7 @@ from the ROM image in Matt Godbolt's
 [jsbeeb](https://github.com/mattgodbolt/jsbeeb) (`public/roms/os.rom`),
 unchanged. Same status as the interpreter: not covered by this
 repository's GPL-3.0 licence, no formal open licence, included in good
-faith for non-commercial hobby use (owner decision 2026-10-07). Rights
+faith for non-commercial hobby use. Rights
 holders who object are asked to open an issue; `*FONT LOAD` works without
 it.
 

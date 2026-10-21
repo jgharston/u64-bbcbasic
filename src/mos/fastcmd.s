@@ -2,7 +2,7 @@
 ;
 ; U64 BBC BASIC -- the RAM fast path for the BASIC V graphics commands
 ; (an image, assembled twice by fastpath.s and copied below HIMEM in the
-; graphics modes; owner, 2026-10-16, PLAN.md 27 item 1)
+; graphics modes; docs/DESIGN_GRAPHICS.md section 11)
 ;
 ; On CLIV while a graphics mode is on. *POINT, *LINE, *RECTANGLE [FILL],
 ; *CIRCLE [FILL] and *ELLIPSE [FILL] cost about 2 ms through the normal

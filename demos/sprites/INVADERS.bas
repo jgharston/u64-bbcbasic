@@ -177,6 +177,7 @@
 2210 REM The edges are the outer columns still standing. A march note too.
 2220 DEF PROCstep
 2230   LOCAL L%,R%
+2235   IF AL%=0 THEN ENDPROC
 2240   L%=0:REPEAT IF C%(L%)=0 THEN L%=L%+1
 2250   UNTIL L%>7 OR C%(L%)>0
 2260   R%=7:REPEAT IF C%(R%)=0 THEN R%=R%-1

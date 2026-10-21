@@ -1,6 +1,9 @@
-# Design: network (Phase 5)
+# Design: network
 
-Status: decided 2026-10-09 (section 6).
+How U64 BBC BASIC uses the Ultimate's network: sockets as file channels,
+HTTP requests through the MOS's own HTTP/1.0 client, JSON through the
+firmware's HTTP target, and the U64TEXT demo. The commands are in
+`*HELP NET` and `*HELP JSON`.
 
 ## 1. What the Ultimate offers
 
@@ -14,257 +17,150 @@ library's `ultimate_network_lib`, UCILIB_MANUAL.md section 13):
 | `$08` UDP "connect" `host`, `port` | a socket id for datagrams to/from that host |
 | `$09` close, `$10` read up to n bytes, `$11` write | on a socket id |
 
-Client sockets only: the listener commands are not in current firmware,
-so the C64 cannot be a server. Reads do not block: they return what has
-arrived (0 bytes: nothing yet; an error status: the connection ended).
-Data is passed as it is (no PETSCII conversion), which suits BBC BASIC's
-ASCII.
+Client sockets only: the firmware has no listener commands, so the C64
+cannot be a server. Reads do not block: they return what has arrived (0
+bytes: nothing yet; an error status: the connection ended). Data is
+passed as it is (no PETSCII conversion), which suits BBC BASIC's ASCII.
 
-## 2. Proposal: sockets as files
+The firmware's HTTP target (`$06`, firmware 3.15+; ultimate-uci-oscar64
+section 19) fetches a URL itself and parses JSON. Its limits (measured
+on firmware 3.15a, section 6) make it the route for JSON only.
 
-On a BBC Micro, network filing systems (Econet, later the Master's
-TCP/IP ROMs) made remote data look like files. Here the same:
+## 2. Sockets as files
+
+On a BBC Micro, network filing systems (Econet, the Master's TCP/IP
+ROMs) made remote data look like files. Here the same (`netchan.s`;
+hooks in `fs.s`, `ch_open` bit 1):
 
 - `OPENUP "TCP:host:port"` opens a TCP connection as a channel: `BPUT#`
-  sends, `BGET#` receives (waits until a byte arrives; ESCAPE stops the
-  wait), `EOF#` is TRUE when the other side has closed and everything is
-  read, `EXT#` = bytes waiting (so a program can poll without waiting),
-  `CLOSE#` closes. `OPENIN` the same, read-only.
+  sends (a line goes out at its CR or LF), `BGET#` receives (waits until
+  a byte arrives; ESCAPE stops the wait), `EOF#` is TRUE when the other
+  side has closed and everything is read, `EXT#` = bytes waiting (so a
+  program can poll without waiting), `CLOSE#` closes. `OPENIN` the same,
+  read-only.
 - `OPENUP "UDP:host:port"`: datagrams; `BPUT#` collects bytes, `PTR#c=0`
-  sends them as one datagram (or CLOSE#); `BGET#` reads the current
+  sends them as one datagram (or `CLOSE#`); `BGET#` reads the current
   datagram.
-- `OPENIN "http://host/path"` (and `HTTP:`): an HTTP/1.0 GET; the MOS
-  sends the request, skips the response headers, and the channel reads
-  the body. `EXT#` = Content-Length if given. Status other than 2xx:
-  the OPENIN gives 0 (as a missing file) and `*NET` shows the status.
-  HTTPS is not possible (no TLS in the firmware).
-- Strings: BBC BASIC has no `INPUT#` for lines from an ASCII stream (it
-  reads its own format), so a MOS helper: `*NET` ... or a small library
-  `FNline(c)` in the demos reading to LF.
+- `OPENIN "http://host/path"`: a GET through the MOS's HTTP client
+  (section 4), the reply in the REU's 16K buffer, read like a file.
+- HTTPS is not possible: the firmware has no TLS.
 
-Commands:
+**Buffers.** Reading one byte per UCI command would be slow. Each
+network channel has a 256-byte receive buffer, filled by one read
+command when empty, and a send buffer; they live in REU bank 0
+(`$3100-$34FF`), moved a byte at a time by DMA (a 1-byte DMA is a few
+register writes); the read itself goes UCI -> MOSBUF -> REU. Writes are
+sent when 256 bytes are full, at a CR or LF, at `PTR#` = 0 or at
+`CLOSE#`, so a line goes out as one packet.
 
-| Command | |
-|---|---|
-| `*NET` | IP address, MAC, the open sockets |
-| `*NET GET <url> <file>` | download to a file (also /REU), with progress |
-| `*NET TIME [server]` | the clock from an NTP server (UDP), as UBoot64's sync |
-| `*NET RANDOM` | a seed from the internet for RND (PLAN.md section 21) |
+**Channels.** The filing system has two channels (`&11`, `&12`), shared
+by the Ultimate's files, the REU RAM disk (bit 0 of `ch_open`) and
+sockets (bit 1): at most two open files and sockets together (more would
+need 12 bytes of resident RAM per channel, and that page is full).
 
-## 3. Buffers
+## 3. Commands
 
-Bytes come from the firmware in blocks; reading one byte per UCI command
-would be slow (a command per byte). Each network channel gets a
-256-byte receive buffer, filled by one read command when empty. RAM is
-scarce (`&0800-&1CFF` is MOSBUF and the sound engine): the buffers live
-in the REU (bank 0, `$3100-$32FF` for two channels), copied by DMA a
-byte at a time (cheap: a DMA of 1 byte is a few register writes); the
-read itself goes UCI -> MOSBUF -> REU. Writes are collected the same way
-and sent when 256 bytes are full, on `PTR#` = 0 / a CR / CLOSE#, so a
-line goes out as one packet.
+- `*NET`: IP address, netmask, gateway, MAC address.
+- `*NET GET|POST|PUT|DELETE <url> [body] [file]`, `*NET HEADER`: HTTP
+  requests (section 4).
+- `*NET TIME [server]`: switches on the Ultimate's own SNTP client through
+  "load config" (no NTP code in the MOS).
+- `*NET RANDOM`: the drand beacon (JSON), 40 bits into RND's seed
+  `&0D-&11`.
+- `*JSON GET <url>`, `*JSON <path>`, `*JSON NEW`, `*JSON SET`, `*JSON POST`,
+  OSWORD &70, and the BASIC library `demos/net/JSONLIB` (lines 30000+:
+  BBC BASIC line numbers end at 32767) with `FNjson(path$)`,
+  `FNjsonnum(path$)`, `FNjsoncount(path$)` (section 5).
 
-Without an REU: one 256-byte buffer below HIMEM? Or simply one UCI
-command per byte (slow but correct). Proposal: per byte without REU.
+The code is in cartridge bank 7 (`netbank.s`: everything inside `.local
+net`, with its own copies of the helpers, `bankhelp.s`, and of the UCI
+driver, because bank 2's driver reads payloads from the mapped bank).
 
-## 4. Channels
+## 4. The MOS's HTTP/1.0 client
 
-The filing system has two channels (`&11`, `&12`), shared by the
-Ultimate's files and the REU RAM disk (bit 0 of `ch_open`). Sockets
-would use the same two (bit 1: network), so at most two of all open
-files and sockets at a time; more needs RAM in the resident page (12
-bytes per channel), which is full. Proposal: keep two.
-
-## 5. Decisions needed (owner)
-
-1. Sockets as file channels (`OPENUP "TCP:host:port"`, BGET#/BPUT#) as
-   proposed, or only `*NET` commands and OSWORD calls?
-   Recommended: as files (BBC style, no new syntax).
-2. HTTP built in (`OPENIN "http://..."`, `*NET GET`) or left to
-   programs (a TCP channel and a BASIC library)?
-   Recommended: built in for GET (it is what most programs want).
-3. Which extras first: `*NET TIME`, `*NET RANDOM`, `*NET GET`?
-   Recommended: `*NET` and `*NET GET` first, then TIME, then RANDOM.
-4. Demo: a small BASIC program that reads a web page or a text API
-   (weather, a quote, the ISS position) and shows it in MODE 7.
-
-## 6. Decisions (owner, 2026-10-09)
-
-| Question | Decision |
-|---|---|
-| Programming model | Sockets as file channels: `OPENUP "TCP:host:port"`, `OPENUP "UDP:host:port"`, BGET#/BPUT#/EOF#/EXT#/CLOSE# |
-| HTTP | Built in for GET: `OPENIN "http://..."`, `*NET GET <url> <file>`; no HTTPS |
-| Extras | All four: `*NET` and `*NET GET` first, `*NET RANDOM`, `*NET TIME`, and a network demo program |
-| Receive buffers | In the REU (bank 0), one UCI read per 256 bytes; without an REU one UCI read per byte |
-| JSON (owner, later) | Through the firmware's HTTP target ($06, firmware 3.15+; ultimate-uci-oscar64 section 19): `*JSON GET <url>` fetches and keeps the parsed reply, `*JSON <path>` prints a value (paths as `user/name`, `list%2/id`); programs use an OSWORD (path in, value out in a DIM'd block) wrapped in a small BASIC library: `FNjson(path$)`, `FNjsonnum`, `FNjsoncount` |
-| HTTP route (owner, later) | `*NET GET` and `OPENIN "http://..."` also go through the firmware's HTTP target (raw exchange), not the MOS over TCP; the library's HTTP functions are untested on hardware: results go back to the library repository (manual section 20) |
-
-## 7. Demo: a widgets app (owner, 2026-10-09)
-
-Proposal: **U64TEXT**, a Ceefax-style dashboard in MODE 7 (teletext
-colours, mosaic graphics, double height), page numbers as on BBC
-Ceefax, a carousel mode that cycles the pages, refresh every few
-minutes. Sources checked 2026-10-09 (plain HTTP, no key):
-
-| Page | Source | Over HTTP |
-|---|---|---|
-| 100 index, clock | the Ultimate's clock (OSWORD 14) | - |
-| 101 weather | Open-Meteo `http://api.open-meteo.com/v1/forecast?latitude=..&longitude=..&current=..&daily=..` (JSON, ~0.5 KB); the place from `http://ip-api.com/json/` (city, lat, lon from the IP) unless set | yes |
-| 102 news | CNN `http://rss.cnn.com/rss/edition.rss` (RSS/XML, 130 KB: headlines scanned from `<title>` in the stream, not JSON); the JSON news APIs (Hacker News, Guardian, NOS, BBC) are HTTPS only | yes (RSS) |
-| 103 idreamtin8bits.com | `https://www.idreamtin8bits.com/api/c64-feed.json` (blogs: title, slug, date, body; 450 KB with the bodies) | no: Amplify/CloudFront redirects HTTP to HTTPS; bbs.idreamtin8bits.com has no port 80 |
-| 104 ISS | `http://api.open-notify.org/iss-now.json`, a world map in mosaics | yes |
-
-Unknown: whether the firmware's HTTP target can do HTTPS (to test on
-the U64 first; it would open the blog feed and the JSON news APIs).
-
-Decided (owner, 2026-10-09): Ceefax style (U64TEXT, MODE 7); news from
-CNN's RSS over HTTP (headlines from `<title>`); the blog through a slim
-plain-HTTP mirror on the BBS server (bbs.idreamtin8bits.com:
-`u64-feed.json`, the latest posts' title, date and a short summary,
-refreshed from c64-feed.json by a cron job; work in the
-idreamtin8bits-bbs project) unless the firmware turns out to do HTTPS.
-
-Weather location (owner, 2026-10-09): configurable by the user. A
-settings page (199): type a place name, U64TEXT asks Open-Meteo's
-geocoding (`http://geocoding-api.open-meteo.com/v1/search?name=..&count=5`,
-plain HTTP, JSON: name, country, admin1, latitude, longitude, timezone)
-and lists the matches to choose from (several towns share a name), or
-enter latitude and longitude directly; "auto" uses the IP's place
-(ip-api.com). The choice (name, latitude, longitude, timezone, units)
-is saved in a settings file next to the program (`U64TEXT.CFG`) and
-read at start-up.
-
-Revision (owner, 2026-10-10): one hundred per section, articles as
-pages with Ceefax subpages:
-
-| Page | Contents |
-|---|---|
-| 100 | index |
-| 200, 201 | weather; the weather's place (a name: Open-Meteo geocoding over TCP; AUTO: ip-api.com) |
-| 300, 301-305 | the blog's latest posts; a post: date, title and its whole text in subpages, from `http://bbs.idreamtin8bits.com/u64-feed/<slug>.txt` (owner, 2026-10-10: the BBS mirror also writes each post's text, wrapped at 38 columns, ASCII, at most 400 lines; read over TCP into the REU, &50000 + post * &4000) |
-| 400, 401-410 | Ars Technica's headlines (RSS over TCP); an article: the feed's text (`content:encoded`, the start of the article), HTML tags and entities removed, UTF-8 quotes and dashes as ASCII, word-wrapped into 38-column lines kept in the REU (`*SRWRITE`, &40000 + article * &1000 + line * 40, at most 56 lines), 14 lines a subpage: cursor right/left |
-| 500 | the ISS: a Natural Earth land map (public domain; `demos/net/mkworld.py` makes the DATA) in teletext mosaics, 36 x 16 cells of 10 x 10 degrees (2 x 3 blocks: 72 x 48 points); hold graphics (158) keep the map unbroken where a colour code takes a cell; the ISS a red block, the cells it was in a yellow trail (the last 12); the page reloads every 10 s |
-
-SPACE goes to the next section, inside the blog and the news to the
-next post or article. While a page loads, the bottom row says so and
-counts the kilobytes read (the TCP readers); `*JSON GET` is one call,
-so there only the line shows. The program is 19.9 KB (MODE 7 leaves
-24.3 KB from PAGE to HIMEM): the indentation is dropped when it is
-tokenised (`tools/bbctok.py`, as the VS Code extension does), and the
-comments are short; this section has the details.
-
-## 8. Findings on the U64 (firmware 3.15a, 2026-10-10)
-
-- The HTTP target has no TLS (plain sockets in `http_request.cc`): https
-  URLs cannot work; the blog needs the plain-HTTP mirror.
-- A reply's body is collected in a 16 KB buffer; more is dropped
-  ("buffer full"). Chunked replies are decoded by the firmware.
-- After a raw exchange (`$32`) the status is empty, also for a 404: the
-  library manual's "the status holds the server's response line" is not
-  what the firmware does. `*NET GET` cannot tell an error page from a
-  reply. The JSON exchange (`$31`) reports errors (a non-JSON reply:
-  "400 NO VALID JSON").
-- A query for a path that is not there: "400 bad format: element ...
-  not found" (the manual says 404).
-- JSON numbers are read with `strtol` (`software/api/json.cc`): the
-  decimals are dropped (12.7 -> 12, 52.09 -> 52) and `null` gives 0.
-  Programs that need decimals read the reply as text (`OPENIN
-  "http://..."`); Open-Meteo's forecast also answers as CSV
-  (`&format=csv`), its geocoding only as JSON.
-- A JSON query for an object or array (`*JSON blogs`) answers with its
-  type and count and then may stream without end (seen on the 3.3 KB
-  blog feed: the interface stays in data-available state; 14 KB read
-  without an end). U64TEXT hung there. `json_query` reads the type and
-  count, then aborts the command (CTRL bit 2) and waits for the
-  interface to be idle; `uci_finish`'s drain stops on ESCAPE
-  (2026-10-10).
-- Header create, raw and JSON exchange, body query and the frees work as
-  the library describes otherwise. To be reported to ultimate-uci-oscar64
-  (manual section 19 and the test table, section 20).
-
-## 9. As built (2026-10-10)
-
-Cartridge bank 7 (`netbank.s`: everything inside `.local net`, with its
-own copies of the helpers, `bankhelp.s`, and of the UCI driver, because
-bank 2's read payloads from the mapped bank); the help moved to banks
-8+.
-
-- `*NET` (address, netmask, gateway), `*NET GET <url> <file>`, `*NET
-  TIME [server]` (switches on the Ultimate's own SNTP client through
-  "load config"; no NTP code in the MOS), `*NET RANDOM` (drand beacon,
-  JSON, 40 bits into RND's seed `&0D-&11`).
-- `*JSON GET <url>`, `*JSON <path>`, OSWORD &70, `demos/net/JSONLIB`
-  (lines 30000+: BBC BASIC line numbers end at 32767).
-- Channels (`netchan.s`; hooks in `fs.s`, `ch_open` bit 1): `OPENIN
-  "http://..."` (the reply in the REU buffer, read as a file),
-  `OPENUP "TCP:host:port"` / `"UDP:host:port"`; receive and send
-  buffers in REU bank 0 (`$3100`, `$3300`); a TCP line goes out at CR or
-  LF, `PTR#c=0` sends a UDP datagram. Tested: an HTTP request by hand
-  over TCP to example.com, an NTP query over UDP.
-- REU bank 0 now: `$3100-$34FF` socket buffers, `$4000-$7FFF` the HTTP
-  reply buffer.
-- A BBC BASIC FOR loop runs at least once: `FOR I%=1 TO LEN A$` with an
-  empty A$ sends `ASC ""` (-1, a byte 255) -- the first TCP test
-  program's mistake, worth a line in the manual.
-
-U64TEXT on the U64 (2026-10-10): CNN's `edition.rss` still answers but
-stopped in 2023 (the newest items are from April 2023); the news page
-uses Ars Technica's feed instead (`http://feeds.arstechnica.com/arstechnica/index`,
-plain HTTP, current). Both feeds are larger than 16 KB: the firmware's
-HTTP target then returns an empty body (not the first 16 KB), so the
-page reads the feed over a TCP channel with a hand-written HTTP/1.0
-request, taking the titles as they stream in.
-
-More firmware 3.15a findings with U64TEXT (2026-10-10):
-
-- Raw exchange replies longer than one command-interface block (896
-  bytes) were unreliable: the geocoding reply (1.7 KB) hung the C64 in
-  one try and gave "400 BAD COMMAND" for the exchange in another (from
-  BASIC poking the registers); replies over 16 KB come back empty. Small
-  replies (weather CSV, ISS, example.com) work. U64TEXT reads anything
-  larger over a TCP channel with a hand-written HTTP/1.0 request. The
-  MOS now checks ESCAPE in its reply loop and aborts the command after
-  16 KB, so such a reply cannot hang the machine.
-- The 16 header slots can run out ("507 NO HEADER SLOT"; they survive a
-  reset of the C64 alone): start-up frees all handles (FREE_ALL), and a
-  507 on a header create is answered with FREE_ALL and a second try.
-- A bug of the MOS on the way: nc_open kept the channel index in the
-  byte where http_fetch keeps the header handle; OPENIN "http://..." then
-  used the handle as the channel (it worked while the handle was 0).
-
-## 10. The MOS's own HTTP/1.0 client (1.0.0 item 7, 2026-10-17)
-
-Measured again on 2026-10-17: the HTTP target's raw exchange (`$32`)
-gives no status at all, neither before nor after the first packet's
-acknowledgement (a 404 page arrives like any reply); the JSON exchange
-(`$31`) reports "200 OK" for a valid JSON reply and "400 NO VALID JSON"
-for anything else, so a 404 or 500 cannot be seen there either. With the
-findings of section 8 (16 KB limit, unreliable long replies) the owner
-chose that the MOS speak HTTP/1.0 itself over the network target's TCP
-socket (`nethttp.s`, bank 7):
+`nethttp.s` speaks HTTP/1.0 over the network target's TCP socket:
 
 - Request: `VERB path HTTP/1.0`, `Host:`, `Connection: close`, the
   `*NET HEADER` lines, `Content-Length:` with a body, an empty line, the
   body (a "string" from the command line or a file up to 64K, sent a page
   at a time). HTTP/1.0 keeps servers from sending chunked replies.
 - Reply: `NET_READ` of 254 bytes at a time into MOSBUF (the count and the
-  data then fill it exactly: 255 wrote one byte into &0900, the sound
-  engine; `nc_fill` had the same bug, fixed). The status line and the
-  headers are parsed byte by byte (`Content-Length` honoured, else the
-  end is the server closing); 30 s without data: error 223 "Timeout".
-- Sinks: a file (streamed through `rx_wtail`, no size limit: 60 KB took
-  6 s), the screen, or the 16K REU buffer (`OPENIN "http://..."`).
+  data then fill it exactly). The status line and the headers are parsed
+  byte by byte (`Content-Length` honoured, else the end is the server
+  closing); 30 s without data: error 223 "Timeout".
+- Sinks: a file (streamed, no size limit: 60 KB in about 6 s), the
+  screen, or the 16K REU buffer (`OPENIN "http://..."`).
 - A status of 400 or more stops at the headers and raises error 223
-  "HTTP 404 Not Found" (220 is the MOS's "Syntax"); OSBYTE &65 returns
+  ("HTTP 404 Not Found"; 220 is the MOS's "Syntax"); OSBYTE &65 returns
   the last code. The code, the status line, a socket an error left open
   (closed by the next request) and the header lines live in REU bank 0
   `$3C80-$3FFF` (docs/ARCHITECTURE.md 7).
 - State during a request: `&06E0-&06FF`, the top of BASIC's string
   buffer (no RAM is free elsewhere); a command line in page 6 must end
   before it ("Line too long").
-- `*JSON GET`/`POST` stay on the firmware's HTTP target (its JSON
-  parser); `*JSON NEW`/`SET` build the request body there
-  (`jsonbody.s`), and `*NET HEADER`'s lines are added to its header
-  handle (HEADER_ADD `$13`).
-- `*NET` shows the MAC address (network command `$04`); `*STATUS SID`
-  lists control `$28` item 1 (UltiSIDs first on the U64, kinds 2/3, then
-  the sockets, 4/5; bit 7 present; firmware `control_target.cc`).
+
+## 5. JSON
+
+`*JSON GET` and `*JSON POST` use the firmware's HTTP target and its JSON
+parser; `*JSON NEW`/`SET` build the request body there (`jsonbody.s`),
+and `*NET HEADER`'s lines are added to its header handle (HEADER_ADD
+`$13`). A path goes down the reply with `/` and picks an array's element
+with `%n` (`user/name`, `list%2/id`). Programs use OSWORD &70: path in,
+value out in a DIM'd block, with the type and an object's or array's
+count.
+
+- A query for an object or array answers with its type and count and
+  can then stream without end; the MOS reads the type and count, then
+  aborts the command (CTRL bit 2) and waits for the interface to be idle;
+  `uci_finish`'s drain stops on ESCAPE.
+- The 16 header slots can run out ("507 NO HEADER SLOT"; they survive a
+  reset of the C64 alone): start-up frees all handles (FREE_ALL), and a
+  507 on a header create is answered with FREE_ALL and a second try.
+
+## 6. Firmware 3.15a findings
+
+Why plain HTTP goes through the MOS's own client, and what programs
+should know:
+
+- The HTTP target has no TLS (plain sockets in `http_request.cc`): https
+  URLs cannot work.
+- A reply's body is collected in a 16 KB buffer; a longer reply comes
+  back empty (not its first 16 KB). Raw exchange (`$32`) replies longer
+  than one command-interface block (896 bytes) are unreliable (a hang or
+  "400 BAD COMMAND").
+- The raw exchange gives no status at all, neither before nor after the
+  first packet's acknowledgement: a 404 page arrives like any reply. The
+  JSON exchange (`$31`) reports "200 OK" for a valid JSON reply and "400
+  NO VALID JSON" for anything else, so a 404 or 500 cannot be seen there
+  either.
+- A query for a path that is not there: "400 bad format: element ... not
+  found".
+- JSON numbers are read with `strtol` (`software/api/json.cc`): the
+  decimals are dropped (12.7 -> 12, 52.09 -> 52) and `null` gives 0.
+  Programs that need decimals read the reply as text (`OPENIN
+  "http://..."`); Open-Meteo's forecast also answers as CSV
+  (`&format=csv`), its geocoding only as JSON.
+- A BBC BASIC FOR loop runs at least once: `FOR I%=1 TO LEN A$` with an
+  empty A$ sends `ASC ""` (-1, a byte 255) over a socket.
+
+## 7. Demo: U64TEXT
+
+`demos/net/U64TEXT.bas`: a Ceefax-style service in MODE 7 (teletext
+colours, mosaic graphics, double height), one hundred per section,
+articles as pages with Ceefax subpages:
+
+| Page | Contents |
+|---|---|
+| 100 | index |
+| 200, 201 | weather from Open-Meteo (`http://api.open-meteo.com/v1/forecast?...`, CSV); the weather's place: a name through Open-Meteo's geocoding (`http://geocoding-api.open-meteo.com/v1/search?name=..&count=5`, JSON over TCP; several towns share a name: a list to choose from), or AUTO from the IP (`http://ip-api.com/json/`); saved in `U64TEXT.CFG` next to the program |
+| 300, 301-305 | the idreamtin8bits blog's latest posts from the plain-HTTP mirror on the BBS server (the blog itself is https only): the list from `http://bbs.idreamtin8bits.com/u64-feed.json` (`*JSON GET`), a post's date, title and whole text in subpages from `http://bbs.idreamtin8bits.com/u64-feed/<slug>.txt` (each post's text wrapped at 38 columns, ASCII, at most 400 lines; read over TCP into the REU, &50000 + post * &4000) |
+| 400, 401-410 | Ars Technica's headlines (`http://feeds.arstechnica.com/arstechnica/index`, RSS over a TCP channel with a hand-written HTTP/1.0 request, titles taken as they stream in: the feed is larger than 16 KB); an article: the feed's text (`content:encoded`, the start of the article), HTML tags and entities removed, UTF-8 quotes and dashes as ASCII, word-wrapped into 38-column lines kept in the REU (`*SRWRITE`, &40000 + article * &1000 + line * 40, at most 56 lines), 14 lines a subpage: cursor right/left |
+| 500 | the ISS (`http://api.open-notify.org/iss-now.json`): a Natural Earth land map (public domain; `demos/net/mkworld.py` makes the DATA) in teletext mosaics, 36 x 16 cells of 10 x 10 degrees (2 x 3 blocks: 72 x 48 points); hold graphics (158) keep the map unbroken where a colour code takes a cell; the ISS a red block, the cells it was in a yellow trail (the last 12); the page reloads every 10 s |
+
+SPACE goes to the next section, inside the blog and the news to the next
+post or article. While a page loads, the bottom row says so and counts
+the kilobytes read (the TCP readers); `*JSON GET` is one call, so there
+only the line shows. The program is 19.9 KB (MODE 7 leaves 24.3 KB from
+PAGE to HIMEM): the indentation is dropped when it is tokenised
+(`tools/bbctok.py`), and the comments are short; this section has the
+details.

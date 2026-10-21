@@ -5,7 +5,7 @@
 ; As the BBC Master's sideways RAM commands (*SRWRITE, *SRREAD, OSWORD
 ; &42), with the REU in the place of sideways RAM: a program keeps its
 ; code in BASIC's memory and megabytes of data (tables, levels, text,
-; pictures) in the REU, copied by DMA (PLAN.md section 23).
+; pictures) in the REU, copied by DMA.
 ;
 ; REU addresses are 24 bits. Banks 0-3 ($000000-$03FFFF) are the MOS's
 ; (fonts, palettes, instruments, songs); programs use $040000 up to the
