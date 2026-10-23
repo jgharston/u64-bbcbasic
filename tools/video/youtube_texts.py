@@ -27,7 +27,7 @@ TAGS = ("Commodore 64, C64, BBC BASIC, BBC Micro, Acorn, Ultimate 64, C64 Ultima
 COMMON = ("*U64 BBC BASIC* is BBC BASIC 3.10 for the Commodore 64 with an Ultimate 64 or C64 Ultimate: the "
           "original interpreter, unchanged, with a new BBC-style operating system for the C64 and the "
           "Ultimate. Everything on the C64 in this video was captured from the video and audio streams of "
-          "an Ultimate 64 Elite, on real hardware.")
+          "an Ultimate 64 Elite II, on real hardware.")
 BASE_THANKS = ["Sophie Wilson and Acorn Computers, for BBC BASIC",
                "Ivo van Poorten, for the annotated BBC BASIC source"]
 ULT = "Gideon Zweijtzer, for the Ultimate devices"

@@ -43,7 +43,7 @@ source is described below.
 
 ## Videos
 
-Five videos, all captured from an Ultimate 64 Elite's video and audio
+Five videos, all captured from an Ultimate 64 Elite II's video and audio
 streams ([playlist](https://www.youtube.com/playlist?list=PLWExM0Ai4nOY)):
 
 1. [Introduction](https://www.youtube.com/watch?v=BChxLcacPqM): why it
