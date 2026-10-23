@@ -51,7 +51,7 @@ def main(version):
         shutil.rmtree(out)
     os.makedirs(out)
     crts = [os.path.join(build, "u64bbc-%s.%s" % (k, e)) for k in ("tmb", "ef") for e in ("crt", "cfg")]
-    pdf = os.path.join(build, "U64_BBC_BASIC_MANUAL.pdf")
+    pdf = os.path.join(ROOT, "docs", "manual", "U64_BBC_BASIC_MANUAL.pdf")
     for f in crts + [pdf]:
         if not os.path.exists(f):
             sys.exit("missing %s: run make release" % f)

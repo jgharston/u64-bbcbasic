@@ -7,7 +7,7 @@
 # make deploy     upload the cartridges to the Ultimates in .env
 # make vscode     build the VS Code extension (build/u64-bbcbasic.vsix)
 # make vscode-test  extension tests (offline, device, inside VS Code)
-# make docs       the user manual as PDF (build/U64_BBC_BASIC_MANUAL.pdf)
+# make docs       the user manual as PDF (docs/manual/U64_BBC_BASIC_MANUAL.pdf, in git)
 # make release    the release ZIP and .vsix (build/u64-bbcbasic-<version>.*)
 
 -include .env
@@ -133,11 +133,12 @@ $(BUILD)/manual.stamp: $(MANUAL_SRC) src/help/help.txt tools/genmanual.py
 	@mkdir -p $(BUILD) && touch $@
 manual: $(BUILD)/manual.stamp
 
-# The manual as one PDF (pandoc, xelatex; DejaVu for the arrows and £)
+# The manual as one PDF (pandoc, xelatex; DejaVu for the arrows and £),
+# committed so it is in the repository and the release
 MANUAL_MD := $(sort $(wildcard docs/manual/[0-9]*.md))
-docs: $(BUILD)/U64_BBC_BASIC_MANUAL.pdf
+docs: docs/manual/U64_BBC_BASIC_MANUAL.pdf
 
-$(BUILD)/U64_BBC_BASIC_MANUAL.pdf: $(BUILD)/manual.stamp $(MANUAL_MD)
+docs/manual/U64_BBC_BASIC_MANUAL.pdf: $(BUILD)/manual.stamp $(MANUAL_MD)
 	@which pandoc >/dev/null 2>&1 || \
 		(echo "pandoc not found -- install with: sudo apt install pandoc texlive-xetex" && false)
 	pandoc --pdf-engine=xelatex --toc -V mainfont="DejaVu Serif" -V monofont="DejaVu Sans Mono" \

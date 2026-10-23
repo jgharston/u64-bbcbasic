@@ -25,7 +25,8 @@ unchanged, running at the Ultimate's turbo speed. Around it:
 - **Editing:** a line editor with history and BBC copy editing, and a
   built-in help system (`*HELP`) covering every keyword and command.
 
-The **user manual** is [docs/manual](docs/manual/README.md); the changes
+The **user manual** is [docs/manual](docs/manual/README.md), also as
+[one PDF](docs/manual/U64_BBC_BASIC_MANUAL.pdf); the changes
 per version are in [CHANGELOG.md](CHANGELOG.md).
 
 **Compatibility.** The aim is that BBC BASIC *programs* run: the

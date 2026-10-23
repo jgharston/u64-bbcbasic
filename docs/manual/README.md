@@ -6,6 +6,9 @@ keyword and command) are the machine's own `*HELP` texts, put in by
 `tools/genmanual.py` (`make manual`): edit the chapters in `src/` and
 `src/help/help.txt`, not the generated files here.
 
+The whole manual as one PDF: [U64_BBC_BASIC_MANUAL.pdf](U64_BBC_BASIC_MANUAL.pdf)
+(`make docs`).
+
 | Chapter | Contents |
 |---|---|
 | [1. Introduction](01_INTRODUCTION.md) | what it is; compared with a BBC Micro; credits |
