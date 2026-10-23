@@ -224,5 +224,6 @@ release: all docs vscode
 vscode-test:
 	cd vscode && npm test && U64_HOST=$(ULTIP1) npm run test:device && U64_HOST=$(ULTIP1) npm run test:vscode
 
+# build/video (the video takes and material: not reproducible) is kept
 clean:
-	rm -rf $(BUILD)
+	@if [ -d $(BUILD) ]; then find $(BUILD) -mindepth 1 -maxdepth 1 ! -name video -exec rm -rf {} +; fi
