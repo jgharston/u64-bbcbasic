@@ -90,11 +90,12 @@ disk info, echo; setting the IP address and the interface count.
 
 ## 4. Roadmap
 
-1. **Release 1.0.0:** a GitHub release with a ZIP (both `.crt` and
-   `.cfg`, all demos tokenised and as source, the manual as PDF, README,
-   licences) and the VS Code extension (`.vsix`); the repository, the
-   videos and their playlist go public with it; an announcement (a
-   Facebook post and an idreamtin8bits blog post).
+1. **Release 1.0.0 (done, 2026-10-23):** the
+   [GitHub release](https://github.com/xahmol/u64-bbcbasic/releases/tag/v1.0.0)
+   with the ZIP (`make release`) and the `.vsix`; the repository, the
+   videos and their playlist public; the
+   [blog post](https://idreamtin8bits.com/blogs/u64-bbcbasic-release) and
+   a Facebook post.
 2. **Videos (done):** five, one per group, in the
    [playlist](https://www.youtube.com/playlist?list=PLWExM0Ai4nOY):
    introduction, graphics, sound and music, files/Ultimate/network, the
