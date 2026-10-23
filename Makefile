@@ -7,6 +7,8 @@
 # make deploy     upload the cartridges to the Ultimates in .env
 # make vscode     build the VS Code extension (build/u64-bbcbasic.vsix)
 # make vscode-test  extension tests (offline, device, inside VS Code)
+# make docs       the user manual as PDF (build/U64_BBC_BASIC_MANUAL.pdf)
+# make release    the release ZIP and .vsix (build/u64-bbcbasic-<version>.*)
 
 -include .env
 
@@ -38,7 +40,11 @@ ULTPATH   = /Temp/
 CRTS      = $(BUILD)/$(NAME)-tmb.crt $(BUILD)/$(NAME)-ef.crt
 CFGS      = $(CRTS:.crt=.cfg)
 
-.PHONY: all clean compare-core e2e e2e-vice e2e-u64 vice deploy check-deploy checkcfg vscode vscode-test manual
+.PHONY: all clean compare-core e2e e2e-vice e2e-u64 vice deploy check-deploy checkcfg vscode vscode-test manual docs release
+
+# the version: the extension's package.json (the same as the banner, *STATUS
+# and CHANGELOG.md)
+VERSION  := $(shell sed -n 's/^  "version": "\(.*\)",/\1/p' vscode/package.json)
 
 all: $(CRTS) $(CFGS) $(BUILD)/manual.stamp
 
@@ -127,6 +133,17 @@ $(BUILD)/manual.stamp: $(MANUAL_SRC) src/help/help.txt tools/genmanual.py
 	@mkdir -p $(BUILD) && touch $@
 manual: $(BUILD)/manual.stamp
 
+# The manual as one PDF (pandoc, xelatex; DejaVu for the arrows and £)
+MANUAL_MD := $(sort $(wildcard docs/manual/[0-9]*.md))
+docs: $(BUILD)/U64_BBC_BASIC_MANUAL.pdf
+
+$(BUILD)/U64_BBC_BASIC_MANUAL.pdf: $(BUILD)/manual.stamp $(MANUAL_MD)
+	@which pandoc >/dev/null 2>&1 || \
+		(echo "pandoc not found -- install with: sudo apt install pandoc texlive-xetex" && false)
+	pandoc --pdf-engine=xelatex --toc -V mainfont="DejaVu Serif" -V monofont="DejaVu Sans Mono" \
+		-V geometry:a4paper,margin=2.2cm -V colorlinks=true \
+		-M title="U64 BBC BASIC $(VERSION)" -M subtitle="User manual" -o $@ $(MANUAL_MD)
+
 # --- Cartridges
 
 $(BUILD)/$(NAME)-ef.crt: $(BUILD)/mos-ef.bin $(BUILD)/basic.rom $(BUILD)/help.bin tools/mkcrt.py
@@ -197,6 +214,12 @@ endif
 
 vscode:
 	cd vscode && npm install --no-fund --no-audit && npm run package
+
+# --- Release: the ZIP (tools/mkrelease.py) and the .vsix, both versioned
+
+release: all docs vscode
+	$(PYTHON) tools/mkrelease.py $(VERSION)
+	cp $(BUILD)/u64-bbcbasic.vsix $(BUILD)/u64-bbcbasic-$(VERSION).vsix
 
 vscode-test:
 	cd vscode && npm test && U64_HOST=$(ULTIP1) npm run test:device && U64_HOST=$(ULTIP1) npm run test:vscode

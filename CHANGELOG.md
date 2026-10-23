@@ -3,7 +3,7 @@
 All notable changes to U64 BBC BASIC. Versions follow
 [semantic versioning](https://semver.org/).
 
-## [1.0.0] - 2026-10-21
+## [1.0.0] - 2026-10-23
 
 The first release: BBC BASIC 3.10 for the Ultimate 64 and C64 Ultimate as
 a cartridge, with a BBC-style MOS written for the C64 and the Ultimate.
