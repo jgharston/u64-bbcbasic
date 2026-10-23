@@ -35,7 +35,11 @@ PH = 1024
 RATE = 48000
 FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 FONTB = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
-LOGO = '/home/xahmol/git/idreamtin8bits-astro/src/assets/idi8b-logo-lowercase_large.png'
+# the idi8b logo, from the idreamtin8bits site's repository next to this one
+# (IDI8B_LOGO overrides)
+LOGO = os.environ.get('IDI8B_LOGO', os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'idreamtin8bits-astro',
+    'src', 'assets', 'idi8b-logo-lowercase_large.png'))
 LEAD, TAIL = 0.3, 0.7
 WHITE, GREY, DIM = (255, 255, 255), (200, 200, 200), (150, 150, 150)
 VOICE_CREDIT = 'Voice: Piper text-to-speech, voice "Alba" (CC BY 4.0)'

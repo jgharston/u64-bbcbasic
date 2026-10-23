@@ -15,7 +15,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCREEN_SHOT = os.path.join(REPO_ROOT, 'screenshots', 'preview-shot.png')
-FM_PREVIEW = '/home/xahmol/git/locifilemanager-v2/screenshots/social-preview.png'
+# the idi8b logo is cut from locifilemanager-v2's preview, a repository next
+# to this one (FM_PREVIEW overrides)
+FM_PREVIEW = os.environ.get('FM_PREVIEW', os.path.join(
+    REPO_ROOT, '..', 'locifilemanager-v2', 'screenshots', 'social-preview.png'))
 OUT_PATH = os.path.join(REPO_ROOT, 'screenshots', 'social-preview.png')
 FONT_PATH = '/usr/share/fonts/truetype/ubuntu/UbuntuMono[wght].ttf'
 

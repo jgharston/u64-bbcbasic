@@ -38,7 +38,11 @@ W, H, FPS = 1920, 1080, 50
 PH = 1024                       # picture height; the caption strip below
 FONT = '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
 FONTB = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
-LOGO = '/home/xahmol/git/idreamtin8bits-astro/src/assets/idi8b-logo-lowercase_large.png'
+# the idi8b logo, from the idreamtin8bits site's repository next to this one
+# (IDI8B_LOGO overrides)
+LOGO = os.environ.get('IDI8B_LOGO', os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'idreamtin8bits-astro',
+    'src', 'assets', 'idi8b-logo-lowercase_large.png'))
 LEAD, TAIL = 0.3, 0.7
 NARRATION = json.load(open(os.path.join(HERE, 'v1_narration.json')))
 

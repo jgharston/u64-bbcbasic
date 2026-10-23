@@ -32,6 +32,41 @@ faith for non-commercial hobby use. Rights
 holders who object are asked to open an issue; `*FONT LOAD` works without
 it.
 
+## The MOD player and the MODs (bank 10, `demos/audio`)
+
+The MOD player (`src/mos/modengine.s`, its tables in `src/mos/modtables/`)
+is a port to MADS of ModPlayer_16k by Freshness (6510nl),
+[CSDb release 131522](https://csdb.dk/release/?id=131522). The two
+ProTracker modules in `demos/audio` are "Forever Young" (`4ev.mod`),
+remixed by Slice in 1995, and "Wild Perspective" (`wildpersp.mod`) by
+Greg Tuby, 1996 (Amiga Music Workshop, Amiga Format). None of these has a
+formal licence; like the interpreter they are not covered by this
+repository's GPL-3.0 and are included in good faith, credited, for
+non-commercial hobby use. Rights holders who object are asked to open an
+issue.
+
+## Graphics programs by others (`demos/archbas`, `demos/showcase/SHOW2`)
+
+Eric Schraf's graphical BASIC programs (originals in QB64, shared on
+[youtube.com/@Schraf](https://youtube.com/@Schraf)) and Aurel Wizzard's
+Christmas tree, as converted for the Acorn Archimedes in
+[ArchBAS](https://github.com/xahmol/ArchBAS) and then to BBC BASIC 3.10.
+Each file names its original author. No formal licence; included in good
+faith, credited, for non-commercial hobby use. Rights holders who object
+are asked to open an issue.
+
+## Free material
+
+- The 4x6 font for modes with 4-pixel character cells (`src/fonts/4x6.bdf`): from the
+  misc-fixed fonts, contributed by Janne V. Kujala, public domain.
+- The sound effects (`demos/audio/*.WAV`): Juhani Junkala, CC0
+  (`demos/audio/CREDITS.md`).
+- The music demo's pieces (`demos/music`): public-domain music; five of
+  them start from Mutopia Project editions placed in the public domain by
+  their typesetters (`demos/music/arrange.py` lists them).
+- The classic programs (`demos/classics`): zlib licence, see
+  `demos/classics/LICENCE`.
+
 ## Everything else
 
 The MOS (`src/mos/`), help texts (`src/help/`), tools, tests and

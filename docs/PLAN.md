@@ -92,19 +92,14 @@ disk info, echo; setting the IP address and the interface count.
 
 1. **Release 1.0.0:** a GitHub release with a ZIP (both `.crt` and
    `.cfg`, all demos tokenised and as source, the manual as PDF, README,
-   licences) and the VS Code extension (`.vsix`); an announcement (a Facebook
-   post and an idreamtin8bits blog post). The repository stays private
-   until the owner decides.
-2. **Videos**, five, one per group: 1 introduction (start-up, the line
-   editor, BASIC 3.10, `*HELP`, VS Code); 2 graphics (BBC modes, Upic
-   Lite and full, GXR, sprites, `*MAP`, PETSCII); 3 sound and music
-   (SOUND and ENVELOPE on 8 SIDs, the song tracker, Ultimate Audio,
-   speech); 4 files, Ultimate and network (drives, `/REU`, `*BROWSE`, DFS
-   commands, `*NET`, `*JSON`, HTTP); 5 demos (the showcase, classics,
-   Schraf, the music demo, Invaders). Recorded from the VIC video stream
-   with scripted key presses and no REST probing during a take (it
-   disturbs the picture); the stream has no palette, so each scene's
-   palette is applied in post.
+   licences) and the VS Code extension (`.vsix`); the repository, the
+   videos and their playlist go public with it; an announcement (a
+   Facebook post and an idreamtin8bits blog post).
+2. **Videos (done):** five, one per group, in the
+   [playlist](https://www.youtube.com/playlist?list=PLWExM0Ai4nOY):
+   introduction, graphics, sound and music, files/Ultimate/network, the
+   demos. Recorded from the Ultimate's video and audio streams with
+   scripted key presses; how, in `docs/VIDEO_PLAN.md`.
 3. **After 1.0.0:** Heartbeat Soundtracker songs (`*HBPLAY`); the
    firmware functions above; bigger `*MAP` maps (over 30720 cells); a
    better random generator next to RND; the UCI driver moved into

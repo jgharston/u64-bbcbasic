@@ -34,6 +34,30 @@ statements. It is not a BBC Micro emulator: the memory map, the BBC
 hardware, the MOS internals and BBC machine code are not reproduced, so
 programs that poke the machine or call BBC machine code will not work.
 
+## Download
+
+The cartridge images, their `.cfg` files, the demos, the manual and the VS
+Code extension are in the
+[releases](https://github.com/xahmol/u64-bbcbasic/releases). Building from
+source is described below.
+
+## Videos
+
+Five videos, all captured from an Ultimate 64 Elite's video and audio
+streams ([playlist](https://www.youtube.com/playlist?list=PLWExM0Ai4nOY)):
+
+1. [Introduction](https://www.youtube.com/watch?v=BChxLcacPqM): why it
+   exists, typing and running BBC BASIC, speed, the line editor, `*HELP`,
+   VS Code
+2. [Graphics](https://www.youtube.com/watch?v=gWtzLSlktU4): the BBC
+   modes, Upic, teletext, sprites, the sprite editor, maps, PETSCII
+3. [Sound and music](https://www.youtube.com/watch?v=AHoB8xzAdME): BBC
+   `SOUND`, 24 SID voices, the song player, MODs and samples, speech
+4. [Files, the Ultimate and the network](https://www.youtube.com/watch?v=c20G7vHwpCI):
+   the file browser, the REU RAM disk, HTTP, a teletext service
+5. [The demos](https://www.youtube.com/watch?v=sZd4QJHff_s): the
+   showcase, Eric Schraf's programs, BBC BASIC classics
+
 ## Cartridges
 
 | File | Type | For |
@@ -151,10 +175,16 @@ and what comes next in [docs/PLAN.md](docs/PLAN.md).
   (`src/mos/modengine.s`; its tables in `src/mos/modtables/`).
 - Upic: Aleksi Eeben's renderer, the 48 MHz path by Christian Gleissner
   (through ultimate-uci-oscar64's Upic module).
-- Demos: Eric Schraf's graphics programs (`demos/archbas`); the classics'
-  own licences in `demos/classics`; music and sound effects in
-  `demos/audio` and the showcase: see
-  [demos/audio/CREDITS.md](demos/audio/CREDITS.md).
+- Demos: Eric Schraf's graphics programs and Aurel Wizzard's Christmas
+  tree (`demos/archbas`, via [ArchBAS](https://github.com/xahmol/ArchBAS));
+  the classics' own licences in `demos/classics`; MODs and sound effects
+  (Juhani Junkala, CC0): see [demos/audio/CREDITS.md](demos/audio/CREDITS.md);
+  the music demo's pieces are public domain (Mutopia Project editions).
+- Fonts: the BBC Micro's MOS 1.20 glyphs for `*FONT BBC` (from
+  [jsbeeb](https://github.com/mattgodbolt/jsbeeb)'s ROM image); the 4x6
+  font for modes with 4-pixel character cells, by Janne V. Kujala (misc-fixed, public
+  domain).
 - MOS, tools and tests: Xander Mol, GPL-3.0 (see `LICENSE`). The BBC BASIC
-  interpreter itself is not covered by this licence: see
+  interpreter, the BBC font, the MOD player, the MODs and the converted
+  graphics programs are not covered by this licence: see
   [NOTICE.md](NOTICE.md).

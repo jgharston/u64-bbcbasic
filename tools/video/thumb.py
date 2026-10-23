@@ -19,7 +19,11 @@ from frames import frames, palette_at, to_image  # noqa: E402
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 TAKES = os.path.join(ROOT, 'build', 'video', 'takes')
 FONTB = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
-LOGO = '/home/xahmol/git/idreamtin8bits-astro/src/assets/idi8b-logo-lowercase_large.png'
+# the idi8b logo, from the idreamtin8bits site's repository next to this one
+# (IDI8B_LOGO overrides)
+LOGO = os.environ.get('IDI8B_LOGO', os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'idreamtin8bits-astro',
+    'src', 'assets', 'idi8b-logo-lowercase_large.png'))
 TW, TH = 1280, 720
 
 
