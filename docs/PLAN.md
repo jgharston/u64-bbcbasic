@@ -92,8 +92,7 @@ disk info, echo; setting the IP address and the interface count.
 
 1. **Release 1.0.0:** a GitHub release with a ZIP (both `.crt` and
    `.cfg`, all demos tokenised and as source, the manual as PDF, README,
-   licences) and the VS Code extension (`.vsix`); a courtesy message to
-   Ivo van Poorten and J.G. Harston first; an announcement (a Facebook
+   licences) and the VS Code extension (`.vsix`); an announcement (a Facebook
    post and an idreamtin8bits blog post). The repository stays private
    until the owner decides.
 2. **Videos**, five, one per group: 1 introduction (start-up, the line
