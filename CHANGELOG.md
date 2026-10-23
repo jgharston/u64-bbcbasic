@@ -12,7 +12,7 @@ a cartridge, with a BBC-style MOS written for the C64 and the Ultimate.
 
 - BBC BASIC 3.10, the BBC Micro's BASIC, unchanged: built from Ivo van
   Poorten's annotated source and checked byte for byte against the
-  reference ROM. It runs at the Ultimate's turbo speed, 25 to 30 times a
+  reference ROM. It runs at the Ultimate's turbo speed, about 30 times a
   BBC Micro.
 - The BBC's MOS calls (OSWRCH, OSBYTE, OSWORD, OSCLI, OSFILE, OSFIND,
   OSBGET, OSBPUT, OSARGS) and RAM vectors, `*FX`, `*KEY`, `*EXEC`,
