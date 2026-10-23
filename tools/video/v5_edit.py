@@ -5,8 +5,8 @@
 The showcase take (show_record.py; palettes editlib.SHOW_SEGMENTS) in full
 at 1x with captions per part and its own sound (the SID song, then the
 MOD from SHOW6 on: two pieces, each at its own level); then a montage
-from v5, v5fern (v5_record.py) and v1bubble, sped up, under Ode to Joy
-from the v1teaser take.
+from v5, v5fern (v5_record.py) and v1bubble, sped up, with narration
+only (the programs are silent; owner's choice, 2026-10-23).
 """
 import os
 import sys
@@ -44,11 +44,8 @@ PARTS = [
 for s0, s1, cap, key in PARTS:
     v.u64('show', s0, s1, 1.0, cap, key)
 
-# the montage, under Ode to Joy (24 voices from 32 s into the piece)
+# the montage: narration only, as the programs are silent
 v.chapter('Schraf and the classics')
-TT = v.take('v1teaser')
-playing = TT.event('Playing')
-music_start = v.t
 T5 = v.take('v5')
 s = T5.scene
 v.u64('v5', s('field') + 1.0, s('field_end'), 10.0, 'Field Lines (Eric Schraf; ArchBAS by Xander Mol){speed}', 'schraf')
@@ -61,7 +58,6 @@ v.u64('v5fern', v.take('v5fern').scene('fern') + 1.0, v.take('v5fern').scene('fe
 v.u64('v5', s('persian') + 1.0, s('persian_end'), 3.0, 'Persian (Acorn Computers): EOR line patterns{speed}')
 v.u64('v5', s('polygon') + 1.0, s('polygon_end'), 2.0, 'Polygon (J.A. Coll): filled triangles{speed}')
 v.u64('v5', s('sine') + 2.0, s('sine_end'), 1.5, 'Sine (J.A. Coll, 1981): text along a curve{speed}')
-v.sound_at.append((music_start, TT.audio(playing + 33.0, playing + 33.0 + (v.t - music_start) + 1), 0.6))
 
 v.closing(['BBC BASIC 3.10: Sophie Wilson and Acorn Computers.  The C64 port: Ivo van Poorten',
            'Graphics: Eric Schraf (via ArchBAS), Aurel Wizzard.  Classics: R.T. Russell, J.A. Coll, Acorn, D. Williams',
