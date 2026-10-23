@@ -75,6 +75,10 @@ four ways; SIDs in the sockets keep their addresses and play along). The
 settings are loaded into memory only, not saved to flash. A 16 MB REU is
 expected.
 
+**Commodore 64 Ultimate:** not fully functional yet. U64 BBC BASIC relies
+on features of the Ultimate 64 firmware 3.15a, which Commodore has not yet
+released in a C64 Ultimate firmware update.
+
 ## Using it
 
 - Letters type in capitals (BBC CAPS LOCK on); Shift gives lower case;

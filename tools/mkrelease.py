@@ -36,6 +36,10 @@ INSTALL = """U64 BBC BASIC {version}: installation
                       CHAIN "SHOW"
    (or press F1 on an empty line and pick a program in the file browser).
 
+Commodore 64 Ultimate: not fully functional yet. U64 BBC BASIC relies on
+features of the Ultimate 64 firmware 3.15a, which Commodore has not yet
+released in a C64 Ultimate firmware update.
+
 u64bbc-ef.crt is an EasyFlash version for VICE and as a fallback (no
 Ultimate Audio). The manual is U64_BBC_BASIC_MANUAL.pdf; *HELP on the
 machine covers every keyword and command. Source, issues and the videos:

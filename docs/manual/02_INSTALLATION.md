@@ -4,11 +4,15 @@
 
 ## 2.1 What you need
 
-An Ultimate 64 (Elite, Elite II) or a C64 Ultimate, firmware 3.15 or
-later (the network, palette and SID settings need it), with an REU
+An Ultimate 64 (Elite, Elite II) with firmware 3.15a or later (the
+network, palette and SID settings need it), with an REU
 enabled (16 MB is best: the RAM disk, songs and the line editor's history
 use it). Upic Lite graphics (MODE 1, 2, 4, 5, 6 with square pixels)
 need a 64 MHz machine (Ultimate 64 Elite II, C64 Ultimate).
+
+The **Commodore 64 Ultimate** is not fully supported yet: U64 BBC BASIC
+relies on features of the Ultimate 64 firmware 3.15a, which Commodore has
+not yet released in a C64 Ultimate firmware update.
 
 ## 2.2 The cartridges
 

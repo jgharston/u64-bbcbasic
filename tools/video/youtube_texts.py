@@ -18,7 +18,7 @@ FOOT = """*Links*
 • Blog: https://www.idreamtin8bits.com/
 
 *Requirements*
-An Ultimate 64 / Elite / Elite II or C64 Ultimate with firmware 3.15 or newer, a 16 MB REU and the Command Interface (the TwoMegabyter cartridge image switches them on).
+An Ultimate 64 / Elite / Elite II with firmware 3.15a or newer, a 16 MB REU and the Command Interface (the TwoMegabyter cartridge image switches them on). On the Commodore 64 Ultimate it is not fully functional yet: it relies on features of the Ultimate 64 firmware 3.15a, which Commodore has not yet released in a C64 Ultimate firmware update.
 
 _Narration: Piper text-to-speech, voice "Alba" (en_GB-alba-medium), from a University of Edinburgh speech dataset (https://datashare.ed.ac.uk/handle/10283/3270), licensed CC BY 4.0._
 """

@@ -8,6 +8,10 @@ All notable changes to U64 BBC BASIC. Versions follow
 The first release: BBC BASIC 3.10 for the Ultimate 64 and C64 Ultimate as
 a cartridge, with a BBC-style MOS written for the C64 and the Ultimate.
 
+Known limitation: on the Commodore 64 Ultimate it is not fully functional
+yet, as it relies on features of the Ultimate 64 firmware 3.15a, which
+Commodore has not yet released in a C64 Ultimate firmware update.
+
 ### The language
 
 - BBC BASIC 3.10, the BBC Micro's BASIC, unchanged: built from Ivo van
