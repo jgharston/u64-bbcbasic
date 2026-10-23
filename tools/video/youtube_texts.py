@@ -1,4 +1,6 @@
 """YouTube texts (title, description, chapters, tags) for videos 2-5, with
+the channel's title form "Ultimate 64: ..." (owner, 2026-10-23; at most
+100 characters, YouTube's limit), and
 the chapters from each edit's OUT.chapters.txt. Video 1's text was
 written by hand (build/video/deliver/v1-youtube.txt).
 
@@ -31,7 +33,7 @@ BASE_THANKS = ["Sophie Wilson and Acorn Computers, for BBC BASIC",
 ULT = "Gideon Zweijtzer, for the Ultimate devices"
 
 VIDEOS = {
-    2: ("U64 BBC BASIC - Graphics: BBC modes, Upic, sprites and PETSCII on the Commodore 64",
+    2: ("Ultimate 64: U64 BBC BASIC - Graphics: BBC modes, Upic, sprites and PETSCII on the Commodore 64",
         "Part 2 of 5: graphics.",
         ["All BBC graphics modes with BBC coordinates; on a 64 MHz Ultimate drawn as Upic Lite (256 lines, square pixels)",
          "Every shape of the BBC Master and the Graphics Extension ROM: outlines, fills, pattern fills",
@@ -44,7 +46,7 @@ VIDEOS = {
         BASE_THANKS + ["Eric Schraf, for Bubble Universe and his other graphical BASIC programs",
                        "Aleksi Eeben and Christian Gleissner, for the Upic technique", ULT],
         "graphics, Upic, sprites, PETSCII, CharPad, teletext, MODE 7", "#Commodore64 #BBCBASIC #Ultimate64"),
-    3: ("U64 BBC BASIC - Sound and music: BBC SOUND, 24 SID voices, MOD and samples on the Commodore 64",
+    3: ("Ultimate 64: U64 BBC BASIC - Sound and music: BBC SOUND, 24 SID voices, MODs and samples",
         "Part 3 of 5: sound and music.",
         ["SOUND and ENVELOPE as on a BBC Micro; in BBC mode (*SOUND BBC) they sound like one",
          "SID mode: SOUND on all 24 voices of 8 UltiSIDs, with instruments (*INSTRUMENT)",
@@ -56,7 +58,7 @@ VIDEOS = {
                        "Juhani Junkala, for the sound effects (CC0, OpenGameArt)",
                        "Gideon Zweijtzer, for the Ultimate devices and UltiSID"],
         "SID, UltiSID, 8 SID, MOD, ProTracker, chiptune, Ultimate Audio, SAM speech", "#Commodore64 #SID #BBCBASIC"),
-    4: ("U64 BBC BASIC - Files, the Ultimate and the network: file browser, REU RAM disk, HTTP, teletext",
+    4: ("Ultimate 64: U64 BBC BASIC - Files, the Ultimate and the network: file browser, RAM disk, HTTP",
         "Part 4 of 5: files, the Ultimate and the network.",
         ["Files on the Ultimate's drives: *DIR, *CAT, SAVE, LOAD",
          "The file browser (F1): folders, copying and deleting folders, RETURN opens a file by its type",
@@ -66,7 +68,7 @@ VIDEOS = {
          "U64TEXT: a Ceefax-style service in MODE 7, written in BBC BASIC: weather, the blog, a post, the ISS position, the news"],
         BASE_THANKS + ["Open-Meteo, open-notify.org and Ars Technica, for the data shown", ULT],
         "file browser, REU, RAM disk, network, HTTP, teletext, Ceefax, MODE 7", "#Commodore64 #BBCBASIC #Ultimate64"),
-    5: ("U64 BBC BASIC - The demos: showcase, Eric Schraf's graphics and BBC BASIC classics on the Commodore 64",
+    5: ("Ultimate 64: U64 BBC BASIC - The demos: showcase, Eric Schraf's graphics, BBC BASIC classics",
         "Part 5 of 5: the demos.",
         ["The showcase: a timed show in BBC BASIC with its own music, first on 8 SIDs, then a MOD on Ultimate Audio: "
          "a palette-cycled tunnel, Bubble Universe, a speed race, 32 sprites, a 3D cube, a plasma, spirographs and a Upic full picture",
