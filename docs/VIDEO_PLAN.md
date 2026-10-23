@@ -159,3 +159,14 @@ two thumbnails) go to Downloads.
   immediate mode (the interpreter's, not changed); U64TEXT's news page
   needs about 50 s over plain HTTP; the debug console's lost characters
   (fixed in the extension).
+
+## On YouTube (Unlisted until the release, then Public)
+
+Playlist "Ultimate 64: U64 BBC BASIC":
+https://www.youtube.com/playlist?list=PLWExM0Ai4nOY
+
+1. Introduction: https://www.youtube.com/watch?v=BChxLcacPqM
+2. Graphics: https://www.youtube.com/watch?v=gWtzLSlktU4
+3. Sound and music: https://www.youtube.com/watch?v=AHoB8xzAdME
+4. Files, the Ultimate and the network: https://www.youtube.com/watch?v=c20G7vHwpCI
+5. The demos: https://www.youtube.com/watch?v=sZd4QJHff_s
